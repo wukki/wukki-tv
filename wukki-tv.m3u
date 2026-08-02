@@ -1,4 +1,4 @@
-#EXTM3U x-tvg-url="https://raw.githubusercontent.com/dobrosi/xmltv/refs/heads/main/channels.xml"
+#EXTM3U tvg-url="https://raw.githubusercontent.com/dobrosi/xmltv/refs/heads/main/channels.xml"
 #EXTINF:-1 tvg-id="MediaPressTV_43" tvg-logo="https://i.imgur.com/r4tgKZK.png" group-title="News" user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36" tvg-name="M1",M1
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36
 http://88.212.15.19/live/test_m_1_hungary_1200_atk/playlist.m3u8
