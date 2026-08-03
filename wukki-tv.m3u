@@ -34,7 +34,7 @@ http://88.212.15.19/live/duna_hun/index.m3u8
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36
 http://88.212.15.19/live/duna_world_hun/index.m3u8
 #EXTINF:-1 tvg-id="MediaPressTV_46" tvg-logo="https://i.imgur.com/TQ4uJZk.png" group-title="Sports" tvg-name="M4 Sport" tvg-chno="13",
-http://88.212.15.19/live/m4_hun/index.m3u8
+http://146.59.85.40:89/m4hd/index.m3u8
 #EXTINF:-1 tvg-id="MediaPressTV_47" tvg-logo="https://i.imgur.com/y21wFd0.png" group-title="Education" tvg-name="M5" tvg-chno="14",
 http://88.212.15.19/live/test_m_5_hun_atk_1200/playlist.m3u8
 #EXTINF:-1 tvg-id="MediaPressTV_103" tvg-logo="https://i.imgur.com/wLawFVP.png" group-title="Entertainment" user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" tvg-name="Jocky TV" tvg-chno="15",
