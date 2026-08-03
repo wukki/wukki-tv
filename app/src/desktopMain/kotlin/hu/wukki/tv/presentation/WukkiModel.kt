@@ -9,6 +9,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.awt.Desktop
 import java.io.File
+import java.io.BufferedInputStream
+import java.util.zip.GZIPInputStream
 import java.net.URI
 import java.nio.file.Files
 import java.nio.file.Path
@@ -47,7 +49,8 @@ class WukkiModel {
             )
             if (selectedChannelId !in state.channels.map { it.id }) selectedChannelId = refreshed.firstOrNull()?.id
             persist()
-            showStatus("${refreshed.size} csatorna frissítve.")
+            val importedProgrammes = PlaylistParser.epgUrl(text)?.let { importEpgSilently(it) }
+            showStatus(buildRefreshStatus(refreshed.size, importedProgrammes))
         } catch (exception: Exception) {
             showError("A frissítés sikertelen: ${exception.message ?: "ismeretlen hiba"}")
         }
@@ -62,11 +65,7 @@ class WukkiModel {
     suspend fun importEpg(url: String) {
         try {
             showStatus("XMLTV betöltése…")
-            val xml = withContext(Dispatchers.IO) { readLocation(url, PlaylistSource.URL) }
-            val programmes = withContext(Dispatchers.Default) { EpgParser.parse(xml) }
-            if (programmes.isEmpty()) throw IllegalArgumentException("Az XMLTV fájl nem tartalmaz feldolgozható műsort.")
-            state = state.copy(epgUrl = url, programmes = programmes, channels = EpgMatcher.match(state.channels, programmes))
-            persist()
+            val programmes = loadEpg(url)
             showStatus("${programmes.size} EPG műsor betöltve és párosítva.")
         } catch (exception: Exception) {
             showError("Az EPG nem tölthető be: ${exception.message ?: "ismeretlen hiba"}")
@@ -95,7 +94,7 @@ class WukkiModel {
             (!onlyFavorites || channel.favorite) &&
             (category == null || channel.group == category) &&
             (query.isBlank() || normalize(channel.name).contains(normalize(query)))
-    }.sortedBy { it.name }
+    }.sortedWith(compareBy<Channel> { it.tvgChno ?: Int.MAX_VALUE }.thenBy { normalize(it.name) })
     fun currentProgram(channel: Channel, now: Long = System.currentTimeMillis()): Programme? = state.programmes.firstOrNull { it.channelId == channel.epgChannelId && now in it.start until it.end }
     fun nextProgram(channel: Channel, current: Programme): Programme? = state.programmes.firstOrNull { it.channelId == channel.epgChannelId && it.start >= current.end }
 
@@ -136,7 +135,8 @@ class WukkiModel {
             selectedPlaylistId = playlistId
             selectedChannelId = channels.first().id
             persist()
-            showStatus("${channels.size} csatorna betöltve: $name")
+            val importedProgrammes = PlaylistParser.epgUrl(text)?.let { importEpgSilently(it) }
+            showStatus(buildImportStatus(channels.size, name, importedProgrammes))
         } catch (exception: Exception) {
             showError("A playlist nem tölthető be: ${exception.message ?: "ismeretlen hiba"}")
         }
@@ -150,6 +150,7 @@ class WukkiModel {
                 playlists = state.playlists.map { if (it.id == playlist.id) it.copy(updatedAt = System.currentTimeMillis()) else it },
                 channels = state.channels.filterNot { it.playlistId == playlist.id } + refreshed
             )
+            PlaylistParser.epgUrl(text)?.let { importEpgSilently(it) }
             persist()
         } catch (_: Exception) {
             // A következő ütemezett ciklus újra próbálkozik.
@@ -158,11 +159,45 @@ class WukkiModel {
 
     private fun showStatus(message: String) { status = message; error = null }
     private fun persist() = LocalStore.save(state)
+
+    private suspend fun loadEpg(url: String): List<Programme> {
+        val xml = withContext(Dispatchers.IO) { readLocation(url, PlaylistSource.URL) }
+        val programmes = withContext(Dispatchers.Default) { EpgParser.parse(xml) }
+        if (programmes.isEmpty()) throw IllegalArgumentException("Az XMLTV fájl nem tartalmaz feldolgozható műsort.")
+        state = state.copy(epgUrl = url, programmes = programmes, channels = EpgMatcher.match(state.channels, programmes))
+        persist()
+        return programmes
+    }
+
+    private suspend fun importEpgSilently(url: String): Int? = try {
+        loadEpg(url).size
+    } catch (_: Exception) {
+        null
+    }
+
+    private fun buildImportStatus(channelCount: Int, playlistName: String, programmeCount: Int?): String = when (programmeCount) {
+        null -> "$channelCount csatorna betöltve: $playlistName"
+        else -> "$channelCount csatorna és $programmeCount EPG műsor betöltve: $playlistName"
+    }
+
+    private fun buildRefreshStatus(channelCount: Int, programmeCount: Int?): String = when (programmeCount) {
+        null -> "$channelCount csatorna frissítve."
+        else -> "$channelCount csatorna és $programmeCount EPG műsor frissítve."
+    }
 }
 
 private fun Int.floorMod(modulus: Int): Int = ((this % modulus) + modulus) % modulus
 private fun playlistName(url: String): String = runCatching { URI(url).host.removePrefix("www.").ifBlank { url } }.getOrDefault(url)
-private fun readLocation(location: String, source: PlaylistSource): String = when (source) {
-    PlaylistSource.FILE -> Files.readString(Path.of(location))
-    PlaylistSource.URL -> URI(location).toURL().openConnection().apply { connectTimeout = 15_000; readTimeout = 30_000 }.getInputStream().bufferedReader().use { it.readText() }
+private fun readLocation(location: String, source: PlaylistSource): String {
+    val input = when (source) {
+        PlaylistSource.FILE -> Files.newInputStream(Path.of(location))
+        PlaylistSource.URL -> URI(location).toURL().openConnection().apply { connectTimeout = 15_000; readTimeout = 30_000 }.getInputStream()
+    }
+    BufferedInputStream(input).use { buffered ->
+        buffered.mark(2)
+        val gzip = buffered.read() == 0x1f && buffered.read() == 0x8b
+        buffered.reset()
+        val decoded = if (gzip) GZIPInputStream(buffered) else buffered
+        return decoded.bufferedReader(Charsets.UTF_8).use { it.readText() }
+    }
 }

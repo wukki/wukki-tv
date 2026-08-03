@@ -21,7 +21,17 @@ object PlaylistParser {
                         }
                     }
                     val id = UUID.nameUUIDFromBytes("$playlistId|$line|$name".toByteArray(StandardCharsets.UTF_8)).toString()
-                    result += Channel(id, playlistId, name, line, attributes["tvg-id"], attributes["tvg-name"], attributes["group-title"] ?: "Egyéb", attributes["tvg-logo"])
+                    result += Channel(
+                        id = id,
+                        playlistId = playlistId,
+                        name = name,
+                        streamUrl = line,
+                        tvgId = attributes["tvg-id"],
+                        tvgName = attributes["tvg-name"],
+                        tvgChno = channelNumber(attributes["tvg-chno"]),
+                        group = attributes["group-title"] ?: "Egyéb",
+                        logo = LogoUrl.fromM3u(attributes["tvg-logo"])
+                    )
                     metadata = null
                 }
             }
@@ -30,7 +40,19 @@ object PlaylistParser {
     }
 
     private fun attributes(extinf: String): Map<String, String> =
-        Regex("([\\w-]+)=\\\"([^\\\"]*)\\\"").findAll(extinf).associate { it.groupValues[1] to it.groupValues[2] }
+        Regex("([\\w-]+)=(?:\\\"([^\\\"]*)\\\"|'([^']*)'|([^\\s]+))").findAll(extinf).associate {
+            it.groupValues[1].lowercase() to it.groupValues.drop(2).firstOrNull { value -> value.isNotEmpty() }.orEmpty()
+        }
+
+    /** Returns the first XMLTV URL declared in the M3U header, if the provider supplied one. */
+    fun epgUrl(text: String): String? {
+        val header = text.lineSequence().firstOrNull { it.trim().startsWith("#EXTM3U", true) } ?: return null
+        val rawValue = attributes(header)["url-tvg"]
+            ?: attributes(header)["x-tvg-url"]
+            ?: attributes(header)["tvg-url"]
+            ?: return null
+        return rawValue.split(',', ' ', '\t').firstOrNull { it.startsWith("http://", true) || it.startsWith("https://", true) }
+    }
 
     /** The display name follows the first comma that is not inside a quoted M3U attribute. */
     private fun displayName(extinf: String): String {
@@ -43,9 +65,21 @@ object PlaylistParser {
         }
         return ""
     }
+
+    private fun channelNumber(value: String?): Int? = value?.trim()?.let { raw ->
+        raw.toIntOrNull() ?: Regex("^\\d+").find(raw)?.value?.toIntOrNull()
+    }
 }
 
 fun normalize(value: String): String = Normalizer.normalize(value.lowercase(), Normalizer.Form.NFD)
     .replace(Regex("\\p{M}"), "")
     .replace(Regex("[^a-z0-9]+"), " ")
     .trim()
+
+/** Normalizes the `tvg-logo` image URL and ignores invalid values. */
+object LogoUrl {
+    fun fromM3u(value: String?): String? = value
+        ?.trim()
+        ?.replace("&amp;", "&")
+        ?.takeIf { it.startsWith("https://", ignoreCase = true) || it.startsWith("http://", ignoreCase = true) }
+}

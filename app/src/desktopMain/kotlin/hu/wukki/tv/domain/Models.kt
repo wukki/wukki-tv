@@ -19,11 +19,18 @@ data class Channel(
     val streamUrl: String,
     val tvgId: String?,
     val tvgName: String?,
+    val tvgChno: Int? = null,
     val group: String,
     val logo: String?,
     val favorite: Boolean = false,
     val epgChannelId: String? = null
-) : Serializable
+) : Serializable {
+    companion object {
+        /** Preserves compatibility with playlists saved before `tvg-chno` was added. */
+        @JvmField
+        val serialVersionUID: Long = -1321689634413548830L
+    }
+}
 
 data class Programme(
     val channelId: String,
