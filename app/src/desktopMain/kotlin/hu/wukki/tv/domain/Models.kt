@@ -6,13 +6,22 @@ enum class PlaylistSource { URL, FILE }
 enum class AppLanguage { HUNGARIAN, ENGLISH }
 enum class RefreshInterval(val hours: Int) { MANUAL(0), SIX_HOURS(6), DAILY(24) }
 enum class BufferProfile { LOW_LATENCY, BALANCED, STABLE }
+enum class AspectRatioMode { AUTO, RATIO_16_9, RATIO_4_3, RATIO_21_9, FILL_CROP }
 
 data class PlaybackSettings(
     val volume: Int = 100,
     val bufferProfile: BufferProfile = BufferProfile.BALANCED,
     val autoReconnect: Boolean = true,
-    val reconnectAttempts: Int = 3
-) : Serializable
+    val reconnectAttempts: Int = 3,
+    /** Nullable only for compatibility with settings serialized before this field existed. */
+    val aspectRatio: AspectRatioMode? = AspectRatioMode.AUTO
+) : Serializable {
+    companion object {
+        /** Retains compatibility with playback settings saved before aspect-ratio support. */
+        @JvmField
+        val serialVersionUID: Long = -8523174791077887180L
+    }
+}
 
 data class DisplaySettings(
     val uiScale: Float = 1f,

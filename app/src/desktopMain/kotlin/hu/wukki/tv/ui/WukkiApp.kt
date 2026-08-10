@@ -45,8 +45,8 @@ fun WukkiApp() {
     DisposableEffect(playbackController) {
         onDispose { playbackController.release() }
     }
-    LaunchedEffect(model.selectedChannelId, model.settings.playback) {
-        playbackController.play(model.selectedChannel(), model.settings.playback)
+    LaunchedEffect(model.selectedChannelId, model.settings.playback, model.settings.display.showLogos) {
+        playbackController.play(model.selectedChannel(), model.settings.playback, model.settings.display.showLogos)
     }
     LaunchedEffect(model.settings.playlistRefresh) {
         val hours = model.settings.playlistRefresh.hours

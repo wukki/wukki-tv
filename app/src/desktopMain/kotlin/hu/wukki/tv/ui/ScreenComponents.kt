@@ -203,7 +203,7 @@ fun GuidePanel(model: WukkiModel, tick: Long, modifier: Modifier) {
 @Composable
 fun ChannelLogo(channel: Channel, modifier: Modifier = Modifier) {
     val shape = RoundedCornerShape(8.dp)
-    Box(modifier = modifier.clip(shape).background(Color(0xFF273653)), contentAlignment = Alignment.Center) {
+    Box(modifier = modifier.clip(shape), contentAlignment = Alignment.Center) {
         if (channel.logo.isNullOrBlank()) {
             LogoFallback(channel)
         } else {

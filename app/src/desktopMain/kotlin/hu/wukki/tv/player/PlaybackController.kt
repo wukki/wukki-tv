@@ -9,11 +9,23 @@ import androidx.compose.ui.Modifier
 import uk.co.caprica.vlcj.factory.discovery.NativeDiscovery
 import uk.co.caprica.vlcj.player.base.MediaPlayer
 import uk.co.caprica.vlcj.player.base.MediaPlayerEventAdapter
+import uk.co.caprica.vlcj.player.component.callback.CallbackImagePainter
 import uk.co.caprica.vlcj.player.component.CallbackMediaPlayerComponent
+import java.awt.Color
+import java.awt.Font
+import java.awt.Graphics2D
+import java.awt.RenderingHints
+import java.awt.image.BufferedImage
 import java.io.File
+import java.net.URL
+import javax.swing.JComponent
+import javax.swing.SwingUtilities
+import javax.imageio.ImageIO
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
+import kotlin.math.max
+import kotlin.math.min
 
 enum class PlaybackState {
     IDLE, OPENING, BUFFERING, PLAYING, RECONNECTING, ERROR
@@ -27,9 +39,13 @@ class PlaybackController {
     private val retryExecutor = Executors.newSingleThreadScheduledExecutor { runnable ->
         Thread(runnable, "wukki-vlc-reconnect").apply { isDaemon = true }
     }
+    private val logoExecutor = Executors.newSingleThreadExecutor { runnable ->
+        Thread(runnable, "wukki-vlc-logo").apply { isDaemon = true }
+    }
     private var retryTask: ScheduledFuture<*>? = null
     private var currentChannel: Channel? = null
     private var currentSettings: PlaybackSettings = PlaybackSettings()
+    private var currentShowLogos = true
     private var attempt = 0
     private var released = false
 
@@ -43,7 +59,8 @@ class PlaybackController {
      * Callback rendering avoids the macOS native-window requirement of VLC's embedded vout.
      * It is also reliable when Compose re-parents the Swing component between screens.
      */
-    val component: CallbackMediaPlayerComponent? = createComponent()
+    private val overlayComponent: OverlayCallbackMediaPlayerComponent? = createComponent()
+    val component: CallbackMediaPlayerComponent? get() = overlayComponent
 
     init {
         component?.mediaPlayer()?.events()?.addMediaPlayerEventListener(object : MediaPlayerEventAdapter() {
@@ -65,12 +82,16 @@ class PlaybackController {
         })
     }
 
-    fun play(channel: Channel?, settings: PlaybackSettings) {
+    fun play(channel: Channel?, settings: PlaybackSettings, showLogos: Boolean = true) {
         if (channel == null || released) return
         val changedChannel = currentChannel?.streamUrl != channel.streamUrl
+        val changedLogoVisibility = currentShowLogos != showLogos
         val changedBuffer = currentSettings.bufferProfile != settings.bufferProfile
         currentChannel = channel
         currentSettings = settings
+        currentShowLogos = showLogos
+        applyAspectRatio(settings.aspectRatio ?: AspectRatioMode.AUTO)
+        if (changedChannel || changedLogoVisibility || overlayComponent?.overlay?.channelName != channel.name) updateOverlay(channel, showLogos)
         component?.mediaPlayer()?.audio()?.setVolume(settings.volume)
 
         if (changedChannel || changedBuffer || state == PlaybackState.IDLE || state == PlaybackState.ERROR) {
@@ -98,15 +119,16 @@ class PlaybackController {
         released = true
         retryTask?.cancel(true)
         retryExecutor.shutdownNow()
+        logoExecutor.shutdownNow()
         runCatching { component?.release() }
     }
 
-    private fun createComponent(): CallbackMediaPlayerComponent? = try {
+    private fun createComponent(): OverlayCallbackMediaPlayerComponent? = try {
         if (runtime == null && !NativeDiscovery().discover()) {
             updateState(PlaybackState.ERROR, "A beágyazott VLC runtime nem található. Telepíts VLC-t, vagy használj a VLC runtime-ot tartalmazó alkalmazáscsomagot.")
             null
         } else {
-            CallbackMediaPlayerComponent(*runtime?.factoryArguments.orEmpty())
+            OverlayCallbackMediaPlayerComponent(*runtime?.factoryArguments.orEmpty())
         }
     } catch (exception: Exception) {
         updateState(PlaybackState.ERROR, "A VLC inicializálása sikertelen: ${exception.message ?: "ismeretlen hiba"}")
@@ -130,6 +152,32 @@ class PlaybackController {
         }
     }
 
+    /** Changes only how already-decoded frames are painted, so the stream keeps playing. */
+    private fun applyAspectRatio(mode: AspectRatioMode) {
+        component?.setImagePainter(AspectRatioImagePainter(mode))
+        requestRepaint()
+    }
+
+    private fun updateOverlay(channel: Channel, showLogos: Boolean) {
+        val overlay = PlaybackOverlay(channel.name, showLogos)
+        overlayComponent?.overlay = overlay
+        requestRepaint()
+        val logoUrl = channel.logo?.takeIf { showLogos } ?: return
+        logoExecutor.execute {
+            val logo = runCatching {
+                URL(logoUrl).openConnection().apply { connectTimeout = 10_000; readTimeout = 15_000 }.getInputStream().use(ImageIO::read)
+            }.getOrNull()
+            if (!released && currentChannel?.id == channel.id && currentShowLogos) {
+                overlayComponent?.overlay = overlay.copy(logo = logo)
+                requestRepaint()
+            }
+        }
+    }
+
+    private fun requestRepaint() {
+        SwingUtilities.invokeLater { component?.videoSurfaceComponent()?.repaint() }
+    }
+
     private fun onPlaybackFailure(reason: String? = null) {
         val channel = currentChannel ?: return
         if (released || retryTask != null) return
@@ -151,6 +199,79 @@ class PlaybackController {
         detail = newDetail
     }
 }
+
+private data class PlaybackOverlay(val channelName: String, val showLogo: Boolean, val logo: BufferedImage? = null)
+
+/** The overlay is painted by the same Swing component as the callback video, above every frame. */
+private class OverlayCallbackMediaPlayerComponent(vararg factoryArguments: String) : CallbackMediaPlayerComponent(*factoryArguments) {
+    @Volatile var overlay: PlaybackOverlay? = null
+
+    override fun onPaintOverlay(graphics: Graphics2D) {
+        super.onPaintOverlay(graphics)
+        val content = overlay ?: return
+        val surface = videoSurfaceComponent()
+        val width = surface.width
+        val height = surface.height
+        if (width <= 0 || height <= 0) return
+
+        graphics.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON)
+    }
+
+}
+
+/** Draws callback video frames without distortion and crops symmetrically when requested. */
+private class AspectRatioImagePainter(private val mode: AspectRatioMode) : CallbackImagePainter {
+    override fun prepare(graphics: Graphics2D, component: JComponent) {
+        graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR)
+        graphics.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY)
+    }
+
+    override fun paint(graphics: Graphics2D, component: JComponent, image: BufferedImage?) {
+        val surfaceWidth = component.width
+        val surfaceHeight = component.height
+        if (surfaceWidth <= 0 || surfaceHeight <= 0) return
+        graphics.color = component.background ?: Color.BLACK
+        graphics.fillRect(0, 0, surfaceWidth, surfaceHeight)
+        image ?: return
+
+        val target = targetBounds(surfaceWidth, surfaceHeight)
+        val scale = if (mode == AspectRatioMode.AUTO) {
+            min(target.width / image.width.toDouble(), target.height / image.height.toDouble())
+        } else {
+            max(target.width / image.width.toDouble(), target.height / image.height.toDouble())
+        }
+        val drawnWidth = image.width * scale
+        val drawnHeight = image.height * scale
+        val x = target.x + (target.width - drawnWidth) / 2
+        val y = target.y + (target.height - drawnHeight) / 2
+        val previousClip = graphics.clip
+        graphics.clipRect(target.x.toInt(), target.y.toInt(), target.width.toInt(), target.height.toInt())
+        graphics.drawImage(image, x.toInt(), y.toInt(), drawnWidth.toInt(), drawnHeight.toInt(), null)
+        graphics.clip = previousClip
+    }
+
+    private fun targetBounds(width: Int, height: Int): DrawBounds {
+        val ratio = mode.targetRatio ?: return DrawBounds(0.0, 0.0, width.toDouble(), height.toDouble())
+        val surfaceRatio = width.toDouble() / height
+        return if (surfaceRatio > ratio) {
+            val targetWidth = height * ratio
+            DrawBounds((width - targetWidth) / 2, 0.0, targetWidth, height.toDouble())
+        } else {
+            val targetHeight = width / ratio
+            DrawBounds(0.0, (height - targetHeight) / 2, width.toDouble(), targetHeight)
+        }
+    }
+}
+
+private data class DrawBounds(val x: Double, val y: Double, val width: Double, val height: Double)
+
+private val AspectRatioMode.targetRatio: Double?
+    get() = when (this) {
+        AspectRatioMode.AUTO, AspectRatioMode.FILL_CROP -> null
+        AspectRatioMode.RATIO_16_9 -> 16.0 / 9.0
+        AspectRatioMode.RATIO_4_3 -> 4.0 / 3.0
+        AspectRatioMode.RATIO_21_9 -> 21.0 / 9.0
+    }
 
 @Composable
 fun EmbeddedVlcPlayer(controller: PlaybackController, modifier: Modifier = Modifier) {

@@ -111,6 +111,16 @@ private fun PlaybackSettings(model: WukkiModel) {
             }
         }
     }
+    SettingsRow(model, "Képarány", "Aspect ratio") {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                AspectRatioMode.entries.take(3).forEach { mode -> AspectRatioChip(model, mode) }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                AspectRatioMode.entries.drop(3).forEach { mode -> AspectRatioChip(model, mode) }
+            }
+        }
+    }
     SettingsToggle(model, "Automatikus újracsatlakozás", "Automatic reconnect", model.settings.playback.autoReconnect) { enabled -> model.updatePlayback { it.copy(autoReconnect = enabled) } }
     SettingsRow(model, "Újracsatlakozási próbálkozások", "Reconnect attempts", model.settings.playback.reconnectAttempts.toString()) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -119,6 +129,15 @@ private fun PlaybackSettings(model: WukkiModel) {
             TextButton(onClick = { model.updatePlayback { it.copy(reconnectAttempts = (it.reconnectAttempts + 1).coerceAtMost(10)) } }) { Text("+") }
         }
     }
+}
+
+@Composable
+private fun AspectRatioChip(model: WukkiModel, mode: AspectRatioMode) {
+    FilterChip(
+        selected = (model.settings.playback.aspectRatio ?: AspectRatioMode.AUTO) == mode,
+        onClick = { model.updatePlayback { settings -> settings.copy(aspectRatio = mode) } },
+        label = { Text(mode.label(model), fontSize = 12.sp) }
+    )
 }
 
 @Composable
@@ -265,3 +284,4 @@ private fun choosePlaylistFile(): File? {
 private fun SettingsSection.icon(): String = when (this) { SettingsSection.PLAYBACK -> "▶"; SettingsSection.EPG -> "▦"; SettingsSection.DISPLAY -> "◐"; SettingsSection.PLAYLISTS -> "☷"; SettingsSection.LANGUAGE -> "A" }
 @Composable private fun RefreshInterval.label(model: WukkiModel): String = when (this) { RefreshInterval.MANUAL -> t(model, "Kézi", "Manual"); RefreshInterval.SIX_HOURS -> t(model, "6 óra", "6 hours"); RefreshInterval.DAILY -> t(model, "Napi", "Daily") }
 @Composable private fun BufferProfile.label(model: WukkiModel): String = when (this) { BufferProfile.LOW_LATENCY -> t(model, "Alacsony késés", "Low latency"); BufferProfile.BALANCED -> t(model, "Kiegyensúlyozott", "Balanced"); BufferProfile.STABLE -> t(model, "Stabil", "Stable") }
+@Composable private fun AspectRatioMode.label(model: WukkiModel): String = when (this) { AspectRatioMode.AUTO -> t(model, "Automatikus", "Automatic"); AspectRatioMode.RATIO_16_9 -> "16:9"; AspectRatioMode.RATIO_4_3 -> "4:3"; AspectRatioMode.RATIO_21_9 -> "21:9"; AspectRatioMode.FILL_CROP -> t(model, "Kitöltés", "Fill") }
