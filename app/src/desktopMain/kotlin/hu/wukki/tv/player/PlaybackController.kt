@@ -9,7 +9,7 @@ import androidx.compose.ui.Modifier
 import uk.co.caprica.vlcj.factory.discovery.NativeDiscovery
 import uk.co.caprica.vlcj.player.base.MediaPlayer
 import uk.co.caprica.vlcj.player.base.MediaPlayerEventAdapter
-import uk.co.caprica.vlcj.player.component.EmbeddedMediaPlayerComponent
+import uk.co.caprica.vlcj.player.component.CallbackMediaPlayerComponent
 import java.io.File
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledFuture
@@ -39,7 +39,11 @@ class PlaybackController {
         private set
 
     private val runtime = VlcRuntimeResolver.find()
-    val component: EmbeddedMediaPlayerComponent? = createComponent()
+    /**
+     * Callback rendering avoids the macOS native-window requirement of VLC's embedded vout.
+     * It is also reliable when Compose re-parents the Swing component between screens.
+     */
+    val component: CallbackMediaPlayerComponent? = createComponent()
 
     init {
         component?.mediaPlayer()?.events()?.addMediaPlayerEventListener(object : MediaPlayerEventAdapter() {
@@ -97,12 +101,12 @@ class PlaybackController {
         runCatching { component?.release() }
     }
 
-    private fun createComponent(): EmbeddedMediaPlayerComponent? = try {
+    private fun createComponent(): CallbackMediaPlayerComponent? = try {
         if (runtime == null && !NativeDiscovery().discover()) {
             updateState(PlaybackState.ERROR, "A beágyazott VLC runtime nem található. Telepíts VLC-t, vagy használj a VLC runtime-ot tartalmazó alkalmazáscsomagot.")
             null
         } else {
-            EmbeddedMediaPlayerComponent(*runtime?.factoryArguments.orEmpty())
+            CallbackMediaPlayerComponent(*runtime?.factoryArguments.orEmpty())
         }
     } catch (exception: Exception) {
         updateState(PlaybackState.ERROR, "A VLC inicializálása sikertelen: ${exception.message ?: "ismeretlen hiba"}")
