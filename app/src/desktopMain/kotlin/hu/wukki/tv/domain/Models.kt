@@ -3,6 +3,41 @@ package hu.wukki.tv
 import java.io.Serializable
 
 enum class PlaylistSource { URL, FILE }
+enum class AppLanguage { HUNGARIAN, ENGLISH }
+enum class RefreshInterval(val hours: Int) { MANUAL(0), SIX_HOURS(6), DAILY(24) }
+enum class BufferProfile { LOW_LATENCY, BALANCED, STABLE }
+
+data class PlaybackSettings(
+    val volume: Int = 100,
+    val bufferProfile: BufferProfile = BufferProfile.BALANCED,
+    val autoReconnect: Boolean = true,
+    val reconnectAttempts: Int = 3
+) : Serializable
+
+data class DisplaySettings(
+    val uiScale: Float = 1f,
+    val showChannelProgramme: Boolean = true,
+    val showMiniGuide: Boolean = true,
+    val showLogos: Boolean = true
+) : Serializable
+
+data class AppSettings(
+    val language: AppLanguage = AppLanguage.HUNGARIAN,
+    val playlistRefresh: RefreshInterval = RefreshInterval.MANUAL,
+    val epgRefresh: RefreshInterval = RefreshInterval.MANUAL,
+    val playback: PlaybackSettings = PlaybackSettings(),
+    val display: DisplaySettings = DisplaySettings()
+) : Serializable
+
+data class EpgSource(
+    val id: String,
+    val name: String,
+    val url: String,
+    val enabled: Boolean = true,
+    val priority: Int = 0,
+    val lastUpdatedAt: Long? = null,
+    val managedByPlaylist: Boolean = false
+) : Serializable
 
 data class PlaylistDefinition(
     val id: String,
@@ -23,7 +58,8 @@ data class Channel(
     val group: String,
     val logo: String?,
     val favorite: Boolean = false,
-    val epgChannelId: String? = null
+    val epgChannelId: String? = null,
+    val epgSourceId: String? = null
 ) : Serializable {
     companion object {
         /** Preserves compatibility with playlists saved before `tvg-chno` was added. */
@@ -38,7 +74,12 @@ data class Programme(
     val start: Long,
     val end: Long,
     val description: String? = null
-) : Serializable
+) : Serializable {
+    companion object {
+        @JvmField
+        val serialVersionUID: Long = -2907961961909864784L
+    }
+}
 
 data class AppState(
     val playlists: List<PlaylistDefinition> = emptyList(),
@@ -46,5 +87,22 @@ data class AppState(
     val programmes: List<Programme> = emptyList(),
     val epgUrl: String = "",
     val autoRefreshHours: Int = 0,
-    val lastChannelId: String? = null
-) : Serializable
+    val lastChannelId: String? = null,
+    val settings: AppSettings? = null,
+    val epgSources: List<EpgSource>? = null,
+    val epgProgrammesBySource: Map<String, List<Programme>>? = null
+) : Serializable {
+    companion object {
+        @JvmField
+        val serialVersionUID: Long = -8266148574268495181L
+    }
+
+    fun normalized(): AppState {
+        val migratedSettings = settings ?: AppSettings(playlistRefresh = RefreshInterval.entries.first { it.hours == autoRefreshHours })
+        val migratedSources = epgSources ?: epgUrl.takeIf { it.isNotBlank() }?.let {
+            listOf(EpgSource(id = "legacy-epg", name = "EPG", url = it, lastUpdatedAt = null))
+        }.orEmpty()
+        val migratedCache = epgProgrammesBySource ?: migratedSources.firstOrNull()?.let { mapOf(it.id to programmes) }.orEmpty()
+        return copy(settings = migratedSettings, epgSources = migratedSources, epgProgrammesBySource = migratedCache)
+    }
+}

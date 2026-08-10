@@ -53,6 +53,20 @@ object EpgMatcher {
         }
     }
 
+    fun matchFromSources(
+        channels: List<Channel>,
+        sources: List<EpgSource>,
+        programmesBySource: Map<String, List<Programme>>
+    ): List<Channel> {
+        return channels.map { channel ->
+            val matchingSource = sources.filter { it.enabled }.sortedBy { it.priority }.firstNotNullOfOrNull { source ->
+                val candidate = match(listOf(channel), programmesBySource[source.id].orEmpty()).first()
+                candidate.epgChannelId?.let { candidate.copy(epgSourceId = source.id) }
+            }
+            matchingSource ?: channel.copy(epgChannelId = null, epgSourceId = null)
+        }
+    }
+
     private fun similarity(left: String, right: String): Double {
         if (left == right) return 1.0
         val leftTokens = left.split(' ').filter { it.isNotBlank() }.toSet()

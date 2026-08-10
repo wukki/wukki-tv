@@ -45,6 +45,10 @@ import java.io.File
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.logging.Level
+import java.util.logging.Logger
+
+private val logoLogger = Logger.getLogger("hu.wukki.tv.ChannelLogo")
 
 @Composable
 fun Header(model: WukkiModel, scope: CoroutineScope) {
@@ -117,7 +121,6 @@ fun ChannelPanel(model: WukkiModel, modifier: Modifier) {
             Text(programme?.title ?: "EPG nincs", color = Color.LightGray)
             programme?.let { Progress(it, System.currentTimeMillis()) }
             Spacer(Modifier.height(8.dp))
-            Button(onClick = { model.openSelectedStream() }) { Text("▶ Stream megnyitása") }
         }
         Spacer(Modifier.height(14.dp))
         OutlinedTextField(value = model.query, onValueChange = { model.query = it }, label = { Text("Keresés csatornák között") }, singleLine = true, modifier = Modifier.fillMaxWidth())
@@ -149,7 +152,7 @@ fun ChannelPanel(model: WukkiModel, modifier: Modifier) {
                 }
             }
         }
-        Text("Billentyűzet: ↑/↓ vagy PageUp/PageDown vált, Enter stream, számok csatorna", color = Color.Gray, fontSize = 11.sp)
+        Text("Billentyűzet: ↑/↓ vagy PageUp/PageDown vált, számok csatorna", color = Color.Gray, fontSize = 11.sp)
     }
 }
 
@@ -198,7 +201,7 @@ fun GuidePanel(model: WukkiModel, tick: Long, modifier: Modifier) {
 }
 
 @Composable
-private fun ChannelLogo(channel: Channel, modifier: Modifier = Modifier) {
+fun ChannelLogo(channel: Channel, modifier: Modifier = Modifier) {
     val shape = RoundedCornerShape(8.dp)
     Box(modifier = modifier.clip(shape).background(Color(0xFF273653)), contentAlignment = Alignment.Center) {
         if (channel.logo.isNullOrBlank()) {
@@ -210,7 +213,14 @@ private fun ChannelLogo(channel: Channel, modifier: Modifier = Modifier) {
                 contentScale = ContentScale.Fit,
                 modifier = Modifier.fillMaxSize(),
                 loading = { LogoFallback(channel) },
-                error = { LogoFallback(channel) }
+                error = { LogoFallback(channel) },
+                onError = { state ->
+                    logoLogger.log(
+                        Level.WARNING,
+                        "Nem tölthető be a csatornalogó: channel=${channel.name}, url=${channel.logo}",
+                        state.result.throwable
+                    )
+                }
             )
         }
     }
@@ -235,4 +245,4 @@ private fun chooseM3uFile(): File? {
     return dialog.file?.let { File(dialog.directory, it) }
 }
 
-private fun formatTime(millis: Long): String = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault()).format(Instant.ofEpochMilli(millis))
+fun formatTime(millis: Long): String = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault()).format(Instant.ofEpochMilli(millis))

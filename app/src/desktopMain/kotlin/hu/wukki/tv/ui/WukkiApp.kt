@@ -1,16 +1,11 @@
 package hu.wukki.tv
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -20,21 +15,25 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.platform.LocalDensity
 import kotlinx.coroutines.delay
 
 @Composable
 fun WukkiApp() {
     val model = remember { WukkiModel() }
+    val playbackController = remember { PlaybackController() }
     val scope = rememberCoroutineScope()
     val focusRequester = remember { FocusRequester() }
     var tick by remember { mutableStateOf(System.currentTimeMillis()) }
+    var showSettings by remember { mutableStateOf(false) }
+    var settingsSection by remember { mutableStateOf(SettingsSection.PLAYBACK) }
+    val baseDensity = LocalDensity.current
 
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
@@ -43,50 +42,66 @@ fun WukkiApp() {
             tick = System.currentTimeMillis()
         }
     }
-    LaunchedEffect(model.state.autoRefreshHours) {
-        val hours = model.state.autoRefreshHours
+    DisposableEffect(playbackController) {
+        onDispose { playbackController.release() }
+    }
+    LaunchedEffect(model.selectedChannelId, model.settings.playback) {
+        playbackController.play(model.selectedChannel(), model.settings.playback)
+    }
+    LaunchedEffect(model.settings.playlistRefresh) {
+        val hours = model.settings.playlistRefresh.hours
         if (hours > 0) {
             while (true) {
                 delay(hours * 60L * 60L * 1000L)
-                model.refreshAll(scope)
+                model.refreshAllPlaylists(scope)
+            }
+        }
+    }
+    LaunchedEffect(model.settings.epgRefresh) {
+        val hours = model.settings.epgRefresh.hours
+        if (hours > 0) {
+            while (true) {
+                delay(hours * 60L * 60L * 1000L)
+                model.refreshAllEpg(scope)
             }
         }
     }
 
-    Column(
-        modifier = Modifier.fillMaxSize().focusRequester(focusRequester).focusable()
-            .onPreviewKeyEvent { event ->
-                if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-                when (event.key) {
-                    Key.PageDown, Key.DirectionDown -> model.moveChannel(1)
-                    Key.PageUp, Key.DirectionUp -> model.moveChannel(-1)
-                    Key.Enter -> model.openSelectedStream()
-                    Key.One -> model.selectChannelByNumber("1")
-                    Key.Two -> model.selectChannelByNumber("2")
-                    Key.Three -> model.selectChannelByNumber("3")
-                    Key.Four -> model.selectChannelByNumber("4")
-                    Key.Five -> model.selectChannelByNumber("5")
-                    Key.Six -> model.selectChannelByNumber("6")
-                    Key.Seven -> model.selectChannelByNumber("7")
-                    Key.Eight -> model.selectChannelByNumber("8")
-                    Key.Nine -> model.selectChannelByNumber("9")
-                    Key.Zero -> model.selectChannelByNumber("0")
-                    else -> return@onPreviewKeyEvent false
+    CompositionLocalProvider(LocalDensity provides Density(baseDensity.density, baseDensity.fontScale * model.settings.display.uiScale)) {
+        Column(
+            modifier = Modifier.fillMaxSize().focusRequester(focusRequester).focusable()
+                .onPreviewKeyEvent { event ->
+                    if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                    if (showSettings && event.key == Key.Escape) {
+                        showSettings = false
+                        return@onPreviewKeyEvent true
+                    }
+                    when (event.key) {
+                        Key.PageDown, Key.DirectionDown -> model.moveChannel(1)
+                        Key.PageUp, Key.DirectionUp -> model.moveChannel(-1)
+                        Key.One -> model.selectChannelByNumber("1")
+                        Key.Two -> model.selectChannelByNumber("2")
+                        Key.Three -> model.selectChannelByNumber("3")
+                        Key.Four -> model.selectChannelByNumber("4")
+                        Key.Five -> model.selectChannelByNumber("5")
+                        Key.Six -> model.selectChannelByNumber("6")
+                        Key.Seven -> model.selectChannelByNumber("7")
+                        Key.Eight -> model.selectChannelByNumber("8")
+                        Key.Nine -> model.selectChannelByNumber("9")
+                        Key.Zero -> model.selectChannelByNumber("0")
+                        else -> return@onPreviewKeyEvent false
+                    }
+                    true
                 }
-                true
-            }
-    ) {
-        Header(model, scope)
-        model.error?.let { message ->
-            Text("Hiba: $message", color = Color(0xFFFFB4AB), modifier = Modifier.background(Color(0xFF5F1D22)).padding(12.dp))
-        }
-        model.status?.let { message ->
-            Text(message, color = Color(0xFFB9F6CA), modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
-        }
-        Row(modifier = Modifier.fillMaxSize().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            PlaylistPanel(model, scope, Modifier.width(255.dp).fillMaxHeight())
-            ChannelPanel(model, Modifier.weight(1f).fillMaxHeight())
-            GuidePanel(model, tick, Modifier.width(355.dp).fillMaxHeight())
+        ) {
+            if (showSettings) SettingsScreen(model = model, scope = scope, initialSection = settingsSection, onBack = { showSettings = false })
+            else DashboardScreen(
+                model = model,
+                playbackController = playbackController,
+                scope = scope,
+                tick = tick,
+                onOpenSettings = { section -> settingsSection = section; showSettings = true }
+            )
         }
     }
 }
