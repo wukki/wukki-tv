@@ -145,8 +145,12 @@ class WukkiModel {
             (category == null || channel.group == category) && (query.isBlank() || normalize(channel.name).contains(normalize(query)))
     }.sortedWith(compareBy<Channel> { it.tvgChno ?: Int.MAX_VALUE }.thenBy { normalize(it.name) })
 
-    fun currentProgram(channel: Channel, now: Long = System.currentTimeMillis()): Programme? = programmesFor(channel).firstOrNull { now in it.start until it.end }
-    fun nextProgram(channel: Channel, current: Programme): Programme? = programmesFor(channel).firstOrNull { it.start >= current.end }
+    fun currentProgram(channel: Channel, now: Long = System.currentTimeMillis()): Programme? = channelProgrammes(channel).firstOrNull { now in it.start until it.end }
+    fun nextProgram(channel: Channel, current: Programme): Programme? = channelProgrammes(channel).firstOrNull { it.start >= current.end }
+
+    /** Returns this channel's programmes that overlap the requested time range. */
+    fun programmesFor(channel: Channel, from: Long, to: Long): List<Programme> =
+        channelProgrammes(channel).filter { programme -> programme.end > from && programme.start < to }
 
     fun moveChannel(delta: Int) {
         val channels = filteredChannels(); if (channels.isEmpty()) return
@@ -213,15 +217,16 @@ class WukkiModel {
     private fun rematchChannels() {
         state = state.copy(channels = EpgMatcher.matchFromSources(state.channels, epgSources, state.epgProgrammesBySource.orEmpty()))
     }
-    private fun programmesFor(channel: Channel): List<Programme> {
+    private fun channelProgrammes(channel: Channel): List<Programme> {
         val epgChannelId = channel.epgChannelId ?: return emptyList()
         val sourceProgrammes = channel.epgSourceId?.let { sourceId -> state.epgProgrammesBySource.orEmpty()[sourceId] }
-        return if (sourceProgrammes != null) {
+        val programmes = if (sourceProgrammes != null) {
             sourceProgrammes.filter { programme -> programme.channelId.equals(epgChannelId, ignoreCase = true) }
         } else {
             // Compatibility path for state saved before multiple EPG sources were introduced.
             state.programmes.filter { programme -> programme.channelId.equals(epgChannelId, ignoreCase = true) }
         }
+        return programmes.sortedBy { it.start }
     }
     private fun showStatus(message: String) { status = message; error = null }
     private fun persist() = LocalStore.save(state)

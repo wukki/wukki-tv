@@ -33,6 +33,8 @@ fun WukkiApp() {
     var tick by remember { mutableStateOf(System.currentTimeMillis()) }
     var showSettings by remember { mutableStateOf(false) }
     var settingsSection by remember { mutableStateOf(SettingsSection.PLAYBACK) }
+    var activeSection by remember { mutableStateOf(DashboardSection.LIVE) }
+    val guideState = rememberEpgGuideState()
     val baseDensity = LocalDensity.current
 
     LaunchedEffect(Unit) {
@@ -76,6 +78,11 @@ fun WukkiApp() {
                         showSettings = false
                         return@onPreviewKeyEvent true
                     }
+                    if (!showSettings && activeSection == DashboardSection.GUIDE &&
+                        guideState.handleKey(event.key, model, scope)
+                    ) {
+                        return@onPreviewKeyEvent true
+                    }
                     when (event.key) {
                         Key.PageDown, Key.DirectionDown -> model.moveChannel(1)
                         Key.PageUp, Key.DirectionUp -> model.moveChannel(-1)
@@ -100,6 +107,9 @@ fun WukkiApp() {
                 playbackController = playbackController,
                 scope = scope,
                 tick = tick,
+                activeSection = activeSection,
+                guideState = guideState,
+                onSectionChange = { activeSection = it },
                 onOpenSettings = { section -> settingsSection = section; showSettings = true }
             )
         }

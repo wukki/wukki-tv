@@ -35,20 +35,24 @@ fun DashboardScreen(
     playbackController: PlaybackController,
     scope: CoroutineScope,
     tick: Long,
+    activeSection: DashboardSection,
+    guideState: EpgGuideState,
+    onSectionChange: (DashboardSection) -> Unit,
     onOpenSettings: (SettingsSection) -> Unit
 ) {
-    var activeSection by remember { mutableStateOf("live") }
     Column(modifier = Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(modifier = Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            SideNavigation(model, activeSection, onSelect = { section ->
-                activeSection = section
-                if (section == "settings") onOpenSettings(SettingsSection.PLAYBACK)
-            }, modifier = Modifier.width(250.dp).fillMaxHeight())
+            SideNavigation(
+                model = model,
+                activeSection = activeSection,
+                onSelect = onSectionChange,
+                onOpenSettings = { onOpenSettings(SettingsSection.PLAYBACK) },
+                modifier = Modifier.width(250.dp).fillMaxHeight()
+            )
             when (activeSection) {
-                "live" -> LiveTvScreen(model, playbackController, Modifier.fillMaxHeight().fillMaxWidth())
-                "guide" -> EpgTimeline(model, tick, modifier = Modifier.weight(1f).fillMaxHeight().fillMaxWidth())
-                "channels" -> ChannelScreen(model, tick, modifier = Modifier.weight(1f).fillMaxHeight().fillMaxWidth())
-                else -> Unit
+                DashboardSection.LIVE -> LiveTvScreen(model, playbackController, Modifier.fillMaxHeight().fillMaxWidth())
+                DashboardSection.GUIDE -> EpgGuideScreen(model, tick, guideState, modifier = Modifier.weight(1f).fillMaxHeight().fillMaxWidth())
+                DashboardSection.CHANNELS -> ChannelScreen(model, tick, modifier = Modifier.weight(1f).fillMaxHeight().fillMaxWidth())
             }
         }
         model.error?.let { DashboardMessage("Hiba: $it", Color(0xFFFFB4AB), Color(0xFF5F1D22)) }
@@ -75,12 +79,17 @@ private fun ChannelScreen(model: WukkiModel, tick: Long, modifier: Modifier) {
 }
 
 @Composable
-private fun SideNavigation(model: WukkiModel, activeSection: String, onSelect: (String) -> Unit, modifier: Modifier) {
+private fun SideNavigation(
+    model: WukkiModel,
+    activeSection: DashboardSection,
+    onSelect: (DashboardSection) -> Unit,
+    onOpenSettings: () -> Unit,
+    modifier: Modifier
+) {
     val entries = listOf(
-        Triple("▣", "live", d(model, "Élő adás", "Live TV")),
-        Triple("▦", "guide", d(model, "Műsorújság", "TV Guide")),
-        Triple("▤", "channels", d(model, "Csatornák", "Channels")),
-        Triple("⚙", "settings", d(model, "Beállítások", "Settings"))
+        Triple("▣", DashboardSection.LIVE, d(model, "Élő adás", "Live TV")),
+        Triple("▦", DashboardSection.GUIDE, d(model, "Műsorújság", "TV Guide")),
+        Triple("▤", DashboardSection.CHANNELS, d(model, "Csatornák", "Channels"))
     )
     DashboardCard(modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -116,6 +125,14 @@ private fun SideNavigation(model: WukkiModel, activeSection: String, onSelect: (
                     fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
                 )
             }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(7.dp)).clickable(onClick = onOpenSettings)
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("⚙", color = DashboardMuted, fontSize = 22.sp, modifier = Modifier.width(42.dp))
+            Text(d(model, "Beállítások", "Settings"), color = Color(0xFFE6EAF2), fontSize = 17.sp)
         }
         Spacer(Modifier.weight(1f))
         Text(formatTime(System.currentTimeMillis()), fontSize = 33.sp, fontWeight = FontWeight.Light)
@@ -197,116 +214,6 @@ private fun PlaybackStatus(controller: PlaybackController, model: WukkiModel, mo
         modifier = modifier.clip(RoundedCornerShape(5.dp)).background(Color(0xD90A1420))
             .padding(horizontal = 9.dp, vertical = 6.dp)
     )
-}
-
-@Composable
-private fun EpgTimeline(model: WukkiModel, tick: Long, modifier: Modifier) {
-    val channels = model.filteredChannels()
-    DashboardCard(modifier, contentPadding = 0.dp) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                d(model, "MŰSORÚJSÁG", "TV GUIDE"),
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.weight(1f)
-            )
-            Text("‹", color = DashboardMuted, fontSize = 26.sp)
-            Text(
-                d(model, "Ma", "Today"),
-                modifier = Modifier.clip(RoundedCornerShape(7.dp)).background(FocusPurple.copy(alpha = .45f))
-                    .padding(horizontal = 18.dp, vertical = 8.dp)
-            )
-            Text("›", color = DashboardMuted, fontSize = 26.sp)
-        }
-        Row(modifier = Modifier.fillMaxWidth().background(Color(0xFF0D1825)).padding(vertical = 7.dp)) {
-            Spacer(Modifier.width(94.dp))
-            listOf("18:00", "18:30", "19:00", "19:30", "20:00").forEach { time ->
-                Text(
-                    time,
-                    color = DashboardMuted,
-                    fontSize = 11.sp,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-        }
-        if (channels.isEmpty()) {
-            Text(
-                d(
-                    model,
-                    "Az EPG idővonal a playlist és XMLTV betöltése után jelenik meg.",
-                    "The EPG timeline appears after loading a playlist and XMLTV."
-                ), color = DashboardMuted, modifier = Modifier.padding(20.dp)
-            )
-        } else {
-            LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                items(channels, key = { channel -> channel.id }) { channel ->
-                    EpgChannelRow(model, channel, tick)
-                }
-            }
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth().background(Color(0xFF0D1825)).padding(10.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Text("● -24 ${d(model, "óra", "hours")}", color = Color(0xFFFF5C50), fontSize = 11.sp)
-            Text("● +24 ${d(model, "óra", "hours")}", color = Color(0xFF55D967), fontSize = 11.sp)
-            Text("● ${d(model, "Most", "Now")}", color = Color(0xFFFFB800), fontSize = 11.sp)
-            Text("☰ ${d(model, "Opciók", "Options")}", color = DashboardMuted, fontSize = 11.sp)
-        }
-    }
-}
-
-@Composable
-private fun EpgChannelRow(model: WukkiModel, channel: Channel, tick: Long) {
-    val current = model.currentProgram(channel)
-    val next = current?.let { model.nextProgram(channel, it) }
-    Row(
-        modifier = Modifier.fillMaxWidth().height(61.dp).background(Color(0xFF09131F))
-            .clickable { model.selectChannel(channel.id) }, verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            channel.tvgChno?.toString() ?: "–",
-            color = DashboardMuted,
-            modifier = Modifier.width(27.dp).padding(start = 8.dp)
-        )
-        Text(
-            channel.name,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            fontSize = 12.sp,
-            modifier = Modifier.width(67.dp)
-        )
-        EpgCell(
-            model,
-            current,
-            selected = channel.id == model.selectedChannelId,
-            modifier = Modifier.weight(1f),
-            now = tick
-        )
-        EpgCell(model, next, selected = false, modifier = Modifier.weight(1f), now = tick)
-    }
-}
-
-@Composable
-private fun EpgCell(model: WukkiModel, programme: Programme?, selected: Boolean, modifier: Modifier, now: Long) {
-    val color = if (selected) FocusPurple.copy(alpha = .32f) else Color(0xFF142234)
-    Column(
-        modifier = modifier.fillMaxHeight().background(color)
-            .then(if (selected) Modifier.clip(RoundedCornerShape(5.dp)) else Modifier).padding(7.dp)
-    ) {
-        Text(
-            programme?.title ?: d(model, "EPG nincs", "No EPG"),
-            fontSize = 12.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-        Text(programme?.let { "${formatTime(it.start)} – ${formatTime(it.end)}" } ?: "",
-            color = DashboardMuted,
-            fontSize = 10.sp)
-    }
 }
 
 @Composable
