@@ -189,7 +189,7 @@ fun GuidePanel(model: WukkiModel, tick: Long, modifier: Modifier) {
         Text("TV GUIDE", fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(6.dp))
         LazyColumn(modifier = Modifier.weight(1f)) {
-            items(model.filteredChannels().take(6), key = { it.id }) { item ->
+            items(model.filteredChannels(), key = { it.id }) { item ->
                 val programme = model.currentProgram(item)
                 Column(modifier = Modifier.fillMaxWidth().clickable { model.selectChannel(item.id) }.padding(vertical = 8.dp)) {
                     Text(item.name, fontWeight = FontWeight.SemiBold)

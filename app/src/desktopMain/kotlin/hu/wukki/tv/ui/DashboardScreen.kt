@@ -102,9 +102,9 @@ private fun SideNavigation(model: WukkiModel, activeSection: String, onSelect: (
     )
     DashboardCard(modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("IPTV", fontWeight = FontWeight.Black, fontSize = 30.sp)
+            Text("Wukki", fontWeight = FontWeight.Black, fontSize = 30.sp)
             Spacer(Modifier.width(6.dp))
-            Text("TV", color = Color.White, fontSize = 13.sp, modifier = Modifier.clip(RoundedCornerShape(5.dp)).background(FocusPurple).padding(horizontal = 5.dp, vertical = 3.dp))
+            Text("TV", color = Color.White, fontSize = 13.sp, modifier = Modifier.clip(RoundedCornerShape(5.dp)).background(FocusPurple).padding(horizontal = 5.dp, vertical = 5.dp))
         }
         Spacer(Modifier.height(52.dp))
         entries.forEach { (icon, id, title) ->
@@ -182,7 +182,7 @@ private fun PlaybackStatus(controller: PlaybackController, model: WukkiModel, mo
 
 @Composable
 private fun EpgTimeline(model: WukkiModel, tick: Long, modifier: Modifier) {
-    val channels = model.filteredChannels().take(5)
+    val channels = model.filteredChannels()
     DashboardCard(modifier, contentPadding = 0.dp) {
         Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(d(model, "MŰSORÚJSÁG", "TV GUIDE"), fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
@@ -197,9 +197,12 @@ private fun EpgTimeline(model: WukkiModel, tick: Long, modifier: Modifier) {
         if (channels.isEmpty()) {
             Text(d(model, "Az EPG idővonal a playlist és XMLTV betöltése után jelenik meg.", "The EPG timeline appears after loading a playlist and XMLTV."), color = DashboardMuted, modifier = Modifier.padding(20.dp))
         } else {
-            channels.forEach { channel -> EpgChannelRow(model, channel, tick) }
+            LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                items(channels, key = { channel -> channel.id }) { channel ->
+                    EpgChannelRow(model, channel, tick)
+                }
+            }
         }
-        Spacer(Modifier.weight(1f))
         Row(modifier = Modifier.fillMaxWidth().background(Color(0xFF0D1825)).padding(10.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Text("● -24 ${d(model, "óra", "hours")}", color = Color(0xFFFF5C50), fontSize = 11.sp)
             Text("● +24 ${d(model, "óra", "hours")}", color = Color(0xFF55D967), fontSize = 11.sp)

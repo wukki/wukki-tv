@@ -213,7 +213,16 @@ class WukkiModel {
     private fun rematchChannels() {
         state = state.copy(channels = EpgMatcher.matchFromSources(state.channels, epgSources, state.epgProgrammesBySource.orEmpty()))
     }
-    private fun programmesFor(channel: Channel): List<Programme> = state.epgProgrammesBySource.orEmpty()[channel.epgSourceId].orEmpty().ifEmpty { state.programmes.filter { it.channelId == channel.epgChannelId } }
+    private fun programmesFor(channel: Channel): List<Programme> {
+        val epgChannelId = channel.epgChannelId ?: return emptyList()
+        val sourceProgrammes = channel.epgSourceId?.let { sourceId -> state.epgProgrammesBySource.orEmpty()[sourceId] }
+        return if (sourceProgrammes != null) {
+            sourceProgrammes.filter { programme -> programme.channelId.equals(epgChannelId, ignoreCase = true) }
+        } else {
+            // Compatibility path for state saved before multiple EPG sources were introduced.
+            state.programmes.filter { programme -> programme.channelId.equals(epgChannelId, ignoreCase = true) }
+        }
+    }
     private fun showStatus(message: String) { status = message; error = null }
     private fun persist() = LocalStore.save(state)
 }
