@@ -145,6 +145,11 @@ class WukkiModel {
             (category == null || channel.group == category) && (query.isBlank() || normalize(channel.name).contains(normalize(query)))
     }.sortedWith(compareBy<Channel> { it.tvgChno ?: Int.MAX_VALUE }.thenBy { normalize(it.name) })
 
+    /** Returns every channel from the active playlist, independently of the channel directory filters. */
+    fun guideChannels(): List<Channel> = state.channels.filter { channel ->
+        selectedPlaylistId == null || channel.playlistId == selectedPlaylistId
+    }.sortedWith(compareBy<Channel> { it.tvgChno ?: Int.MAX_VALUE }.thenBy { normalize(it.name) })
+
     fun currentProgram(channel: Channel, now: Long = System.currentTimeMillis()): Programme? = channelProgrammes(channel).firstOrNull { now in it.start until it.end }
     fun nextProgram(channel: Channel, current: Programme): Programme? = channelProgrammes(channel).firstOrNull { it.start >= current.end }
 

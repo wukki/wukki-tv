@@ -126,7 +126,7 @@ class EpgGuideState internal constructor(
     }
 
     fun handleKey(key: Key, model: WukkiModel, scope: CoroutineScope): Boolean {
-        val channels = model.filteredChannels()
+        val channels = model.guideChannels()
         return when (key) {
             Key.DirectionUp, Key.PageUp -> true.also { scope.launch { moveChannel(model, channels, -1) } }
             Key.DirectionDown, Key.PageDown -> true.also { scope.launch { moveChannel(model, channels, 1) } }
@@ -209,17 +209,21 @@ fun rememberEpgGuideState(): EpgGuideState {
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun EpgGuideScreen(model: WukkiModel, tick: Long, state: EpgGuideState, modifier: Modifier = Modifier) {
-    val channels = model.filteredChannels()
+    val channels = model.guideChannels()
     val density = LocalDensity.current
     val minuteWidthPx = with(density) { MinuteWidth.toPx() }
     val dayWidth = MinuteWidth * MINUTES_PER_DAY
-    val days = remember { List(5) { LocalDate.now().plusDays(it.toLong()) } }
+    val today = Instant.ofEpochMilli(tick).atZone(ZoneId.systemDefault()).toLocalDate()
+    val days = remember(today) { List(3) { today.plusDays(it.toLong()) } }
     val (dayStart, dayEnd) = state.selectedDay.bounds()
     val scope = rememberCoroutineScope()
     var initialScrollApplied by remember(state) { mutableStateOf(false) }
 
     state.pixelsPerMinute = minuteWidthPx
     LaunchedEffect(channels.map { it.id }) { state.initialise(model, channels) }
+    LaunchedEffect(today) {
+        if (state.selectedDay !in days) state.changeDay(today, model, channels)
+    }
     LaunchedEffect(state.horizontalScroll.maxValue) {
         if (initialScrollApplied || state.horizontalScroll.maxValue == 0) return@LaunchedEffect
         withFrameNanos { }
