@@ -33,7 +33,7 @@ fun WukkiApp() {
     var tick by remember { mutableStateOf(System.currentTimeMillis()) }
     var showSettings by remember { mutableStateOf(false) }
     var settingsSection by remember { mutableStateOf(SettingsSection.PLAYBACK) }
-    var activeSection by remember { mutableStateOf(DashboardSection.LIVE) }
+    var activeSection by remember { mutableStateOf(DashboardSection.CHANNELS) }
     val guideState = rememberEpgGuideState()
     val baseDensity = LocalDensity.current
 

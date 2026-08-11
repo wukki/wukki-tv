@@ -8,7 +8,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,9 +50,25 @@ fun DashboardScreen(
                 modifier = Modifier.width(250.dp).fillMaxHeight()
             )
             when (activeSection) {
-                DashboardSection.LIVE -> LiveTvScreen(model, playbackController, Modifier.fillMaxHeight().fillMaxWidth())
-                DashboardSection.GUIDE -> EpgGuideScreen(model, tick, guideState, modifier = Modifier.weight(1f).fillMaxHeight().fillMaxWidth())
-                DashboardSection.CHANNELS -> ChannelScreen(model, tick, modifier = Modifier.weight(1f).fillMaxHeight().fillMaxWidth())
+                DashboardSection.LIVE -> LiveTvScreen(
+                    model,
+                    playbackController,
+                    Modifier.fillMaxHeight().fillMaxWidth()
+                )
+
+                DashboardSection.GUIDE -> EpgGuideScreen(
+                    model,
+                    tick,
+                    guideState,
+                    modifier = Modifier.weight(1f).fillMaxHeight().fillMaxWidth()
+                )
+
+                DashboardSection.CHANNELS -> ChannelScreen(
+                    model,
+                    tick,
+                    modifier = Modifier.weight(1f).fillMaxHeight().fillMaxWidth(),
+                    playbackController
+                )
             }
         }
         model.error?.let { DashboardMessage("Hiba: $it", Color(0xFFFFB4AB), Color(0xFF5F1D22)) }
@@ -71,10 +87,15 @@ private fun LiveTvScreen(model: WukkiModel, playbackController: PlaybackControll
 }
 
 @Composable
-private fun ChannelScreen(model: WukkiModel, tick: Long, modifier: Modifier) {
-    Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-        ChannelDirectory(model, modifier = Modifier.weight(.59f).fillMaxHeight())
-        ProgrammeInformation(model, tick, modifier = Modifier.weight(.41f).fillMaxHeight())
+private fun ChannelScreen(model: WukkiModel, tick: Long, modifier: Modifier, playbackController: PlaybackController) {
+    Column(modifier = modifier,verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(modifier = Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+            ChannelSearch(model, modifier = Modifier.fillMaxSize())
+        }
+        Row(modifier = Modifier.fillMaxWidth().weight(4f), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+            ChannelDirectory(model, modifier = Modifier.weight(.59f).fillMaxHeight())
+            ProgrammeInformation(model, tick, modifier = Modifier.weight(.41f).fillMaxHeight(), playbackController)
+        }
     }
 }
 
@@ -220,33 +241,6 @@ private fun PlaybackStatus(controller: PlaybackController, model: WukkiModel, mo
 private fun ChannelDirectory(model: WukkiModel, modifier: Modifier) {
     val channels = model.filteredChannels()
     DashboardCard(modifier, contentPadding = 12.dp) {
-        Text(d(model, "CSATORNÁK", "CHANNELS"), fontSize = 18.sp, fontWeight = FontWeight.Bold)
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(5.dp),
-            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
-        ) {
-            FilterChip(
-                selected = model.category == null && !model.onlyFavorites,
-                onClick = { model.category = null; model.onlyFavorites = false },
-                label = { Text(d(model, "Minden", "All"), fontSize = 11.sp) })
-            FilterChip(
-                selected = model.onlyFavorites,
-                onClick = { model.onlyFavorites = !model.onlyFavorites },
-                label = { Text(d(model, "Kedvencek", "Favorites"), fontSize = 11.sp) })
-            model.categories().take(3).forEach { category ->
-                FilterChip(
-                    selected = model.category == category,
-                    onClick = { model.category = if (model.category == category) null else category },
-                    label = { Text(category, fontSize = 11.sp) })
-            }
-        }
-        OutlinedTextField(
-            value = model.query,
-            onValueChange = { model.query = it },
-            singleLine = true,
-            label = { Text(d(model, "Keresés", "Search")) },
-            modifier = Modifier.fillMaxWidth()
-        )
         LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth().padding(top = 6.dp)) {
             items(channels, key = { it.id }) { channel ->
                 val selected = channel.id == model.selectedChannelId
@@ -284,16 +278,55 @@ private fun ChannelDirectory(model: WukkiModel, modifier: Modifier) {
 }
 
 @Composable
-private fun ProgrammeInformation(model: WukkiModel, tick: Long, modifier: Modifier) {
+private fun ChannelSearch(model: WukkiModel, modifier: Modifier) {
+    DashboardCard(modifier, contentPadding = 12.dp) {
+        Text(d(model, "CSATORNÁK", "CHANNELS"), fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            FilterChip(
+                selected = model.category == null && !model.onlyFavorites,
+                onClick = { model.category = null; model.onlyFavorites = false },
+                label = { Text(d(model, "Minden", "All"), fontSize = 11.sp) },
+            )
+            FilterChip(
+                selected = model.onlyFavorites,
+                onClick = { model.onlyFavorites = !model.onlyFavorites },
+                label = { Text(d(model, "Kedvencek", "Favorites"), fontSize = 11.sp) })
+            model.categories().forEach { category ->
+                FilterChip(
+                    selected = model.category == category,
+                    onClick = { model.category = if (model.category == category) null else category },
+                    label = { Text(category, fontSize = 11.sp) })
+            }
+        }
+        OutlinedTextField(
+            value = model.query,
+            onValueChange = { model.query = it },
+            singleLine = true,
+            label = { Text(d(model, "Keresés", "Search")) },
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+}
+
+@Composable
+private fun ProgrammeInformation(
+    model: WukkiModel,
+    tick: Long,
+    modifier: Modifier,
+    playbackController: PlaybackController
+) {
     val channel = model.selectedChannel()
     val programme = channel?.let { model.currentProgram(it) }
     DashboardCard(modifier) {
-        Text(d(model, "MŰSOR INFORMÁCIÓ", "PROGRAMME INFORMATION"), fontSize = 16.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(16.dp))
         if (channel == null) {
             Text(d(model, "Válassz csatornát.", "Select a channel."), color = DashboardMuted)
         } else {
-            DashboardLogo(model, channel, Modifier.fillMaxWidth().height(115.dp))
+            EmbeddedVlcPlayer(playbackController, modifier = Modifier.fillMaxWidth().height(200.dp))
+            DashboardLogo(model, channel, Modifier.width(50.dp).height(50.dp))
             Spacer(Modifier.height(10.dp))
             Text(d(model, "Most", "Now"), color = DashboardMuted, fontSize = 11.sp)
             Text(programme?.title ?: channel.name, fontSize = 22.sp, fontWeight = FontWeight.Bold)
