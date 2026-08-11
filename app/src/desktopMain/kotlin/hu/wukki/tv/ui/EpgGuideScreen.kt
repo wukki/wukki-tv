@@ -135,13 +135,13 @@ class EpgGuideState internal constructor(
         verticalList.scrollToItem(channelIndex)
     }
 
-    fun handleKey(key: Key, model: WukkiModel, scope: CoroutineScope): Boolean {
+    fun handleKey(key: Key, model: WukkiModel, scope: CoroutineScope, days: List<LocalDate>): Boolean {
         val channels = model.guideChannels()
         return when (key) {
             Key.DirectionUp, Key.PageUp -> true.also { scope.launch { moveChannel(model, channels, -1) } }
             Key.DirectionDown, Key.PageDown -> true.also { scope.launch { moveChannel(model, channels, 1) } }
-            Key.DirectionLeft -> true.also { scope.launch { moveProgramme(model, channels, -1) } }
-            Key.DirectionRight -> true.also { scope.launch { moveProgramme(model, channels, 1) } }
+            Key.DirectionLeft -> true.also { scope.launch { moveProgramme(model, channels, days, -1) } }
+            Key.DirectionRight -> true.also { scope.launch { moveProgramme(model, channels, days, 1) } }
             Key.Enter, Key.NumPadEnter -> true
             else -> false
         }
@@ -166,18 +166,54 @@ class EpgGuideState internal constructor(
         verticalList.animateScrollToItem(target)
     }
 
-    private suspend fun moveProgramme(model: WukkiModel, channels: List<Channel>, delta: Int) {
+    private suspend fun moveProgramme(
+        model: WukkiModel,
+        channels: List<Channel>,
+        days: List<LocalDate>,
+        delta: Int
+    ) {
         val channel = channels.firstOrNull { it.id == focusedChannelId } ?: return
+        val direction = delta.coerceIn(-1, 1)
+        if (direction == 0) return
         val (dayStart, dayEnd) = selectedDay.bounds()
         val programmes = model.programmesFor(channel, dayStart, dayEnd)
-        if (programmes.isEmpty()) return
+        if (programmes.isEmpty()) {
+            moveToAdjacentDay(model, channel, days, direction)
+            return
+        }
         val current = programmes.indexOfFirst { it.key() == focusedProgrammeKey }.let { index ->
             if (index >= 0) index else programmes.indexOfClosest(focusMinuteOfDay, selectedDay)
         }
-        val target = (current + delta).coerceIn(0, programmes.lastIndex)
+        val target = current + direction
+        if (target !in programmes.indices) {
+            moveToAdjacentDay(model, channel, days, direction)
+            return
+        }
         val programme = programmes[target]
         selectProgramme(channel, programme)
         ensureVisible(programme, dayStart)
+    }
+
+    private suspend fun moveToAdjacentDay(
+        model: WukkiModel,
+        channel: Channel,
+        days: List<LocalDate>,
+        direction: Int
+    ) {
+        val currentDayIndex = days.indexOf(selectedDay)
+        if (currentDayIndex < 0) return
+        val targetDay = days.getOrNull(currentDayIndex + direction) ?: return
+        selectDay(targetDay)
+        val (dayStart, dayEnd) = targetDay.bounds()
+        val programmes = model.programmesFor(channel, dayStart, dayEnd)
+        val programme = if (direction > 0) programmes.firstOrNull() else programmes.lastOrNull()
+        if (programme != null) {
+            selectProgramme(channel, programme)
+            ensureVisible(programme, dayStart)
+        } else {
+            focusMinuteOfDay = if (direction > 0) 0 else MINUTES_PER_DAY - 1
+            scrollToMinute(if (direction > 0) 0 else MINUTES_PER_DAY, animate = true)
+        }
     }
 
     private fun chooseProgrammeAt(model: WukkiModel, channel: Channel, minute: Int) {
@@ -236,7 +272,7 @@ fun EpgGuideScreen(model: WukkiModel, tick: Long, state: EpgGuideState, modifier
         val minuteWidthPx = with(density) { metrics.minuteWidth.toPx() }
         val dayWidth = metrics.minuteWidth * MINUTES_PER_DAY
         val today = Instant.ofEpochMilli(tick).atZone(ZoneId.systemDefault()).toLocalDate()
-        val days = remember(today) { List(3) { today.plusDays(it.toLong()) } }
+        val days = remember(today) { guideDays(tick) }
         val (dayStart, dayEnd) = state.selectedDay.bounds()
         val scope = rememberCoroutineScope()
         var initialScrollApplied by remember(state) { mutableStateOf(false) }
@@ -630,6 +666,10 @@ private fun LocalDate.bounds(): Pair<Long, Long> {
     return atStartOfDay(zone).toInstant().toEpochMilli() to plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
 }
 private fun LocalDate.timestampAtMinute(minute: Int): Long = atStartOfDay(ZoneId.systemDefault()).plusMinutes(minute.toLong()).toInstant().toEpochMilli()
+internal fun guideDays(now: Long): List<LocalDate> {
+    val today = now.localDate()
+    return List(3) { today.plusDays(it.toLong()) }
+}
 private fun Long.localDate(): LocalDate = Instant.ofEpochMilli(this).atZone(ZoneId.systemDefault()).toLocalDate()
 private fun Long.minuteOfDay(): Float = Instant.ofEpochMilli(this).atZone(ZoneId.systemDefault()).let {
     it.hour * 60f + it.minute + it.second / 60f

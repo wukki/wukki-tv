@@ -136,10 +136,15 @@ class WukkiModel {
         persist()
     }
     fun selectedChannel(): Channel? = state.channels.firstOrNull { it.id == selectedChannelId }
-    fun categories(): List<String> = state.channels.map { it.group.ifBlank { "Egyéb" } }.distinct().sorted()
+    fun categories(): List<String> = state.channels.asSequence()
+        .filter { selectedPlaylistId == null || it.playlistId == selectedPlaylistId }
+        .map(::channelCategoryName)
+        .distinct()
+        .sorted()
+        .toList()
     fun filteredChannels(): List<Channel> = state.channels.filter { channel ->
         (selectedPlaylistId == null || channel.playlistId == selectedPlaylistId) && (!onlyFavorites || channel.favorite) &&
-            (category == null || channel.group == category) && (query.isBlank() || normalize(channel.name).contains(normalize(query)))
+            (category == null || channelCategoryName(channel) == category) && (query.isBlank() || normalize(channel.name).contains(normalize(query)))
     }.sortedWith(compareBy<Channel> { it.tvgChno ?: Int.MAX_VALUE }.thenBy { normalize(it.name) })
 
     /** Returns every channel from the active playlist, independently of the channel directory filters. */
@@ -231,6 +236,9 @@ class WukkiModel {
             state.programmes.filter { programme -> programme.channelId.equals(epgChannelId, ignoreCase = true) }
         }
         return programmes.sortedBy { it.start }
+    }
+    private fun channelCategoryName(channel: Channel): String = channel.group.ifBlank {
+        if (settings.language == AppLanguage.HUNGARIAN) "Egyéb" else "Other"
     }
     private fun showStatus(message: String) { status = message; error = null }
     private fun persist() = LocalStore.save(state)

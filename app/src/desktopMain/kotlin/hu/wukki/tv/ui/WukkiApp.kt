@@ -133,6 +133,7 @@ fun WukkiApp() {
                     channelName = channel.name,
                     logoUrl = channel.logo?.takeIf { model.settings.display.showLogos },
                     showProgrammeInfo = activeSection == DashboardSection.LIVE && programmeOverlayVisible,
+                    showPreviewLogo = activeSection == DashboardSection.CHANNELS,
                     channelNumberInput = channelNumberInput.takeIf {
                         activeSection == DashboardSection.LIVE && it.isNotEmpty()
                     },
@@ -161,7 +162,7 @@ fun WukkiApp() {
                 .onPreviewKeyEvent { event ->
                     if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                     if (activeSection == DashboardSection.GUIDE &&
-                        guideState.handleKey(event.key, model, scope)
+                        guideState.handleKey(event.key, model, scope, guideDays(tick))
                     ) {
                         return@onPreviewKeyEvent true
                     }

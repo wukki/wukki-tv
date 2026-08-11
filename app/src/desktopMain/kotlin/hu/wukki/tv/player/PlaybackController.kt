@@ -43,6 +43,7 @@ data class PlaybackOverlayData(
     val channelName: String,
     val logoUrl: String?,
     val showProgrammeInfo: Boolean,
+    val showPreviewLogo: Boolean,
     val channelNumberInput: String?,
     val noEpgLabel: String,
     val nextLabel: String,
@@ -258,6 +259,7 @@ private class OverlayCallbackMediaPlayerComponent(vararg factoryArguments: Strin
         graphics.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY)
         val scale = min(width / 1106f, height / 762f).coerceAtLeast(.45f)
 
+        if (data.showPreviewLogo) drawPreviewLogo(graphics, content, width, scale)
         if (data.showProgrammeInfo) drawProgrammePanel(graphics, content, width, height, scale)
         data.playbackStatus?.let {
             drawPlaybackStatus(graphics, it, data.playbackError, data.showProgrammeInfo, width, height, scale)
@@ -265,6 +267,28 @@ private class OverlayCallbackMediaPlayerComponent(vararg factoryArguments: Strin
         data.channelNumberInput?.takeIf(String::isNotEmpty)?.let {
             drawChannelNumberInput(graphics, it, width, scale)
         }
+    }
+}
+
+private fun drawPreviewLogo(
+    graphics: Graphics2D,
+    content: RenderedPlaybackOverlay,
+    width: Int,
+    scale: Float
+) {
+    val margin = (24 * scale).toInt().coerceAtLeast(12)
+    val maxWidth = min((190 * scale).toInt(), (width * .28f).toInt()).coerceAtLeast(48)
+    val maxHeight = (58 * scale).toInt().coerceAtLeast(24)
+    val logo = content.logo
+    if (logo != null && logo.width > 0 && logo.height > 0) {
+        val logoScale = min(maxWidth / logo.width.toDouble(), maxHeight / logo.height.toDouble())
+        val drawnWidth = (logo.width * logoScale).toInt().coerceAtLeast(1)
+        val drawnHeight = (logo.height * logoScale).toInt().coerceAtLeast(1)
+        graphics.drawImage(logo, margin, margin, drawnWidth, drawnHeight, null)
+    } else {
+        graphics.font = Font(Font.SANS_SERIF, Font.BOLD, (22 * scale).toInt().coerceAtLeast(13))
+        graphics.color = Color.WHITE
+        graphics.drawString(content.data.channelName, margin, margin + graphics.fontMetrics.ascent)
     }
 }
 
