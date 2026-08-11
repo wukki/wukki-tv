@@ -37,6 +37,7 @@ fun WukkiApp() {
     var activeSection by remember { mutableStateOf(DashboardSection.LIVE) }
     var overlayRequest by remember { mutableIntStateOf(0) }
     var programmeOverlayVisible by remember { mutableStateOf(false) }
+    var channelNumberInput by remember { mutableStateOf("") }
     val guideState = rememberEpgGuideState()
     val baseDensity = LocalDensity.current
 
@@ -61,6 +62,20 @@ fun WukkiApp() {
         } else {
             programmeOverlayVisible = false
         }
+    }
+    LaunchedEffect(channelNumberInput) {
+        val pendingNumber = channelNumberInput
+        if (pendingNumber.isNotEmpty()) {
+            delay(3_000)
+            if (channelNumberInput == pendingNumber) {
+                val selected = model.selectChannelByNumber(pendingNumber)
+                channelNumberInput = ""
+                if (selected) overlayRequest++
+            }
+        }
+    }
+    LaunchedEffect(activeSection) {
+        if (activeSection != DashboardSection.LIVE) channelNumberInput = ""
     }
     LaunchedEffect(model.settings.playlistRefresh) {
         val hours = model.settings.playlistRefresh.hours
@@ -101,6 +116,7 @@ fun WukkiApp() {
         tick,
         activeSection,
         programmeOverlayVisible,
+        channelNumberInput,
         model.settings.language,
         model.settings.display.showLogos,
         playbackStatus,
@@ -116,9 +132,10 @@ fun WukkiApp() {
                     channelNumber = channel.tvgChno?.toString() ?: "–",
                     channelName = channel.name,
                     logoUrl = channel.logo?.takeIf { model.settings.display.showLogos },
-                    showVideoChrome = activeSection == DashboardSection.LIVE,
                     showProgrammeInfo = activeSection == DashboardSection.LIVE && programmeOverlayVisible,
-                    liveLabel = if (hungarian) "ÉLŐ" else "LIVE",
+                    channelNumberInput = channelNumberInput.takeIf {
+                        activeSection == DashboardSection.LIVE && it.isNotEmpty()
+                    },
                     noEpgLabel = if (hungarian) "EPG nincs" else "No EPG",
                     nextLabel = if (hungarian) "Következő" else "Next",
                     currentTitle = overlayCurrent?.title,
@@ -149,23 +166,43 @@ fun WukkiApp() {
                         return@onPreviewKeyEvent true
                     }
                     if (activeSection == DashboardSection.LIVE && (event.key == Key.Enter || event.key == Key.NumPadEnter)) {
-                        overlayRequest++
+                        if (channelNumberInput.isNotEmpty()) {
+                            val selected = model.selectChannelByNumber(channelNumberInput)
+                            channelNumberInput = ""
+                            if (selected) overlayRequest++
+                        } else {
+                            overlayRequest++
+                        }
                         return@onPreviewKeyEvent true
                     }
                     if (activeSection == DashboardSection.SETTINGS) return@onPreviewKeyEvent false
+                    val digit = when (event.key) {
+                        Key.One, Key.NumPad1 -> "1"
+                        Key.Two, Key.NumPad2 -> "2"
+                        Key.Three, Key.NumPad3 -> "3"
+                        Key.Four, Key.NumPad4 -> "4"
+                        Key.Five, Key.NumPad5 -> "5"
+                        Key.Six, Key.NumPad6 -> "6"
+                        Key.Seven, Key.NumPad7 -> "7"
+                        Key.Eight, Key.NumPad8 -> "8"
+                        Key.Nine, Key.NumPad9 -> "9"
+                        Key.Zero, Key.NumPad0 -> "0"
+                        else -> null
+                    }
+                    if (digit != null) {
+                        if (activeSection != DashboardSection.LIVE) return@onPreviewKeyEvent false
+                        channelNumberInput = (channelNumberInput + digit).take(4)
+                        return@onPreviewKeyEvent true
+                    }
                     when (event.key) {
-                        Key.PageDown, Key.DirectionDown -> model.moveChannel(1)
-                        Key.PageUp, Key.DirectionUp -> model.moveChannel(-1)
-                        Key.One -> model.selectChannelByNumber("1")
-                        Key.Two -> model.selectChannelByNumber("2")
-                        Key.Three -> model.selectChannelByNumber("3")
-                        Key.Four -> model.selectChannelByNumber("4")
-                        Key.Five -> model.selectChannelByNumber("5")
-                        Key.Six -> model.selectChannelByNumber("6")
-                        Key.Seven -> model.selectChannelByNumber("7")
-                        Key.Eight -> model.selectChannelByNumber("8")
-                        Key.Nine -> model.selectChannelByNumber("9")
-                        Key.Zero -> model.selectChannelByNumber("0")
+                        Key.PageDown, Key.DirectionDown -> {
+                            channelNumberInput = ""
+                            model.moveChannel(1)
+                        }
+                        Key.PageUp, Key.DirectionUp -> {
+                            channelNumberInput = ""
+                            model.moveChannel(-1)
+                        }
                         else -> return@onPreviewKeyEvent false
                     }
                     true

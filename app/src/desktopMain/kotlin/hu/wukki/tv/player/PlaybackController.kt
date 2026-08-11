@@ -42,9 +42,8 @@ data class PlaybackOverlayData(
     val channelNumber: String,
     val channelName: String,
     val logoUrl: String?,
-    val showVideoChrome: Boolean,
     val showProgrammeInfo: Boolean,
-    val liveLabel: String,
+    val channelNumberInput: String?,
     val noEpgLabel: String,
     val nextLabel: String,
     val currentTitle: String?,
@@ -72,6 +71,7 @@ class PlaybackController {
     }
     private val logoCache = ConcurrentHashMap<String, BufferedImage>()
     private val pendingLogos = ConcurrentHashMap.newKeySet<String>()
+    private val failedLogos = ConcurrentHashMap.newKeySet<String>()
     private var retryTask: ScheduledFuture<*>? = null
     private var currentChannel: Channel? = null
     private var currentSettings: PlaybackSettings = PlaybackSettings()
@@ -144,7 +144,7 @@ class PlaybackController {
         requestRepaint()
 
         val logoUrl = data.logoUrl ?: return
-        if (!data.showVideoChrome || logo != null || !pendingLogos.add(logoUrl)) return
+        if (logo != null || logoUrl in failedLogos || !pendingLogos.add(logoUrl)) return
         logoExecutor.execute {
             val loaded = runCatching {
                 URI.create(logoUrl).toURL().openConnection().apply {
@@ -153,7 +153,7 @@ class PlaybackController {
                 }.getInputStream().use(ImageIO::read)
             }.getOrNull()
             pendingLogos.remove(logoUrl)
-            if (loaded != null) logoCache[logoUrl] = loaded
+            if (loaded != null) logoCache[logoUrl] = loaded else failedLogos.add(logoUrl)
             val current = component.overlay?.data
             if (!released && loaded != null && current?.channelId == data.channelId && current.logoUrl == logoUrl) {
                 component.overlay = RenderedPlaybackOverlay(current, loaded)
@@ -258,46 +258,49 @@ private class OverlayCallbackMediaPlayerComponent(vararg factoryArguments: Strin
         graphics.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY)
         val scale = min(width / 1106f, height / 762f).coerceAtLeast(.45f)
 
-        if (data.showVideoChrome) {
-            content.logo?.let { logo ->
-                val maxWidth = (190 * scale).toInt()
-                val maxHeight = (58 * scale).toInt()
-                val logoScale = min(maxWidth / logo.width.toDouble(), maxHeight / logo.height.toDouble())
-                val drawnWidth = (logo.width * logoScale).toInt()
-                val drawnHeight = (logo.height * logoScale).toInt()
-                graphics.drawImage(logo, (52 * scale).toInt(), (72 * scale).toInt(), drawnWidth, drawnHeight, null)
-            }
-            drawLiveBadge(graphics, data.liveLabel, width, scale)
-        }
-
-        if (data.showProgrammeInfo) drawProgrammePanel(graphics, data, width, height, scale)
+        if (data.showProgrammeInfo) drawProgrammePanel(graphics, content, width, height, scale)
         data.playbackStatus?.let {
             drawPlaybackStatus(graphics, it, data.playbackError, data.showProgrammeInfo, width, height, scale)
+        }
+        data.channelNumberInput?.takeIf(String::isNotEmpty)?.let {
+            drawChannelNumberInput(graphics, it, width, scale)
         }
     }
 }
 
-private fun drawLiveBadge(graphics: Graphics2D, label: String, width: Int, scale: Float) {
-    graphics.font = Font(Font.SANS_SERIF, Font.BOLD, (24 * scale).toInt().coerceAtLeast(13))
+private fun drawChannelNumberInput(graphics: Graphics2D, number: String, width: Int, scale: Float) {
+    graphics.font = Font(Font.SANS_SERIF, Font.BOLD, (48 * scale).toInt().coerceAtLeast(26))
     val metrics = graphics.fontMetrics
-    val textWidth = metrics.stringWidth(label)
-    val right = (42 * scale).toInt()
-    val centerY = (55 * scale).toInt()
-    val dotSize = (14 * scale).toInt().coerceAtLeast(8)
-    val textX = width - right - textWidth
-    graphics.color = Color(239, 42, 36)
-    graphics.fillOval(textX - (24 * scale).toInt(), centerY - dotSize + 2, dotSize, dotSize)
+    val horizontalPadding = (24 * scale).toInt().coerceAtLeast(12)
+    val verticalPadding = (14 * scale).toInt().coerceAtLeast(8)
+    val boxWidth = (metrics.stringWidth(number) + horizontalPadding * 2).coerceAtLeast((86 * scale).toInt())
+    val boxHeight = metrics.height + verticalPadding * 2
+    val margin = (38 * scale).toInt().coerceAtLeast(18)
+    val x = width - margin - boxWidth
+    val y = margin
+    val arc = (16 * scale).toInt().coerceAtLeast(10)
+
+    graphics.color = Color(4, 12, 22, 225)
+    graphics.fillRoundRect(x, y, boxWidth, boxHeight, arc, arc)
+    graphics.stroke = BasicStroke((2 * scale).coerceAtLeast(1f))
+    graphics.color = Color(139, 92, 246)
+    graphics.drawRoundRect(x, y, boxWidth, boxHeight, arc, arc)
     graphics.color = Color.WHITE
-    graphics.drawString(label, textX, centerY + metrics.ascent / 2 - 2)
+    graphics.drawString(
+        number,
+        x + (boxWidth - metrics.stringWidth(number)) / 2,
+        y + (boxHeight - metrics.height) / 2 + metrics.ascent
+    )
 }
 
 private fun drawProgrammePanel(
     graphics: Graphics2D,
-    data: PlaybackOverlayData,
+    content: RenderedPlaybackOverlay,
     width: Int,
     height: Int,
     scale: Float
 ) {
+    val data = content.data
     val margin = (28 * scale).toInt().coerceAtLeast(12)
     val bottomMargin = (1 * scale).toInt().coerceAtLeast(1)
     val panelHeight = min((280 * scale).toInt(), (height * .38f).toInt()).coerceAtLeast((175 * scale).toInt())
@@ -321,8 +324,22 @@ private fun drawProgrammePanel(
     graphics.font = numberFont
     graphics.color = Color.WHITE
     drawCentered(graphics, data.channelNumber, margin, dividerX, top + (89 * scale).toInt())
-    graphics.font = Font(Font.SANS_SERIF, Font.BOLD, (21 * scale).toInt().coerceAtLeast(13))
-    drawCentered(graphics, data.channelName, margin + 8, dividerX - 8, top + (145 * scale).toInt())
+    val logoLeft = margin + (16 * scale).toInt()
+    val logoTop = top + (108 * scale).toInt()
+    val logoMaxWidth = (leftWidth - (32 * scale).toInt()).coerceAtLeast(1)
+    val logoMaxHeight = (58 * scale).toInt().coerceAtLeast(24)
+    val logo = content.logo
+    if (logo != null && logo.width > 0 && logo.height > 0) {
+        val logoScale = min(logoMaxWidth / logo.width.toDouble(), logoMaxHeight / logo.height.toDouble())
+        val drawnWidth = (logo.width * logoScale).toInt().coerceAtLeast(1)
+        val drawnHeight = (logo.height * logoScale).toInt().coerceAtLeast(1)
+        val logoX = logoLeft + (logoMaxWidth - drawnWidth) / 2
+        val logoY = logoTop + (logoMaxHeight - drawnHeight) / 2
+        graphics.drawImage(logo, logoX, logoY, drawnWidth, drawnHeight, null)
+    } else {
+        graphics.font = Font(Font.SANS_SERIF, Font.BOLD, (21 * scale).toInt().coerceAtLeast(13))
+        drawCentered(graphics, data.channelName, margin + 8, dividerX - 8, top + (145 * scale).toInt())
+    }
 
     val contentLeft = dividerX + (38 * scale).toInt()
     val contentRight = margin + panelWidth - (30 * scale).toInt()

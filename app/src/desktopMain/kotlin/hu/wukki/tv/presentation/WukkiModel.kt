@@ -30,9 +30,6 @@ class WukkiModel {
     val settings: AppSettings get() = state.settings ?: AppSettings()
     val epgSources: List<EpgSource> get() = state.epgSources.orEmpty().sortedBy { it.priority }
 
-    private var numberBuffer = ""
-    private var lastNumberInput = 0L
-
     fun showError(message: String) { error = message; status = null }
     fun setLanguage(language: AppLanguage) = updateSettings { it.copy(language = language) }
     fun setPlaylistRefresh(interval: RefreshInterval) = updateSettings { it.copy(playlistRefresh = interval) }
@@ -162,12 +159,14 @@ class WukkiModel {
         val index = channels.indexOfFirst { it.id == selectedChannelId }.let { if (it < 0) 0 else it }
         selectChannel(channels[(index + delta).floorMod(channels.size)].id)
     }
-    fun selectChannelByNumber(digit: String) {
-        val now = System.currentTimeMillis()
-        numberBuffer = if (now - lastNumberInput > 1300) digit else (numberBuffer + digit).takeLast(3)
-        lastNumberInput = now
-        val index = numberBuffer.toIntOrNull()?.minus(1) ?: return
-        filteredChannels().getOrNull(index)?.let { selectChannel(it.id); showStatus("${numberBuffer}. ${it.name}") }
+    fun selectChannelByNumber(number: String): Boolean {
+        val requestedNumber = number.toIntOrNull()?.takeIf { it > 0 } ?: return false
+        val channels = guideChannels()
+        val channel = channels.firstOrNull { it.tvgChno == requestedNumber }
+            ?: channels.getOrNull(requestedNumber - 1)
+            ?: return false
+        selectChannel(channel.id)
+        return true
     }
     private suspend fun loadPlaylist(name: String, location: String, source: PlaylistSource) {
         try {
