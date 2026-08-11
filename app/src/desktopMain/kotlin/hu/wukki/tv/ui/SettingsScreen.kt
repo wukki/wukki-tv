@@ -1,44 +1,12 @@
 package hu.wukki.tv
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.*
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -66,6 +34,7 @@ private val SettingsAccent = Color(0xFF8B5CF6)
 private const val SETTINGS_REFERENCE_WIDTH = 1116f
 private const val SETTINGS_REFERENCE_HEIGHT = 892f
 private const val WUKKI_VERSION = "1.0.0"
+private enum class PlaybackOption { VOLUME, BUFFER, ASPECT_RATIO, RECONNECT, RETRIES }
 
 @Composable
 fun SettingsScreen(
@@ -236,44 +205,104 @@ private fun SettingsDetail(
 
 @Composable
 private fun PlaybackSettings(model: WukkiModel) {
-    SettingsNotice(model, "Ezek az értékek mentődnek. A beágyazott natív lejátszó bevezetésekor lesznek aktívak.", "These values are saved. They will become active with the embedded native player.")
-    SettingsRow(model, "Alkalmazás hangerő", "Application volume", "${model.settings.playback.volume}%") {
-        Slider(value = model.settings.playback.volume.toFloat(), onValueChange = { model.updatePlayback { settings -> settings.copy(volume = it.toInt()) } }, valueRange = 0f..100f)
-    }
-    SettingsRow(model, "Buffer profil", "Buffer profile") {
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            BufferProfile.entries.forEach { profile ->
-                FilterChip(selected = model.settings.playback.bufferProfile == profile, onClick = { model.updatePlayback { it.copy(bufferProfile = profile) } }, label = { Text(profile.label(model), fontSize = 12.sp) })
+    val settings = model.settings.playback
+    var focusedOption by remember { mutableStateOf(PlaybackOption.VOLUME) }
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        PlaybackSettingRow(model, "Alkalmazás hangerő", "Application volume", "A Wukki TV lejátszási hangereje", "Wukki TV playback volume", focusedOption == PlaybackOption.VOLUME, { focusedOption = PlaybackOption.VOLUME }) {
+            Column(modifier = Modifier.widthIn(min = 150.dp, max = 205.dp)) {
+                Text("${settings.volume}%", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                Slider(value = settings.volume.toFloat(), onValueChange = { volume -> model.updatePlayback { it.copy(volume = volume.toInt()) } }, valueRange = 0f..100f)
             }
         }
-    }
-    SettingsRow(model, "Képarány", "Aspect ratio") {
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                AspectRatioMode.entries.take(3).forEach { mode -> AspectRatioChip(model, mode) }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                AspectRatioMode.entries.drop(3).forEach { mode -> AspectRatioChip(model, mode) }
+        PlaybackSettingRow(model, "Puffer profil", "Buffer profile", "Nagyobb puffer stabilabb lejátszást biztosít", "A larger buffer provides more stable playback", focusedOption == PlaybackOption.BUFFER, { focusedOption = PlaybackOption.BUFFER }) {
+            Column(modifier = Modifier.widthIn(min = 150.dp, max = 205.dp)) {
+            PlaybackSelect(settings.bufferProfile, BufferProfile.entries.toList(), { it.label(model) }) { profile -> model.updatePlayback { it.copy(bufferProfile = profile) } }
             }
         }
-    }
-    SettingsToggle(model, "Automatikus újracsatlakozás", "Automatic reconnect", model.settings.playback.autoReconnect) { enabled -> model.updatePlayback { it.copy(autoReconnect = enabled) } }
-    SettingsRow(model, "Újracsatlakozási próbálkozások", "Reconnect attempts", model.settings.playback.reconnectAttempts.toString()) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TextButton(onClick = { model.updatePlayback { it.copy(reconnectAttempts = (it.reconnectAttempts - 1).coerceAtLeast(1)) } }) { Text("−") }
-            Text(model.settings.playback.reconnectAttempts.toString(), fontSize = 18.sp)
-            TextButton(onClick = { model.updatePlayback { it.copy(reconnectAttempts = (it.reconnectAttempts + 1).coerceAtMost(10)) } }) { Text("+") }
+        PlaybackSettingRow(model, "Képarány", "Aspect ratio", "A kép megjelenítési aránya", "The display ratio of the video", focusedOption == PlaybackOption.ASPECT_RATIO, { focusedOption = PlaybackOption.ASPECT_RATIO }) {
+            Column(modifier = Modifier.widthIn(min = 150.dp, max = 205.dp)) {
+            PlaybackSelect(settings.aspectRatio ?: AspectRatioMode.AUTO, AspectRatioMode.entries.toList(), { it.label(model) }) { ratio -> model.updatePlayback { it.copy(aspectRatio = ratio) } }
+            }
+        }
+        PlaybackSettingRow(model, "Automatikus újracsatlakozás", "Automatic reconnect", "A stream megszakadásakor újrapróbálkozik", "Retries when the stream is interrupted", focusedOption == PlaybackOption.RECONNECT, { focusedOption = PlaybackOption.RECONNECT }) {
+            Switch(
+                checked = settings.autoReconnect,
+                onCheckedChange = { enabled -> model.updatePlayback { it.copy(autoReconnect = enabled) } },
+                colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = SettingsAccent, uncheckedThumbColor = SettingsMuted, uncheckedTrackColor = Color(0xFF26364A))
+            )
+        }
+        PlaybackSettingRow(model, "Újracsatlakozási kísérletek száma", "Reconnect attempts", "Hányszor próbálja újraindítani a streamet", "How many times the stream is restarted", focusedOption == PlaybackOption.RETRIES, { focusedOption = PlaybackOption.RETRIES }) {
+            PlaybackStepper(
+                value = settings.reconnectAttempts,
+                onDecrease = { model.updatePlayback { it.copy(reconnectAttempts = (it.reconnectAttempts - 1).coerceAtLeast(1)) } },
+                onIncrease = { model.updatePlayback { it.copy(reconnectAttempts = (it.reconnectAttempts + 1).coerceAtMost(10)) } }
+            )
         }
     }
 }
 
 @Composable
-private fun AspectRatioChip(model: WukkiModel, mode: AspectRatioMode) {
-    FilterChip(
-        selected = (model.settings.playback.aspectRatio ?: AspectRatioMode.AUTO) == mode,
-        onClick = { model.updatePlayback { settings -> settings.copy(aspectRatio = mode) } },
-        label = { Text(mode.label(model), fontSize = 12.sp) }
-    )
+private fun PlaybackSettingRow(
+    model: WukkiModel,
+    titleHu: String,
+    titleEn: String,
+    descriptionHu: String,
+    descriptionEn: String,
+    selected: Boolean,
+    onSelect: () -> Unit,
+    control: @Composable () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().height(66.dp)
+            .clip(RoundedCornerShape(6.dp))
+            .background(if (selected) Color(0xFF1B1B3B) else Color(0xFF0D1A2A))
+            .border(1.dp, if (selected) SettingsAccent else Color(0xFF24364B), RoundedCornerShape(6.dp))
+            .clickable(onClick = onSelect).padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f).padding(end = 18.dp)) {
+            Text(t(model, titleHu, titleEn), color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+            Spacer(Modifier.height(2.dp))
+            Text(t(model, descriptionHu, descriptionEn), color = SettingsMuted, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        control()
+    }
+}
+
+@Composable
+private fun <T> PlaybackSelect(value: T, entries: List<T>, label: @Composable (T) -> String, onSelect: (T) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        Row(
+            modifier = Modifier.widthIn(min = 155.dp).clip(RoundedCornerShape(5.dp)).background(Color(0xFF17283A))
+                .border(1.dp, Color(0xFF263C53), RoundedCornerShape(5.dp)).clickable { expanded = true }
+                .padding(horizontal = 11.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(label(value), color = Color.White, fontSize = 12.sp, modifier = Modifier.weight(1f))
+            Text("⌄", color = SettingsMuted, fontSize = 15.sp)
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            entries.forEach { entry ->
+                DropdownMenuItem(text = { Text(label(entry), color = Color.White) }, onClick = { onSelect(entry); expanded = false })
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlaybackStepper(value: Int, onDecrease: () -> Unit, onIncrease: () -> Unit) {
+    Row(
+        modifier = Modifier.clip(RoundedCornerShape(5.dp)).background(Color(0xFF17283A))
+            .border(1.dp, Color(0xFF263C53), RoundedCornerShape(5.dp)),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        TextButton(onClick = onDecrease, modifier = Modifier.size(34.dp)) { Text("−", color = Color.White, fontSize = 17.sp) }
+        Text(value.toString(), color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(30.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        TextButton(onClick = onIncrease, modifier = Modifier.size(34.dp)) { Text("+", color = Color.White, fontSize = 17.sp) }
+    }
 }
 
 @Composable
