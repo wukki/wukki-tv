@@ -12,15 +12,21 @@ import uk.co.caprica.vlcj.player.base.MediaPlayerEventAdapter
 import uk.co.caprica.vlcj.player.component.callback.CallbackImagePainter
 import uk.co.caprica.vlcj.player.component.CallbackMediaPlayerComponent
 import java.awt.Color
+import java.awt.AlphaComposite
+import java.awt.BasicStroke
 import java.awt.Font
 import java.awt.Graphics2D
 import java.awt.RenderingHints
 import java.awt.image.BufferedImage
 import java.io.File
-import java.net.URL
+import java.net.URI
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import javax.swing.JComponent
 import javax.swing.SwingUtilities
 import javax.imageio.ImageIO
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
@@ -30,6 +36,28 @@ import kotlin.math.min
 enum class PlaybackState {
     IDLE, OPENING, BUFFERING, PLAYING, RECONNECTING, ERROR
 }
+
+data class PlaybackOverlayData(
+    val channelId: String,
+    val channelNumber: String,
+    val channelName: String,
+    val logoUrl: String?,
+    val showVideoChrome: Boolean,
+    val showProgrammeInfo: Boolean,
+    val liveLabel: String,
+    val noEpgLabel: String,
+    val nextLabel: String,
+    val currentTitle: String?,
+    val currentStart: Long?,
+    val currentEnd: Long?,
+    val remainingText: String?,
+    val nextTitle: String?,
+    val nextStart: Long?,
+    val nextEnd: Long?,
+    val now: Long,
+    val playbackStatus: String? = null,
+    val playbackError: Boolean = false
+)
 
 /**
  * Owns one libVLC instance for the full lifetime of the Compose application.
@@ -42,6 +70,8 @@ class PlaybackController {
     private val logoExecutor = Executors.newSingleThreadExecutor { runnable ->
         Thread(runnable, "wukki-vlc-logo").apply { isDaemon = true }
     }
+    private val logoCache = ConcurrentHashMap<String, BufferedImage>()
+    private val pendingLogos = ConcurrentHashMap.newKeySet<String>()
     private var retryTask: ScheduledFuture<*>? = null
     private var currentChannel: Channel? = null
     private var currentSettings: PlaybackSettings = PlaybackSettings()
@@ -85,13 +115,11 @@ class PlaybackController {
     fun play(channel: Channel?, settings: PlaybackSettings, showLogos: Boolean = true) {
         if (channel == null || released) return
         val changedChannel = currentChannel?.streamUrl != channel.streamUrl
-        val changedLogoVisibility = currentShowLogos != showLogos
         val changedBuffer = currentSettings.bufferProfile != settings.bufferProfile
         currentChannel = channel
         currentSettings = settings
         currentShowLogos = showLogos
         applyAspectRatio(settings.aspectRatio ?: AspectRatioMode.AUTO)
-        if (changedChannel || changedLogoVisibility || overlayComponent?.overlay?.channelName != channel.name) updateOverlay(channel, showLogos)
         component?.mediaPlayer()?.audio()?.setVolume(settings.volume)
 
         if (changedChannel || changedBuffer || state == PlaybackState.IDLE || state == PlaybackState.ERROR) {
@@ -104,7 +132,34 @@ class PlaybackController {
 
     fun updateSettings(settings: PlaybackSettings) {
         val channel = currentChannel ?: return
-        play(channel, settings)
+        play(channel, settings, currentShowLogos)
+    }
+
+    /** Updates the Java2D video overlay without restarting or reconfiguring the stream. */
+    fun updateOverlay(data: PlaybackOverlayData) {
+        if (released) return
+        val component = overlayComponent ?: return
+        val logo = data.logoUrl?.let(logoCache::get)
+        component.overlay = RenderedPlaybackOverlay(data, logo)
+        requestRepaint()
+
+        val logoUrl = data.logoUrl ?: return
+        if (!data.showVideoChrome || logo != null || !pendingLogos.add(logoUrl)) return
+        logoExecutor.execute {
+            val loaded = runCatching {
+                URI.create(logoUrl).toURL().openConnection().apply {
+                    connectTimeout = 10_000
+                    readTimeout = 15_000
+                }.getInputStream().use(ImageIO::read)
+            }.getOrNull()
+            pendingLogos.remove(logoUrl)
+            if (loaded != null) logoCache[logoUrl] = loaded
+            val current = component.overlay?.data
+            if (!released && loaded != null && current?.channelId == data.channelId && current.logoUrl == logoUrl) {
+                component.overlay = RenderedPlaybackOverlay(current, loaded)
+                requestRepaint()
+            }
+        }
     }
 
     fun stop() {
@@ -158,22 +213,6 @@ class PlaybackController {
         requestRepaint()
     }
 
-    private fun updateOverlay(channel: Channel, showLogos: Boolean) {
-        val overlay = PlaybackOverlay(channel.name, showLogos)
-        overlayComponent?.overlay = overlay
-        requestRepaint()
-        val logoUrl = channel.logo?.takeIf { showLogos } ?: return
-        logoExecutor.execute {
-            val logo = runCatching {
-                URL(logoUrl).openConnection().apply { connectTimeout = 10_000; readTimeout = 15_000 }.getInputStream().use(ImageIO::read)
-            }.getOrNull()
-            if (!released && currentChannel?.id == channel.id && currentShowLogos) {
-                overlayComponent?.overlay = overlay.copy(logo = logo)
-                requestRepaint()
-            }
-        }
-    }
-
     private fun requestRepaint() {
         SwingUtilities.invokeLater { component?.videoSurfaceComponent()?.repaint() }
     }
@@ -200,24 +239,198 @@ class PlaybackController {
     }
 }
 
-private data class PlaybackOverlay(val channelName: String, val showLogo: Boolean, val logo: BufferedImage? = null)
+private data class RenderedPlaybackOverlay(val data: PlaybackOverlayData, val logo: BufferedImage? = null)
 
 /** The overlay is painted by the same Swing component as the callback video, above every frame. */
 private class OverlayCallbackMediaPlayerComponent(vararg factoryArguments: String) : CallbackMediaPlayerComponent(*factoryArguments) {
-    @Volatile var overlay: PlaybackOverlay? = null
+    @Volatile var overlay: RenderedPlaybackOverlay? = null
 
     override fun onPaintOverlay(graphics: Graphics2D) {
         super.onPaintOverlay(graphics)
         val content = overlay ?: return
+        val data = content.data
         val surface = videoSurfaceComponent()
         val width = surface.width
         val height = surface.height
         if (width <= 0 || height <= 0) return
 
         graphics.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON)
+        graphics.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY)
+        val scale = min(width / 1106f, height / 762f).coerceAtLeast(.45f)
+
+        if (data.showVideoChrome) {
+            content.logo?.let { logo ->
+                val maxWidth = (190 * scale).toInt()
+                val maxHeight = (58 * scale).toInt()
+                val logoScale = min(maxWidth / logo.width.toDouble(), maxHeight / logo.height.toDouble())
+                val drawnWidth = (logo.width * logoScale).toInt()
+                val drawnHeight = (logo.height * logoScale).toInt()
+                graphics.drawImage(logo, (52 * scale).toInt(), (72 * scale).toInt(), drawnWidth, drawnHeight, null)
+            }
+            drawLiveBadge(graphics, data.liveLabel, width, scale)
+        }
+
+        if (data.showProgrammeInfo) drawProgrammePanel(graphics, data, width, height, scale)
+        data.playbackStatus?.let {
+            drawPlaybackStatus(graphics, it, data.playbackError, data.showProgrammeInfo, width, height, scale)
+        }
+    }
+}
+
+private fun drawLiveBadge(graphics: Graphics2D, label: String, width: Int, scale: Float) {
+    graphics.font = Font(Font.SANS_SERIF, Font.BOLD, (24 * scale).toInt().coerceAtLeast(13))
+    val metrics = graphics.fontMetrics
+    val textWidth = metrics.stringWidth(label)
+    val right = (42 * scale).toInt()
+    val centerY = (55 * scale).toInt()
+    val dotSize = (14 * scale).toInt().coerceAtLeast(8)
+    val textX = width - right - textWidth
+    graphics.color = Color(239, 42, 36)
+    graphics.fillOval(textX - (24 * scale).toInt(), centerY - dotSize + 2, dotSize, dotSize)
+    graphics.color = Color.WHITE
+    graphics.drawString(label, textX, centerY + metrics.ascent / 2 - 2)
+}
+
+private fun drawProgrammePanel(
+    graphics: Graphics2D,
+    data: PlaybackOverlayData,
+    width: Int,
+    height: Int,
+    scale: Float
+) {
+    val margin = (28 * scale).toInt().coerceAtLeast(12)
+    val bottomMargin = (1 * scale).toInt().coerceAtLeast(1)
+    val panelHeight = min((280 * scale).toInt(), (height * .38f).toInt()).coerceAtLeast((175 * scale).toInt())
+    val panelWidth = width - margin * 2
+    val top = height - bottomMargin - panelHeight
+    val radius = (6 * scale).toInt().coerceAtLeast(4)
+    val previousComposite = graphics.composite
+    graphics.composite = AlphaComposite.getInstance(AlphaComposite.SRC_OVER, .92f)
+    graphics.color = Color(5, 14, 23)
+    graphics.fillRoundRect(margin, top, panelWidth, panelHeight, radius, radius)
+    graphics.composite = previousComposite
+    graphics.color = Color(39, 55, 72)
+    graphics.stroke = BasicStroke((1.2f * scale).coerceAtLeast(1f))
+    graphics.drawRoundRect(margin, top, panelWidth, panelHeight, radius, radius)
+
+    val leftWidth = min((184 * scale).toInt(), (panelWidth * .2f).toInt())
+    val dividerX = margin + leftWidth
+    graphics.drawLine(dividerX, top, dividerX, top + panelHeight)
+
+    val numberFont = Font(Font.SANS_SERIF, Font.PLAIN, (58 * scale).toInt().coerceAtLeast(28))
+    graphics.font = numberFont
+    graphics.color = Color.WHITE
+    drawCentered(graphics, data.channelNumber, margin, dividerX, top + (89 * scale).toInt())
+    graphics.font = Font(Font.SANS_SERIF, Font.BOLD, (21 * scale).toInt().coerceAtLeast(13))
+    drawCentered(graphics, data.channelName, margin + 8, dividerX - 8, top + (145 * scale).toInt())
+
+    val contentLeft = dividerX + (38 * scale).toInt()
+    val contentRight = margin + panelWidth - (30 * scale).toInt()
+    val title = data.currentTitle ?: data.noEpgLabel
+    graphics.font = Font(Font.SANS_SERIF, Font.BOLD, (30 * scale).toInt().coerceAtLeast(17))
+    graphics.color = Color.WHITE
+    drawClippedText(graphics, title, contentLeft, top + (55 * scale).toInt(), contentRight - contentLeft)
+
+    val metaFont = Font(Font.SANS_SERIF, Font.PLAIN, (20 * scale).toInt().coerceAtLeast(12))
+    graphics.font = metaFont
+    graphics.color = Color(204, 210, 220)
+    val timeY = top + (94 * scale).toInt()
+    if (data.currentStart != null && data.currentEnd != null && data.currentEnd > data.currentStart) {
+        val startText = overlayTime(data.currentStart)
+        val endText = overlayTime(data.currentEnd)
+        graphics.drawString(startText, contentLeft, timeY)
+        val progressLeft = contentLeft + graphics.fontMetrics.stringWidth(startText) + (22 * scale).toInt()
+        val progressRight = min(contentRight - graphics.fontMetrics.stringWidth(endText) - (185 * scale).toInt(), progressLeft + (430 * scale).toInt())
+        if (progressRight > progressLeft) {
+            val progressY = timeY - (8 * scale).toInt()
+            val barHeight = (6 * scale).toInt().coerceAtLeast(3)
+            val progress = ((data.now - data.currentStart).toDouble() / (data.currentEnd - data.currentStart)).coerceIn(0.0, 1.0)
+            graphics.color = Color(44, 58, 75)
+            graphics.fillRoundRect(progressLeft, progressY, progressRight - progressLeft, barHeight, barHeight, barHeight)
+            graphics.color = Color(139, 92, 246)
+            graphics.fillRoundRect(progressLeft, progressY, ((progressRight - progressLeft) * progress).toInt(), barHeight, barHeight, barHeight)
+            graphics.color = Color(204, 210, 220)
+            graphics.drawString(endText, progressRight + (16 * scale).toInt(), timeY)
+        }
+    } else {
+        graphics.drawString(data.noEpgLabel, contentLeft, timeY)
     }
 
+    val nowText = overlayTime(data.now)
+    graphics.font = Font(Font.SANS_SERIF, Font.BOLD, (20 * scale).toInt().coerceAtLeast(12))
+    graphics.color = Color.WHITE
+    graphics.drawString(nowText, contentRight - graphics.fontMetrics.stringWidth(nowText), top + (50 * scale).toInt())
+    data.remainingText?.let { remaining ->
+        graphics.font = Font(Font.SANS_SERIF, Font.PLAIN, (17 * scale).toInt().coerceAtLeast(11))
+        graphics.color = Color(202, 208, 219)
+        graphics.drawString(remaining, contentRight - graphics.fontMetrics.stringWidth(remaining), top + (84 * scale).toInt())
+    }
+
+    val horizontalDividerY = top + (132 * scale).toInt()
+    graphics.color = Color(39, 55, 72)
+    graphics.drawLine(contentLeft, horizontalDividerY, contentRight, horizontalDividerY)
+    graphics.font = Font(Font.SANS_SERIF, Font.PLAIN, (17 * scale).toInt().coerceAtLeast(11))
+    graphics.color = Color(170, 179, 192)
+    graphics.drawString("${data.nextLabel}:", contentLeft, horizontalDividerY + (43 * scale).toInt())
+    data.nextTitle?.let { nextTitle ->
+        val nextLeft = contentLeft + (170 * scale).toInt()
+        graphics.font = Font(Font.SANS_SERIF, Font.BOLD, (21 * scale).toInt().coerceAtLeast(13))
+        graphics.color = Color.WHITE
+        drawClippedText(graphics, nextTitle, nextLeft, horizontalDividerY + (43 * scale).toInt(), contentRight - nextLeft)
+        if (data.nextStart != null && data.nextEnd != null) {
+            graphics.font = metaFont
+            graphics.color = Color(202, 208, 219)
+            graphics.drawString(
+                "${overlayTime(data.nextStart)}  –  ${overlayTime(data.nextEnd)}",
+                nextLeft,
+                horizontalDividerY + (78 * scale).toInt()
+            )
+        }
+    }
 }
+
+private fun drawPlaybackStatus(
+    graphics: Graphics2D,
+    label: String,
+    isError: Boolean,
+    centered: Boolean,
+    width: Int,
+    height: Int,
+    scale: Float
+) {
+    graphics.font = Font(Font.SANS_SERIF, Font.BOLD, (17 * scale).toInt().coerceAtLeast(12))
+    val paddingX = (18 * scale).toInt()
+    val boxHeight = (42 * scale).toInt().coerceAtLeast(28)
+    val maxTextWidth = width - paddingX * 4
+    val visibleLabel = clippedText(graphics, label, maxTextWidth)
+    val boxWidth = graphics.fontMetrics.stringWidth(visibleLabel) + paddingX * 2
+    val left = (width - boxWidth) / 2
+    val top = if (centered) (height - boxHeight) / 2 else height - boxHeight - (20 * scale).toInt()
+    graphics.color = if (isError) Color(86, 23, 30, 235) else Color(6, 16, 27, 225)
+    graphics.fillRoundRect(left, top, boxWidth, boxHeight, 10, 10)
+    graphics.color = if (isError) Color(255, 180, 171) else Color.WHITE
+    graphics.drawString(visibleLabel, left + paddingX, top + (boxHeight + graphics.fontMetrics.ascent) / 2 - 3)
+}
+
+private fun drawCentered(graphics: Graphics2D, text: String, left: Int, right: Int, baseline: Int) {
+    val clipped = clippedText(graphics, text, (right - left).coerceAtLeast(1))
+    graphics.drawString(clipped, left + ((right - left) - graphics.fontMetrics.stringWidth(clipped)) / 2, baseline)
+}
+
+private fun drawClippedText(graphics: Graphics2D, text: String, x: Int, baseline: Int, maxWidth: Int) {
+    graphics.drawString(clippedText(graphics, text, maxWidth), x, baseline)
+}
+
+private fun clippedText(graphics: Graphics2D, text: String, maxWidth: Int): String {
+    if (graphics.fontMetrics.stringWidth(text) <= maxWidth) return text
+    val ellipsis = "…"
+    var end = text.length
+    while (end > 0 && graphics.fontMetrics.stringWidth(text.substring(0, end) + ellipsis) > maxWidth) end--
+    return text.substring(0, end) + ellipsis
+}
+
+private val OverlayTimeFormatter = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())
+private fun overlayTime(timestamp: Long): String = OverlayTimeFormatter.format(Instant.ofEpochMilli(timestamp))
 
 /** Draws callback video frames without distortion and crops symmetrically when requested. */
 private class AspectRatioImagePainter(private val mode: AspectRatioMode) : CallbackImagePainter {
@@ -276,7 +489,15 @@ private val AspectRatioMode.targetRatio: Double?
 @Composable
 fun EmbeddedVlcPlayer(controller: PlaybackController, modifier: Modifier = Modifier) {
     controller.component?.let { component ->
-        SwingPanel(factory = { component }, modifier = modifier)
+        SwingPanel(
+            factory = {
+                component.apply {
+                    isFocusable = false
+                    videoSurfaceComponent().isFocusable = false
+                }
+            },
+            modifier = modifier
+        )
     }
 }
 

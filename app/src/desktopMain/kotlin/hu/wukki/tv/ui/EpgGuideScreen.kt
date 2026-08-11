@@ -69,7 +69,7 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 
-enum class DashboardSection { LIVE, GUIDE, CHANNELS }
+enum class DashboardSection { LIVE, GUIDE, CHANNELS, SETTINGS }
 
 private const val MINUTES_PER_DAY = 24 * 60
 private const val HALF_HOUR_MINUTES = 30

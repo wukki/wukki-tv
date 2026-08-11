@@ -1,8 +1,12 @@
 package hu.wukki.tv
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -14,15 +18,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
-import java.time.LocalDate
+import java.time.Instant
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Locale
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 
 private val DashboardPanel = AppBackground
 private val DashboardMuted = Color(0xFF93A0B5)
@@ -38,61 +49,106 @@ fun DashboardScreen(
     activeSection: DashboardSection,
     guideState: EpgGuideState,
     onSectionChange: (DashboardSection) -> Unit,
-    onOpenSettings: (SettingsSection) -> Unit
+    settingsSection: SettingsSection,
+    onSettingsSectionChange: (SettingsSection) -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(modifier = Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    BoxWithConstraints(
+        modifier = Modifier.fillMaxSize().background(
+            Brush.linearGradient(
+                colors = listOf(Color(0xFF02080E), Color(0xFF07131F), Color(0xFF02070C))
+            )
+        )
+    ) {
+        val referenceScale = minOf(maxWidth.value / 1470f, maxHeight.value / 920f).coerceIn(.70f, 1.45f)
+        val navigationWidth = (326.dp * referenceScale).coerceIn(220.dp, 430.dp)
+        val contentPadding = (14.dp * referenceScale).coerceIn(8.dp, 20.dp)
+
+        Row(modifier = Modifier.fillMaxSize()) {
             SideNavigation(
                 model = model,
                 activeSection = activeSection,
                 onSelect = onSectionChange,
-                onOpenSettings = { onOpenSettings(SettingsSection.PLAYBACK) },
-                modifier = Modifier.width(250.dp).fillMaxHeight()
+                tick = tick,
+                scale = referenceScale,
+                modifier = Modifier.width(navigationWidth).fillMaxHeight()
             )
             when (activeSection) {
                 DashboardSection.LIVE -> LiveTvScreen(
                     model,
                     playbackController,
-                    Modifier.fillMaxHeight().fillMaxWidth()
+                    referenceScale,
+                    Modifier.weight(1f).fillMaxHeight()
                 )
 
                 DashboardSection.GUIDE -> EpgGuideScreen(
                     model,
                     tick,
                     guideState,
-                    modifier = Modifier.weight(1f).fillMaxHeight().fillMaxWidth()
+                    modifier = Modifier.weight(1f).fillMaxHeight().padding(contentPadding)
                 )
 
                 DashboardSection.CHANNELS -> ChannelScreen(
                     model,
                     tick,
-                    modifier = Modifier.weight(1f).fillMaxHeight().fillMaxWidth(),
+                    modifier = Modifier.weight(1f).fillMaxHeight().padding(contentPadding),
                     playbackController
+                )
+
+                DashboardSection.SETTINGS -> SettingsScreen(
+                    model = model,
+                    scope = scope,
+                    selectedSection = settingsSection,
+                    onSectionChange = onSettingsSectionChange,
+                    modifier = Modifier.weight(1f).fillMaxHeight().padding(contentPadding)
                 )
             }
         }
-        model.error?.let { DashboardMessage("Hiba: $it", Color(0xFFFFB4AB), Color(0xFF5F1D22)) }
-        model.status?.let { DashboardMessage(it, Color(0xFFB9F6CA), Color(0xFF12352C)) }
-        RemoteHintBar(model)
+        Column(
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 24.dp).widthIn(max = 720.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            model.error?.let { DashboardMessage("Hiba: $it", Color(0xFFFFB4AB), Color(0xE65F1D22)) }
+            model.status?.let { DashboardMessage(it, Color(0xFFB9F6CA), Color(0xE612352C)) }
+        }
     }
 }
 
 @Composable
-private fun LiveTvScreen(model: WukkiModel, playbackController: PlaybackController, modifier: Modifier) {
-    Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(1.dp)) {
-        Spacer(Modifier.weight(.08f))
-        LivePlayerCard(model, playbackController, modifier = Modifier.fillMaxHeight())
-        Spacer(Modifier.weight(.08f))
+private fun LiveTvScreen(
+    model: WukkiModel,
+    playbackController: PlaybackController,
+    scale: Float,
+    modifier: Modifier
+) {
+    val channel = model.selectedChannel()
+    Box(
+        modifier = modifier.padding(
+            top = (38.dp * scale).coerceAtLeast(20.dp),
+            end = (36.dp * scale).coerceAtLeast(18.dp),
+            bottom = (120.dp * scale).coerceAtLeast(54.dp)
+        ).clip(RoundedCornerShape((8.dp * scale).coerceAtLeast(5.dp)))
+            .background(Color.Black)
+            .border(BorderStroke(1.dp, Color(0xFF172536)), RoundedCornerShape((8.dp * scale).coerceAtLeast(5.dp)))
+    ) {
+        if (channel == null) {
+            Text(
+                d(model, "Tölts be egy M3U playlistet a kezdéshez.", "Load an M3U playlist to get started."),
+                color = DashboardMuted,
+                modifier = Modifier.align(Alignment.Center)
+            )
+        } else {
+            EmbeddedVlcPlayer(playbackController, Modifier.fillMaxSize())
+        }
     }
 }
 
 @Composable
 private fun ChannelScreen(model: WukkiModel, tick: Long, modifier: Modifier, playbackController: PlaybackController) {
-    Column(modifier = modifier,verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(modifier = Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(modifier = Modifier.fillMaxWidth().heightIn(min = 150.dp, max = 190.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
             ChannelSearch(model, modifier = Modifier.fillMaxSize())
         }
-        Row(modifier = Modifier.fillMaxWidth().weight(4f), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+        Row(modifier = Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
             ChannelDirectory(model, modifier = Modifier.weight(.59f).fillMaxHeight())
             ProgrammeInformation(model, tick, modifier = Modifier.weight(.41f).fillMaxHeight(), playbackController)
         }
@@ -104,137 +160,150 @@ private fun SideNavigation(
     model: WukkiModel,
     activeSection: DashboardSection,
     onSelect: (DashboardSection) -> Unit,
-    onOpenSettings: () -> Unit,
+    tick: Long,
+    scale: Float,
     modifier: Modifier
 ) {
     val entries = listOf(
-        Triple("▣", DashboardSection.LIVE, d(model, "Élő adás", "Live TV")),
-        Triple("▦", DashboardSection.GUIDE, d(model, "Műsorújság", "TV Guide")),
-        Triple("▤", DashboardSection.CHANNELS, d(model, "Csatornák", "Channels"))
+        DashboardSection.LIVE to d(model, "Élő adás", "Live TV"),
+        DashboardSection.GUIDE to d(model, "Műsorújság", "TV Guide"),
+        DashboardSection.CHANNELS to d(model, "Csatornák", "Channels"),
+        DashboardSection.SETTINGS to d(model, "Beállítások", "Settings")
     )
-    DashboardCard(modifier) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Wukki", fontWeight = FontWeight.Black, fontSize = 30.sp)
-            Spacer(Modifier.width(6.dp))
+    Column(
+        modifier = modifier.background(
+            Brush.horizontalGradient(listOf(Color(0xFF02080E), Color(0xFF07121C), Color(0xFF06101A)))
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 30.dp * scale, top = 40.dp * scale),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Wukki", fontWeight = FontWeight.Black, fontSize = (36 * scale).sp, letterSpacing = (-1.2).sp)
+            Spacer(Modifier.width(7.dp * scale))
             Text(
                 "TV",
                 color = Color.White,
-                fontSize = 13.sp,
-                modifier = Modifier.clip(RoundedCornerShape(5.dp)).background(FocusPurple)
-                    .padding(horizontal = 5.dp, vertical = 3.dp)
+                fontSize = (17 * scale).sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.clip(RoundedCornerShape(5.dp * scale))
+                    .background(Brush.verticalGradient(listOf(Color(0xFF7662F4), Color(0xFF4C35B8))))
+                    .padding(horizontal = 7.dp * scale, vertical = 4.dp * scale)
             )
         }
-        Spacer(Modifier.height(52.dp))
-        entries.forEach { (icon, id, title) ->
+        Spacer(Modifier.height(83.dp * scale))
+        entries.forEach { (id, title) ->
             val selected = id == activeSection
             Row(
-                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(7.dp))
-                    .background(if (selected) FocusPurple.copy(alpha = .35f) else Color.Transparent)
-                    .clickable { onSelect(id) }.padding(horizontal = 16.dp, vertical = 16.dp),
+                modifier = Modifier.fillMaxWidth().height((76.dp * scale).coerceIn(54.dp, 94.dp))
+                    .background(
+                        if (selected) Brush.horizontalGradient(
+                            listOf(Color(0xFF5B43B7).copy(alpha = .82f), Color(0xFF2D235C).copy(alpha = .58f), Color.Transparent)
+                        ) else Brush.horizontalGradient(listOf(Color.Transparent, Color.Transparent))
+                    )
+                    .clickable { onSelect(id) }.padding(start = 40.dp * scale, end = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    icon,
-                    color = if (selected) Color.White else DashboardMuted,
-                    fontSize = 22.sp,
-                    modifier = Modifier.width(42.dp)
+                NavigationIcon(
+                    section = id,
+                    color = if (selected) Color.White else Color(0xFFC7CED8),
+                    modifier = Modifier.size((29.dp * scale).coerceIn(22.dp, 38.dp))
                 )
+                Spacer(Modifier.width(25.dp * scale))
                 Text(
                     title,
                     color = if (selected) Color.White else Color(0xFFE6EAF2),
-                    fontSize = 17.sp,
+                    fontSize = (19 * scale).sp,
                     fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
                 )
             }
         }
-        Row(
-            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(7.dp)).clickable(onClick = onOpenSettings)
-                .padding(horizontal = 16.dp, vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("⚙", color = DashboardMuted, fontSize = 22.sp, modifier = Modifier.width(42.dp))
-            Text(d(model, "Beállítások", "Settings"), color = Color(0xFFE6EAF2), fontSize = 17.sp)
-        }
         Spacer(Modifier.weight(1f))
-        Text(formatTime(System.currentTimeMillis()), fontSize = 33.sp, fontWeight = FontWeight.Light)
-        Text(
-            LocalDate.now().format(DateTimeFormatter.ofPattern("MMMM d., EEEE")),
-            color = DashboardMuted,
-            fontSize = 13.sp
-        )
+        val date = Instant.ofEpochMilli(tick).atZone(ZoneId.systemDefault()).toLocalDate()
+        val locale = if (model.settings.language == AppLanguage.HUNGARIAN) Locale.forLanguageTag("hu") else Locale.ENGLISH
+        val datePattern = if (model.settings.language == AppLanguage.HUNGARIAN) "MMMM d., EEEE" else "MMMM d, EEEE"
+        Column(modifier = Modifier.padding(start = 30.dp * scale, bottom = 70.dp * scale)) {
+            Text(formatTime(tick), fontSize = (34 * scale).sp, fontWeight = FontWeight.Light)
+            Spacer(Modifier.height(5.dp * scale))
+            Text(date.format(DateTimeFormatter.ofPattern(datePattern, locale)), color = DashboardMuted, fontSize = (15 * scale).sp)
+        }
     }
 }
 
 @Composable
-private fun LivePlayerCard(model: WukkiModel, playbackController: PlaybackController, modifier: Modifier) {
-    val channel = model.selectedChannel()
-    DashboardCard(modifier, contentPadding = 1.dp) {
-        Box(
-            modifier = Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(9.dp))
-                .background(Brush.verticalGradient(listOf(Color(0xFF102943), Color(0xFF07111D))))
-        ) {
-            if (channel == null) {
-                Text(
-                    d(model, "Tölts be egy M3U playlistet a kezdéshez.", "Load an M3U playlist to get started."),
-                    color = DashboardMuted,
-                    modifier = Modifier.align(Alignment.Center)
+private fun NavigationIcon(section: DashboardSection, color: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier) {
+        val stroke = Stroke(width = size.minDimension * .075f)
+        val inset = size.minDimension * .12f
+        when (section) {
+            DashboardSection.LIVE -> {
+                drawRoundRect(
+                    color,
+                    topLeft = Offset(inset, size.height * .24f),
+                    size = Size(size.width - inset * 2, size.height * .61f),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.width * .08f),
+                    style = stroke
                 )
-            } else {
-                EmbeddedVlcPlayer(playbackController, Modifier.fillMaxSize())
-            }
-        }
-        channel?.let { currentChannel ->
-            val current = model.currentProgram(currentChannel)
-            val next = current?.let { model.nextProgram(currentChannel, it) }
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Column(
-                    modifier = Modifier.weight(1f).padding(horizontal = 12.dp)
-                ) {
-                    Text(
-                        currentChannel.tvgChno?.toString() ?: "–",
-                        textAlign = TextAlign.Center,
-                        fontSize = 42.sp,
-                        fontWeight = FontWeight.Light,
-                        modifier = Modifier.size(92.dp)
-                    )
-                    DashboardLogo(model, channel, Modifier.size(92.dp))
+                val play = Path().apply {
+                    moveTo(size.width * .43f, size.height * .40f)
+                    lineTo(size.width * .68f, size.height * .55f)
+                    lineTo(size.width * .43f, size.height * .70f)
+                    close()
                 }
-                Column(modifier = Modifier.weight(7f).padding(horizontal = 12.dp)) {
-                    Text(current?.title ?: currentChannel.name, fontWeight = FontWeight.Bold, fontSize = 19.sp)
-                    Text(current?.let { "${formatTime(it.start)} – ${formatTime(it.end)}" } ?: d(
-                        model,
-                        "EPG nincs",
-                        "No EPG"
-                    ), color = DashboardMuted, fontSize = 12.sp)
-                    current?.let { ProgrammeProgress(it, System.currentTimeMillis()) }
-                    Text(next?.let { "${d(model, "Következő", "Next")}: ${it.title}" } ?: d(
-                        model,
-                        "Következő műsor nem elérhető",
-                        "Next programme unavailable"
-                    ), color = DashboardMuted, fontSize = 12.sp)
+                drawPath(play, color)
+                drawLine(color, Offset(size.width * .42f, size.height * .13f), Offset(size.width * .50f, size.height * .24f), stroke.width)
+                drawLine(color, Offset(size.width * .58f, size.height * .13f), Offset(size.width * .50f, size.height * .24f), stroke.width)
+            }
+
+            DashboardSection.GUIDE -> {
+                drawRoundRect(
+                    color,
+                    topLeft = Offset(inset, size.height * .20f),
+                    size = Size(size.width - inset * 2, size.height * .68f),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.width * .08f),
+                    style = stroke
+                )
+                drawLine(color, Offset(inset, size.height * .40f), Offset(size.width - inset, size.height * .40f), stroke.width)
+                repeat(2) { column ->
+                    repeat(2) { row ->
+                        drawCircle(
+                            color,
+                            radius = size.width * .045f,
+                            center = Offset(size.width * (.36f + column * .28f), size.height * (.55f + row * .18f))
+                        )
+                    }
+                }
+                drawLine(color, Offset(size.width * .34f, size.height * .11f), Offset(size.width * .34f, size.height * .29f), stroke.width)
+                drawLine(color, Offset(size.width * .66f, size.height * .11f), Offset(size.width * .66f, size.height * .29f), stroke.width)
+            }
+
+            DashboardSection.CHANNELS -> {
+                repeat(3) { row ->
+                    val y = size.height * (.27f + row * .24f)
+                    drawCircle(color, radius = size.width * .055f, center = Offset(size.width * .20f, y))
+                    drawLine(color, Offset(size.width * .34f, y), Offset(size.width * .84f, y), stroke.width, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                }
+            }
+
+            DashboardSection.SETTINGS -> {
+                val center = Offset(size.width / 2, size.height / 2)
+                drawCircle(color, radius = size.minDimension * .24f, center = center, style = stroke)
+                drawCircle(color, radius = size.minDimension * .08f, center = center, style = stroke)
+                repeat(8) { index ->
+                    val angle = index * PI.toFloat() / 4f
+                    val inner = size.minDimension * .31f
+                    val outer = size.minDimension * .43f
+                    drawLine(
+                        color,
+                        Offset(center.x + cos(angle) * inner, center.y + sin(angle) * inner),
+                        Offset(center.x + cos(angle) * outer, center.y + sin(angle) * outer),
+                        stroke.width,
+                        cap = androidx.compose.ui.graphics.StrokeCap.Round
+                    )
                 }
             }
         }
     }
-}
-
-@Composable
-private fun PlaybackStatus(controller: PlaybackController, model: WukkiModel, modifier: Modifier = Modifier) {
-    val label = when (controller.state) {
-        PlaybackState.IDLE -> null
-        PlaybackState.OPENING -> d(model, "Betöltés", "Opening")
-        PlaybackState.BUFFERING -> d(model, "Pufferelés", "Buffering")
-        PlaybackState.PLAYING -> null
-        PlaybackState.RECONNECTING -> d(model, "Újracsatlakozás", "Reconnecting")
-        PlaybackState.ERROR -> d(model, "Lejátszási hiba", "Playback error")
-    } ?: return
-    Text(
-        text = listOf(label, controller.detail).filterNotNull().joinToString(" · "),
-        color = if (controller.state == PlaybackState.ERROR) Color(0xFFFFB4AB) else Color.White,
-        fontSize = 12.sp,
-        modifier = modifier.clip(RoundedCornerShape(5.dp)).background(Color(0xD90A1420))
-            .padding(horizontal = 9.dp, vertical = 6.dp)
-    )
 }
 
 @Composable
@@ -283,7 +352,7 @@ private fun ChannelSearch(model: WukkiModel, modifier: Modifier) {
         Text(d(model, "CSATORNÁK", "CHANNELS"), fontSize = 18.sp, fontWeight = FontWeight.Bold)
         Row(
             horizontalArrangement = Arrangement.spacedBy(5.dp),
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
         ) {
             FilterChip(
                 selected = model.category == null && !model.onlyFavorites,
@@ -361,54 +430,6 @@ private fun ProgrammeInformation(
 }
 
 @Composable
-private fun SettingsPreview(
-    model: WukkiModel,
-    scope: CoroutineScope,
-    onOpenSettings: (SettingsSection) -> Unit,
-    modifier: Modifier
-) {
-    DashboardCard(modifier) {
-        Text(d(model, "BEÁLLÍTÁSOK", "SETTINGS"), fontSize = 16.sp, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(10.dp))
-        listOf(
-            SettingsSection.PLAYBACK to d(model, "Lejátszási beállítások", "Playback"),
-            SettingsSection.EPG to "EPG",
-            SettingsSection.DISPLAY to d(model, "Megjelenítés", "Appearance"),
-            SettingsSection.PLAYLISTS to d(model, "Playlist kezelése", "Playlists"),
-            SettingsSection.LANGUAGE to d(model, "Nyelv", "Language")
-        ).forEach { (section, setting) ->
-            Row(
-                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp)).background(Color(0xFF111D2B))
-                    .clickable { onOpenSettings(section) }.padding(horizontal = 11.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(setting, modifier = Modifier.weight(1f), fontSize = 12.sp)
-                Text("›", color = DashboardMuted, fontSize = 20.sp)
-            }
-            Spacer(Modifier.height(3.dp))
-        }
-        Spacer(Modifier.weight(1f))
-        Text(d(model, "Playlist kezelés", "Playlists"), color = DashboardMuted, fontSize = 11.sp)
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Button(
-                onClick = { scope.launch { model.refreshSelected() } },
-                enabled = model.selectedPlaylistId != null
-            ) { Text(d(model, "Frissítés", "Refresh"), fontSize = 11.sp) }
-            TextButton(onClick = { model.setAutoRefresh(if (model.settings.playlistRefresh == RefreshInterval.MANUAL) 6 else 0) }) {
-                Text(
-                    if (model.settings.playlistRefresh == RefreshInterval.MANUAL) d(
-                        model,
-                        "Auto: ki",
-                        "Auto: off"
-                    ) else "Auto: ${model.settings.playlistRefresh.hours}h",
-                    fontSize = 11.sp
-                )
-            }
-        }
-    }
-}
-
-@Composable
 private fun ProgrammeProgress(programme: Programme, now: Long) {
     val progress =
         ((now - programme.start).toFloat() / (programme.end - programme.start).coerceAtLeast(1)).coerceIn(0f, 1f)
@@ -446,24 +467,6 @@ private fun DashboardMessage(message: String, color: Color, background: Color) {
         maxLines = 1,
         overflow = TextOverflow.Ellipsis
     )
-}
-
-@Composable
-private fun RemoteHintBar(model: WukkiModel) {
-    Row(
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(9.dp)).background(Color(0xFF07111B))
-            .padding(horizontal = 20.dp, vertical = 10.dp), horizontalArrangement = Arrangement.SpaceEvenly
-    ) {
-        listOf(
-            "◉ ${d(model, "Navigáció", "Navigate")}",
-            "OK ${d(model, "Kiválasztás", "Select")}",
-            "↩ ${d(model, "Vissza", "Back")}",
-            "● ${d(model, "Felvétel", "Record")}",
-            "+ +24 ${d(model, "óra", "hours")}",
-            "■ ${d(model, "Most", "Now")}",
-            "INFO ${d(model, "Információ", "Info")}"
-        ).forEach { hint -> Text(hint, color = DashboardMuted, fontSize = 11.sp) }
-    }
 }
 
 @Composable

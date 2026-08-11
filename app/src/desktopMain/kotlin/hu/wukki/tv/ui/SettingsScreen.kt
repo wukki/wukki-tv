@@ -53,20 +53,27 @@ private val SettingsMuted = Color(0xFF9BA9BE)
 private val SettingsAccent = Color(0xFF8B5CF6)
 
 @Composable
-fun SettingsScreen(model: WukkiModel, scope: CoroutineScope, initialSection: SettingsSection, onBack: () -> Unit) {
-    var section by remember(initialSection) { mutableStateOf(initialSection) }
-    Row(modifier = Modifier.fillMaxSize().background(Color(0xFF050C15)).padding(20.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        SettingsNavigation(model, section, onSelect = { section = it }, onBack = onBack, modifier = Modifier.width(250.dp).fillMaxHeight())
+fun SettingsScreen(
+    model: WukkiModel,
+    scope: CoroutineScope,
+    selectedSection: SettingsSection,
+    onSectionChange: (SettingsSection) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        SettingsNavigation(
+            model = model,
+            selected = selectedSection,
+            onSelect = onSectionChange,
+            modifier = Modifier.width(230.dp).fillMaxHeight()
+        )
         SettingsCard(Modifier.weight(1f).fillMaxHeight()) {
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(t(model, "BEÁLLÍTÁSOK", "SETTINGS"), fontWeight = FontWeight.Black, fontSize = 24.sp)
-                    Text(section.title(model), color = SettingsMuted, fontSize = 13.sp)
-                }
-                TextButton(onClick = onBack) { Text("← ${t(model, "Vissza", "Back")}") }
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(t(model, "BEÁLLÍTÁSOK", "SETTINGS"), fontWeight = FontWeight.Black, fontSize = 24.sp)
+                Text(selectedSection.title(model), color = SettingsMuted, fontSize = 13.sp)
             }
             Spacer(Modifier.height(12.dp))
-            when (section) {
+            when (selectedSection) {
                 SettingsSection.PLAYBACK -> PlaybackSettings(model)
                 SettingsSection.EPG -> EpgSettings(model, scope)
                 SettingsSection.DISPLAY -> DisplaySettings(model)
@@ -78,9 +85,14 @@ fun SettingsScreen(model: WukkiModel, scope: CoroutineScope, initialSection: Set
 }
 
 @Composable
-private fun SettingsNavigation(model: WukkiModel, selected: SettingsSection, onSelect: (SettingsSection) -> Unit, onBack: () -> Unit, modifier: Modifier) {
+private fun SettingsNavigation(
+    model: WukkiModel,
+    selected: SettingsSection,
+    onSelect: (SettingsSection) -> Unit,
+    modifier: Modifier
+) {
     SettingsCard(modifier) {
-        Text("WUKKI TV", fontSize = 22.sp, fontWeight = FontWeight.Black, color = WukkiBlue)
+        Text(t(model, "KATEGÓRIÁK", "CATEGORIES"), fontSize = 18.sp, fontWeight = FontWeight.Black)
         Spacer(Modifier.height(24.dp))
         SettingsSection.entries.forEach { item ->
             val active = item == selected
@@ -93,8 +105,6 @@ private fun SettingsNavigation(model: WukkiModel, selected: SettingsSection, onS
                 Text(item.title(model), fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal)
             }
         }
-        Spacer(Modifier.weight(1f))
-        TextButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text("← ${t(model, "Dashboard", "Dashboard")}") }
     }
 }
 
