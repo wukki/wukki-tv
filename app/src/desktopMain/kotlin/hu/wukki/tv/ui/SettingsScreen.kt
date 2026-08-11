@@ -1,10 +1,15 @@
 package hu.wukki.tv
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -13,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -36,7 +42,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -45,40 +54,62 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import java.awt.FileDialog
 import java.io.File
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 
-enum class SettingsSection { PLAYBACK, EPG, DISPLAY, PLAYLISTS, LANGUAGE }
+enum class SettingsSection { PLAYBACK, EPG, DISPLAY, PARENTAL, PLAYLISTS, LANGUAGE, ABOUT }
 private val SettingsPanel = Color(0xF20A1421)
 private val SettingsSurface = Color(0xFF111E2F)
 private val SettingsMuted = Color(0xFF9BA9BE)
 private val SettingsAccent = Color(0xFF8B5CF6)
+private const val SETTINGS_REFERENCE_WIDTH = 1116f
+private const val SETTINGS_REFERENCE_HEIGHT = 892f
+private const val WUKKI_VERSION = "1.0.0"
 
 @Composable
 fun SettingsScreen(
     model: WukkiModel,
     scope: CoroutineScope,
-    selectedSection: SettingsSection,
-    onSectionChange: (SettingsSection) -> Unit,
+    selectedSection: SettingsSection?,
+    onSectionChange: (SettingsSection?) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        SettingsNavigation(
-            model = model,
-            selected = selectedSection,
-            onSelect = onSectionChange,
-            modifier = Modifier.width(230.dp).fillMaxHeight()
-        )
-        SettingsCard(Modifier.weight(1f).fillMaxHeight()) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Text(t(model, "BEÁLLÍTÁSOK", "SETTINGS"), fontWeight = FontWeight.Black, fontSize = 24.sp)
-                Text(selectedSection.title(model), color = SettingsMuted, fontSize = 13.sp)
-            }
-            Spacer(Modifier.height(12.dp))
-            when (selectedSection) {
-                SettingsSection.PLAYBACK -> PlaybackSettings(model)
-                SettingsSection.EPG -> EpgSettings(model, scope)
-                SettingsSection.DISPLAY -> DisplaySettings(model)
-                SettingsSection.PLAYLISTS -> PlaylistSettings(model, scope)
-                SettingsSection.LANGUAGE -> LanguageSettings(model)
+    BoxWithConstraints(modifier) {
+        val scale = minOf(
+            maxWidth.value / SETTINGS_REFERENCE_WIDTH,
+            maxHeight.value / SETTINGS_REFERENCE_HEIGHT
+        ).coerceIn(.70f, 1f)
+        Column(Modifier.fillMaxSize()) {
+            Text(
+                t(model, "BEÁLLÍTÁSOK", "SETTINGS"),
+                color = Color.White,
+                fontWeight = FontWeight.Black,
+                fontSize = (29f * scale).sp,
+                modifier = Modifier.padding(start = 8.dp * scale, top = 8.dp * scale, bottom = 34.dp * scale)
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(34.dp * scale)
+            ) {
+                SettingsNavigation(
+                    model = model,
+                    selected = selectedSection,
+                    onSelect = onSectionChange,
+                    scale = scale,
+                    modifier = Modifier.width(430.dp * scale)
+                )
+                if (selectedSection == null) {
+                    SettingsHome(model, scale, Modifier.weight(1f).fillMaxHeight())
+                } else {
+                    SettingsDetail(
+                        model = model,
+                        scope = scope,
+                        selectedSection = selectedSection,
+                        scale = scale,
+                        modifier = Modifier.weight(1f).fillMaxHeight()
+                    )
+                }
             }
         }
     }
@@ -87,22 +118,117 @@ fun SettingsScreen(
 @Composable
 private fun SettingsNavigation(
     model: WukkiModel,
-    selected: SettingsSection,
-    onSelect: (SettingsSection) -> Unit,
+    selected: SettingsSection?,
+    onSelect: (SettingsSection?) -> Unit,
+    scale: Float,
     modifier: Modifier
 ) {
-    SettingsCard(modifier) {
-        Text(t(model, "KATEGÓRIÁK", "CATEGORIES"), fontSize = 18.sp, fontWeight = FontWeight.Black)
-        Spacer(Modifier.height(24.dp))
+    val shape = RoundedCornerShape(12.dp * scale)
+    Column(
+        modifier = modifier.clip(shape).background(SettingsSurface).border(1.dp, Color(0xFF263648), shape)
+    ) {
         SettingsSection.entries.forEach { item ->
             val active = item == selected
             Row(
-                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(7.dp)).background(if (active) SettingsAccent.copy(alpha = .35f) else Color.Transparent)
-                    .clickable { onSelect(item) }.padding(horizontal = 12.dp, vertical = 13.dp),
+                modifier = Modifier.fillMaxWidth().height(81.dp * scale)
+                    .background(if (active) Color(0xFF292141) else Color.Transparent)
+                    .border(0.5.dp, Color(0xFF263648).copy(alpha = .72f))
+                    .clickable { onSelect(item) }.padding(horizontal = 24.dp * scale),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(item.icon(), modifier = Modifier.width(28.dp), color = if (active) Color.White else SettingsMuted)
-                Text(item.title(model), fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal)
+                Text(
+                    item.title(model),
+                    color = Color.White,
+                    fontSize = (19f * scale).sp,
+                    fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (item == SettingsSection.LANGUAGE) {
+                    Text(
+                        if (model.settings.language == AppLanguage.HUNGARIAN) "Magyar" else "English",
+                        color = Color.White,
+                        fontSize = (16f * scale).sp,
+                        modifier = Modifier.padding(end = 14.dp * scale)
+                    )
+                }
+                Text("›", color = Color(0xFFD0D7E1), fontSize = (34f * scale).sp, fontWeight = FontWeight.Light)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsHome(model: WukkiModel, scale: Float, modifier: Modifier) {
+    Column(
+        modifier = modifier.padding(bottom = 80.dp * scale),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        SettingsGear(scale)
+        Spacer(Modifier.height(52.dp * scale))
+        Text(
+            t(model, "Állítsd be az alkalmazást\na saját igényeid szerint.", "Customize the application\nto suit your needs."),
+            color = Color(0xFFC1C8D2),
+            fontSize = (18f * scale).sp,
+            lineHeight = (28f * scale).sp,
+            fontWeight = FontWeight.SemiBold
+        )
+    }
+}
+
+@Composable
+private fun SettingsGear(scale: Float) {
+    Canvas(Modifier.size(184.dp * scale)) {
+        val center = Offset(size.width / 2f, size.height / 2f)
+        val brush = Brush.linearGradient(
+            colors = listOf(Color(0xFF5EA7FF), Color(0xFF7654F5), Color(0xFF9A4DE0)),
+            start = Offset(size.width, 0f),
+            end = Offset(0f, size.height)
+        )
+        val inner = size.minDimension * .31f
+        val outer = size.minDimension * .45f
+        repeat(8) { index ->
+            val angle = index * PI.toFloat() / 4f
+            drawLine(
+                brush = brush,
+                start = Offset(center.x + cos(angle) * inner, center.y + sin(angle) * inner),
+                end = Offset(center.x + cos(angle) * outer, center.y + sin(angle) * outer),
+                strokeWidth = size.minDimension * .16f,
+                cap = StrokeCap.Square
+            )
+        }
+        drawCircle(brush = brush, radius = size.minDimension * .34f, center = center)
+        drawCircle(color = Color(0xFF07121C), radius = size.minDimension * .17f, center = center)
+    }
+}
+
+@Composable
+private fun SettingsDetail(
+    model: WukkiModel,
+    scope: CoroutineScope,
+    selectedSection: SettingsSection,
+    scale: Float,
+    modifier: Modifier
+) {
+    SettingsCard(modifier) {
+        Text(selectedSection.title(model), color = Color.White, fontWeight = FontWeight.Black, fontSize = (23f * scale).sp)
+        Spacer(Modifier.height(16.dp * scale))
+        when (selectedSection) {
+            SettingsSection.EPG -> EpgSettings(model, scope)
+            SettingsSection.PLAYLISTS -> PlaylistSettings(model, scope)
+            else -> Column(
+                modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())
+            ) {
+                when (selectedSection) {
+                    SettingsSection.PLAYBACK -> PlaybackSettings(model)
+                    SettingsSection.DISPLAY -> DisplaySettings(model)
+                    SettingsSection.PARENTAL -> ParentalSettings(model)
+                    SettingsSection.LANGUAGE -> LanguageSettings(model)
+                    SettingsSection.ABOUT -> AboutSettings(model)
+                    SettingsSection.EPG, SettingsSection.PLAYLISTS -> Unit
+                }
             }
         }
     }
@@ -239,6 +365,63 @@ private fun LanguageSettings(model: WukkiModel) {
 }
 
 @Composable
+private fun ParentalSettings(model: WukkiModel) {
+    Box(
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+            .background(SettingsSurface).border(1.dp, Color(0xFF263648), RoundedCornerShape(10.dp))
+            .padding(22.dp)
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(t(model, "Fejlesztés alatt", "Coming soon"), color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+            Text(
+                t(
+                    model,
+                    "A PIN-kódos védelem és a korhatár szerinti csatornazárolás egy későbbi verzióban lesz elérhető.",
+                    "PIN protection and age-based channel locking will be available in a future version."
+                ),
+                color = SettingsMuted,
+                fontSize = 13.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun AboutSettings(model: WukkiModel) {
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Text("Wukki TV", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Black)
+        SettingsInfoLine(t(model, "Verzió", "Version"), WUKKI_VERSION)
+        SettingsInfoLine(t(model, "Lejátszómotor", "Playback engine"), "VLC / libVLC")
+        Box(
+            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(SettingsSurface)
+                .border(1.dp, Color(0xFF263648), RoundedCornerShape(10.dp)).padding(16.dp)
+        ) {
+            Text(
+                t(
+                    model,
+                    "A Wukki TV a VideoLAN VLC/libVLC technológiáját és más nyílt forráskódú komponenseket használ. A harmadik féltől származó licencek és szerzői jogi értesítések az alkalmazáscsomag LICENSES mappájában találhatók.",
+                    "Wukki TV uses VideoLAN VLC/libVLC technology and other open-source components. Third-party licences and copyright notices are included in the application's LICENSES directory."
+                ),
+                color = SettingsMuted,
+                fontSize = 13.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun SettingsInfoLine(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(SettingsSurface)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(label, color = SettingsMuted, modifier = Modifier.weight(1f))
+        Text(value, color = Color.White, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+@Composable
 private fun SettingsRow(model: WukkiModel, hungarian: String, english: String, value: String? = null, content: @Composable () -> Unit) {
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -285,13 +468,14 @@ private fun choosePlaylistFile(): File? {
 
 @Composable private fun t(model: WukkiModel, hungarian: String, english: String): String = if (model.settings.language == AppLanguage.HUNGARIAN) hungarian else english
 @Composable private fun SettingsSection.title(model: WukkiModel): String = when (this) {
-    SettingsSection.PLAYBACK -> t(model, "Lejátszás", "Playback")
-    SettingsSection.EPG -> "EPG"
+    SettingsSection.PLAYBACK -> t(model, "Lejátszási beállítások", "Playback settings")
+    SettingsSection.EPG -> t(model, "EPG beállítások", "EPG settings")
     SettingsSection.DISPLAY -> t(model, "Megjelenítés", "Appearance")
-    SettingsSection.PLAYLISTS -> t(model, "Playlist kezelés", "Playlists")
+    SettingsSection.PARENTAL -> t(model, "Szülői felügyelet", "Parental controls")
+    SettingsSection.PLAYLISTS -> t(model, "Playlist kezelése", "Playlist management")
     SettingsSection.LANGUAGE -> t(model, "Nyelv", "Language")
+    SettingsSection.ABOUT -> t(model, "Névjegy", "About")
 }
-private fun SettingsSection.icon(): String = when (this) { SettingsSection.PLAYBACK -> "▶"; SettingsSection.EPG -> "▦"; SettingsSection.DISPLAY -> "◐"; SettingsSection.PLAYLISTS -> "☷"; SettingsSection.LANGUAGE -> "A" }
 @Composable private fun RefreshInterval.label(model: WukkiModel): String = when (this) { RefreshInterval.MANUAL -> t(model, "Kézi", "Manual"); RefreshInterval.SIX_HOURS -> t(model, "6 óra", "6 hours"); RefreshInterval.DAILY -> t(model, "Napi", "Daily") }
 @Composable private fun BufferProfile.label(model: WukkiModel): String = when (this) { BufferProfile.LOW_LATENCY -> t(model, "Alacsony késés", "Low latency"); BufferProfile.BALANCED -> t(model, "Kiegyensúlyozott", "Balanced"); BufferProfile.STABLE -> t(model, "Stabil", "Stable") }
 @Composable private fun AspectRatioMode.label(model: WukkiModel): String = when (this) { AspectRatioMode.AUTO -> t(model, "Automatikus", "Automatic"); AspectRatioMode.RATIO_16_9 -> "16:9"; AspectRatioMode.RATIO_4_3 -> "4:3"; AspectRatioMode.RATIO_21_9 -> "21:9"; AspectRatioMode.FILL_CROP -> t(model, "Kitöltés", "Fill") }

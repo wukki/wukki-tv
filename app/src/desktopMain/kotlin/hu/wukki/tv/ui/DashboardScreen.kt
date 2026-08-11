@@ -64,8 +64,8 @@ fun DashboardScreen(
     activeSection: DashboardSection,
     guideState: EpgGuideState,
     onSectionChange: (DashboardSection) -> Unit,
-    settingsSection: SettingsSection,
-    onSettingsSectionChange: (SettingsSection) -> Unit
+    settingsSection: SettingsSection?,
+    onSettingsSectionChange: (SettingsSection?) -> Unit
 ) {
     BoxWithConstraints(
         modifier = Modifier.fillMaxSize().background(

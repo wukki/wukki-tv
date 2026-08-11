@@ -33,7 +33,7 @@ fun WukkiApp() {
     val scope = rememberCoroutineScope()
     val focusRequester = remember { FocusRequester() }
     var tick by remember { mutableStateOf(System.currentTimeMillis()) }
-    var settingsSection by remember { mutableStateOf(SettingsSection.PLAYBACK) }
+    var settingsSection by remember { mutableStateOf<SettingsSection?>(null) }
     var activeSection by remember { mutableStateOf(DashboardSection.LIVE) }
     var overlayRequest by remember { mutableIntStateOf(0) }
     var programmeOverlayVisible by remember { mutableStateOf(false) }
@@ -176,7 +176,13 @@ fun WukkiApp() {
                         }
                         return@onPreviewKeyEvent true
                     }
-                    if (activeSection == DashboardSection.SETTINGS) return@onPreviewKeyEvent false
+                    if (activeSection == DashboardSection.SETTINGS) {
+                        if (event.key == Key.Escape && settingsSection != null) {
+                            settingsSection = null
+                            return@onPreviewKeyEvent true
+                        }
+                        return@onPreviewKeyEvent false
+                    }
                     val digit = when (event.key) {
                         Key.One, Key.NumPad1 -> "1"
                         Key.Two, Key.NumPad2 -> "2"
@@ -216,7 +222,10 @@ fun WukkiApp() {
                 tick = tick,
                 activeSection = activeSection,
                 guideState = guideState,
-                onSectionChange = { activeSection = it },
+                onSectionChange = { section ->
+                    if (section == DashboardSection.SETTINGS) settingsSection = null
+                    activeSection = section
+                },
                 settingsSection = settingsSection,
                 onSettingsSectionChange = { settingsSection = it }
             )
