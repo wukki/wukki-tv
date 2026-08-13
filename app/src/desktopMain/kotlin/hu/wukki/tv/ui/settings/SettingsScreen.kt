@@ -184,8 +184,6 @@ private fun SettingsDetail(
     modifier: Modifier
 ) {
     SettingsCard(modifier) {
-        Text(selectedSection.title(model), color = WukkiColors.textPrimary, fontWeight = FontWeight.Black, fontSize = (23f * scale).sp)
-        Spacer(Modifier.height(16.dp * scale))
         when (selectedSection) {
             SettingsSection.EPG -> EpgSettings(model, scope)
             SettingsSection.PLAYLISTS -> PlaylistSettings(model, scope)
@@ -211,11 +209,21 @@ private fun PlaybackSettings(model: WukkiModel) {
     var focusedOption by remember { mutableStateOf(PlaybackOption.VOLUME) }
     Column(
         modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         PlaybackSettingRow(model, "settings.playback.volume", "settings.playback.volume.description", focusedOption == PlaybackOption.VOLUME, { focusedOption = PlaybackOption.VOLUME }) {
-            Column(modifier = Modifier.widthIn(min = 150.dp, max = 205.dp)) {
+            Row(
+                modifier = Modifier.widthIn(min = 150.dp, max = 205.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text("${settings.volume}%", color = WukkiColors.textPrimary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                Slider(value = settings.volume.toFloat(), onValueChange = { volume -> model.updatePlayback { it.copy(volume = volume.toInt()) } }, valueRange = 0f..100f)
+                Slider(
+                    value = settings.volume.toFloat(),
+                    onValueChange = { volume -> model.updatePlayback { it.copy(volume = volume.toInt()) } },
+                    valueRange = 0f..100f,
+                    modifier = Modifier.weight(1f)
+                )
             }
         }
         PlaybackSettingRow(model, "settings.playback.buffer", "settings.playback.buffer.description", focusedOption == PlaybackOption.BUFFER, { focusedOption = PlaybackOption.BUFFER }) {
