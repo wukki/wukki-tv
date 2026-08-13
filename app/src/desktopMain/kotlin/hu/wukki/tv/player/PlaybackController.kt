@@ -15,6 +15,7 @@ import uk.co.caprica.vlcj.player.component.callback.CallbackImagePainter
 import uk.co.caprica.vlcj.player.component.CallbackMediaPlayerComponent
 import java.awt.Color
 import java.awt.AlphaComposite
+import java.awt.geom.Arc2D
 import java.awt.BasicStroke
 import java.awt.Font
 import java.awt.Graphics2D
@@ -58,7 +59,9 @@ data class PlaybackOverlayData(
     val nextEnd: Long?,
     val now: Long,
     val playbackStatus: String? = null,
-    val playbackError: Boolean = false
+    val playbackError: Boolean = false,
+    val showBufferingSpinner: Boolean = false,
+    val bufferingLabel: String? = null
 )
 
 /**
@@ -76,6 +79,8 @@ class PlaybackController(initialLanguage: AppLanguage = AppLanguage.HUNGARIAN) {
     private val pendingLogos = ConcurrentHashMap.newKeySet<String>()
     private val failedLogos = ConcurrentHashMap.newKeySet<String>()
     private var retryTask: ScheduledFuture<*>? = null
+    private var bufferingTask: ScheduledFuture<*>? = null
+    private var spinnerRepaintTask: ScheduledFuture<*>? = null
     private var currentChannel: Channel? = null
     private var currentSettings: PlaybackSettings = PlaybackSettings()
     private var currentShowLogos = true
@@ -101,13 +106,14 @@ class PlaybackController(initialLanguage: AppLanguage = AppLanguage.HUNGARIAN) {
             override fun opening(mediaPlayer: MediaPlayer) = updateState(PlaybackState.OPENING, null)
 
             override fun buffering(mediaPlayer: MediaPlayer, newCache: Float) {
-                if (newCache < 100f) updateState(PlaybackState.BUFFERING, tr(currentLanguage, "playback.buffering.progress", newCache.toInt()))
+                if (newCache < 100f) scheduleBufferingIndicator()
             }
 
             override fun playing(mediaPlayer: MediaPlayer) {
                 attempt = 0
                 retryTask?.cancel(false)
                 retryTask = null
+                cancelBufferingIndicator()
                 updateState(PlaybackState.PLAYING, null)
             }
 
@@ -131,6 +137,7 @@ class PlaybackController(initialLanguage: AppLanguage = AppLanguage.HUNGARIAN) {
             attempt = 0
             retryTask?.cancel(false)
             retryTask = null
+            cancelBufferingIndicator()
             startCurrentChannel()
         }
     }
@@ -170,6 +177,7 @@ class PlaybackController(initialLanguage: AppLanguage = AppLanguage.HUNGARIAN) {
     fun stop() {
         retryTask?.cancel(false)
         retryTask = null
+        cancelBufferingIndicator()
         component?.mediaPlayer()?.controls()?.stop()
         updateState(PlaybackState.IDLE, null)
     }
@@ -178,6 +186,7 @@ class PlaybackController(initialLanguage: AppLanguage = AppLanguage.HUNGARIAN) {
         if (released) return
         released = true
         retryTask?.cancel(true)
+        bufferingTask?.cancel(true)
         retryExecutor.shutdownNow()
         logoExecutor.shutdownNow()
         runCatching { component?.release() }
@@ -203,6 +212,7 @@ class PlaybackController(initialLanguage: AppLanguage = AppLanguage.HUNGARIAN) {
             return
         }
         try {
+            cancelBufferingIndicator()
             player.controls().stop()
             player.audio().setVolume(currentSettings.volume)
             updateState(PlaybackState.OPENING, tr(currentLanguage, "playback.channel.opening", channel.name))
@@ -225,6 +235,7 @@ class PlaybackController(initialLanguage: AppLanguage = AppLanguage.HUNGARIAN) {
     private fun onPlaybackFailure(reason: String? = null) {
         val channel = currentChannel ?: return
         if (released || retryTask != null) return
+        cancelBufferingIndicator()
         val nextAttempt = attempt + 1
         if (!currentSettings.autoReconnect || nextAttempt > currentSettings.reconnectAttempts) {
             updateState(PlaybackState.ERROR, tr(currentLanguage, "playback.stream.failed", channel.name, reason ?: tr(currentLanguage, "error.unknown")))
@@ -241,6 +252,39 @@ class PlaybackController(initialLanguage: AppLanguage = AppLanguage.HUNGARIAN) {
     private fun updateState(newState: PlaybackState, newDetail: String?) {
         state = newState
         detail = newDetail
+    }
+
+    private fun scheduleBufferingIndicator() {
+        if (state == PlaybackState.BUFFERING || bufferingTask != null || released) return
+        bufferingTask = retryExecutor.schedule({
+            bufferingTask = null
+            if (!released && state != PlaybackState.PLAYING) {
+                updateState(PlaybackState.BUFFERING, null)
+                startSpinnerRepaintLoop()
+            }
+        }, BUFFERING_INDICATOR_DELAY_MS, TimeUnit.MILLISECONDS)
+    }
+
+    private fun cancelBufferingIndicator() {
+        bufferingTask?.cancel(false)
+        bufferingTask = null
+        spinnerRepaintTask?.cancel(false)
+        spinnerRepaintTask = null
+    }
+
+    private fun startSpinnerRepaintLoop() {
+        if (spinnerRepaintTask != null) return
+        spinnerRepaintTask = retryExecutor.scheduleAtFixedRate(
+            { if (!released && state == PlaybackState.BUFFERING) requestRepaint() },
+            0L,
+            SPINNER_FRAME_INTERVAL_MS,
+            TimeUnit.MILLISECONDS
+        )
+    }
+
+    private companion object {
+        const val BUFFERING_INDICATOR_DELAY_MS = 250L
+        const val SPINNER_FRAME_INTERVAL_MS = 33L
     }
 }
 
@@ -265,6 +309,7 @@ private class OverlayCallbackMediaPlayerComponent(vararg factoryArguments: Strin
 
         if (data.showPreviewLogo) drawPreviewLogo(graphics, content, width, scale)
         if (data.showProgrammeInfo) drawProgrammePanel(graphics, content, width, height, scale)
+        if (data.showBufferingSpinner) drawBufferingSpinner(graphics, data.bufferingLabel.orEmpty(), width, height, scale)
         data.playbackStatus?.let {
             drawPlaybackStatus(graphics, it, data.playbackError, data.showProgrammeInfo, width, height, scale)
         }
@@ -272,6 +317,23 @@ private class OverlayCallbackMediaPlayerComponent(vararg factoryArguments: Strin
             drawChannelNumberInput(graphics, it, width, scale)
         }
     }
+}
+
+private fun drawBufferingSpinner(graphics: Graphics2D, label: String, width: Int, height: Int, scale: Float) {
+    val diameter = (52 * scale).toInt().coerceAtLeast(30)
+    val x = (width - diameter) / 2
+    val y = (height - diameter) / 2 - (14 * scale).toInt()
+    val stroke = (5 * scale).coerceAtLeast(3f)
+    graphics.stroke = BasicStroke(stroke, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND)
+    graphics.color = WukkiOverlayColors.divider
+    graphics.draw(Arc2D.Float(x.toFloat(), y.toFloat(), diameter.toFloat(), diameter.toFloat(), 0f, 360f, Arc2D.OPEN))
+    val rotation = ((System.currentTimeMillis() % 900L) * 360f / 900f)
+    graphics.color = WukkiOverlayColors.accent
+    graphics.draw(Arc2D.Float(x.toFloat(), y.toFloat(), diameter.toFloat(), diameter.toFloat(), -rotation, 105f, Arc2D.OPEN))
+    graphics.font = Font(Font.SANS_SERIF, Font.BOLD, (17 * scale).toInt().coerceAtLeast(12))
+    graphics.color = WukkiOverlayColors.text
+    val baseline = y + diameter + graphics.fontMetrics.height + (9 * scale).toInt()
+    graphics.drawString(label, (width - graphics.fontMetrics.stringWidth(label)) / 2, baseline)
 }
 
 private fun drawPreviewLogo(

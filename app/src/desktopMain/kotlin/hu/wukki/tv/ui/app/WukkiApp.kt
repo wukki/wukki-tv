@@ -109,7 +109,7 @@ fun WukkiApp() {
     val playbackStatus = when (playbackController.state) {
         PlaybackState.IDLE, PlaybackState.PLAYING -> null
         PlaybackState.OPENING -> tr(language, "playback.opening")
-        PlaybackState.BUFFERING -> tr(language, "playback.buffering")
+        PlaybackState.BUFFERING -> null
         PlaybackState.RECONNECTING -> tr(language, "playback.reconnecting")
         PlaybackState.ERROR -> tr(language, "playback.error")
     }?.let { label ->
@@ -154,7 +154,9 @@ fun WukkiApp() {
                     nextEnd = overlayNext?.end,
                     now = tick,
                     playbackStatus = playbackStatus,
-                    playbackError = playbackController.state == PlaybackState.ERROR
+                    playbackError = playbackController.state == PlaybackState.ERROR,
+                    showBufferingSpinner = playbackController.state == PlaybackState.BUFFERING,
+                    bufferingLabel = tr(language, "playback.buffering")
                 )
             )
         }
