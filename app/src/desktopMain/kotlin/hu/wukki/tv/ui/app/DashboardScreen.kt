@@ -1,4 +1,14 @@
-package hu.wukki.tv
+package hu.wukki.tv.ui.app
+
+import hu.wukki.tv.*
+import hu.wukki.tv.ui.components.*
+import hu.wukki.tv.ui.guide.*
+import hu.wukki.tv.ui.live.LiveTvScreen
+import hu.wukki.tv.ui.live.LiveTvUiState
+import hu.wukki.tv.ui.navigation.NavigationEntryUiState
+import hu.wukki.tv.ui.navigation.SideNavigation
+import hu.wukki.tv.ui.navigation.SideNavigationUiState
+import hu.wukki.tv.ui.settings.*
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
@@ -55,6 +65,24 @@ private val DashboardMuted = Color(0xFF93A0B5)
 private val DashboardBorder = Color(0xFF223047)
 private val FocusPurple = Color(0xFF8B5CF6)
 
+private fun navigationState(model: WukkiModel, activeSection: DashboardSection, tick: Long): SideNavigationUiState {
+    val hungarian = model.settings.language == AppLanguage.HUNGARIAN
+    val date = Instant.ofEpochMilli(tick).atZone(ZoneId.systemDefault()).toLocalDate()
+    val locale = if (hungarian) Locale.forLanguageTag("hu") else Locale.ENGLISH
+    val datePattern = if (hungarian) "MMMM d., EEEE" else "MMMM d, EEEE"
+    return SideNavigationUiState(
+        entries = listOf(
+            NavigationEntryUiState(DashboardSection.LIVE, if (hungarian) "Élő adás" else "Live TV"),
+            NavigationEntryUiState(DashboardSection.GUIDE, if (hungarian) "Műsorújság" else "TV Guide"),
+            NavigationEntryUiState(DashboardSection.CHANNELS, if (hungarian) "Csatornák" else "Channels"),
+            NavigationEntryUiState(DashboardSection.SETTINGS, if (hungarian) "Beállítások" else "Settings")
+        ),
+        activeSection = activeSection,
+        timeLabel = formatTime(tick),
+        dateLabel = date.format(DateTimeFormatter.ofPattern(datePattern, locale))
+    )
+}
+
 @Composable
 fun DashboardScreen(
     model: WukkiModel,
@@ -80,23 +108,24 @@ fun DashboardScreen(
 
         Row(modifier = Modifier.fillMaxSize()) {
             SideNavigation(
-                model = model,
-                activeSection = activeSection,
+                state = navigationState(model, activeSection, tick),
                 onSelect = onSectionChange,
-                tick = tick,
                 scale = referenceScale,
                 modifier = Modifier.width(navigationWidth).fillMaxHeight()
             )
             when (activeSection) {
                 DashboardSection.LIVE -> LiveTvScreen(
-                    model,
-                    playbackController,
-                    referenceScale,
-                    Modifier.weight(1f).fillMaxHeight()
+                    state = LiveTvUiState(
+                        hasChannel = model.selectedChannel() != null,
+                        emptyMessage = d(model, "Tölts be egy M3U playlistet a kezdéshez.", "Load an M3U playlist to get started.")
+                    ),
+                    scale = referenceScale,
+                    video = { EmbeddedVlcPlayer(playbackController, Modifier.fillMaxSize()) },
+                    modifier = Modifier.weight(1f).fillMaxHeight()
                 )
 
                 DashboardSection.GUIDE -> EpgGuideScreen(
-                    model,
+                    model.guideDataSource(),
                     tick,
                     guideState,
                     modifier = Modifier.weight(1f).fillMaxHeight().padding(contentPadding)
@@ -125,35 +154,6 @@ fun DashboardScreen(
         ) {
             model.error?.let { DashboardMessage("Hiba: $it", Color(0xFFFFB4AB), Color(0xE65F1D22)) }
             model.status?.let { DashboardMessage(it, Color(0xFFB9F6CA), Color(0xE612352C)) }
-        }
-    }
-}
-
-@Composable
-private fun LiveTvScreen(
-    model: WukkiModel,
-    playbackController: PlaybackController,
-    scale: Float,
-    modifier: Modifier
-) {
-    val channel = model.selectedChannel()
-    Box(
-        modifier = modifier.padding(
-            top = (38.dp * scale).coerceAtLeast(20.dp),
-            end = (36.dp * scale).coerceAtLeast(18.dp),
-            bottom = (120.dp * scale).coerceAtLeast(54.dp)
-        ).clip(RoundedCornerShape((8.dp * scale).coerceAtLeast(5.dp)))
-            .background(Color.Black)
-            .border(BorderStroke(1.dp, Color(0xFF172536)), RoundedCornerShape((8.dp * scale).coerceAtLeast(5.dp)))
-    ) {
-        if (channel == null) {
-            Text(
-                d(model, "Tölts be egy M3U playlistet a kezdéshez.", "Load an M3U playlist to get started."),
-                color = DashboardMuted,
-                modifier = Modifier.align(Alignment.Center)
-            )
-        } else {
-            EmbeddedVlcPlayer(playbackController, Modifier.fillMaxSize())
         }
     }
 }
@@ -208,156 +208,6 @@ private fun ChannelScreen(
     }
 }
 
-@Composable
-private fun SideNavigation(
-    model: WukkiModel,
-    activeSection: DashboardSection,
-    onSelect: (DashboardSection) -> Unit,
-    tick: Long,
-    scale: Float,
-    modifier: Modifier
-) {
-    val entries = listOf(
-        DashboardSection.LIVE to d(model, "Élő adás", "Live TV"),
-        DashboardSection.GUIDE to d(model, "Műsorújság", "TV Guide"),
-        DashboardSection.CHANNELS to d(model, "Csatornák", "Channels"),
-        DashboardSection.SETTINGS to d(model, "Beállítások", "Settings")
-    )
-    Column(
-        modifier = modifier.background(
-            Brush.horizontalGradient(listOf(Color(0xFF02080E), Color(0xFF07121C), Color(0xFF06101A)))
-        )
-    ) {
-        Row(
-            modifier = Modifier.padding(start = 30.dp * scale, top = 40.dp * scale),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("Wukki", fontWeight = FontWeight.Black, fontSize = (36 * scale).sp, letterSpacing = (-1.2).sp)
-            Spacer(Modifier.width(7.dp * scale))
-            Text(
-                "TV",
-                color = Color.White,
-                fontSize = (17 * scale).sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.clip(RoundedCornerShape(5.dp * scale))
-                    .background(Brush.verticalGradient(listOf(Color(0xFF7662F4), Color(0xFF4C35B8))))
-                    .padding(horizontal = 7.dp * scale, vertical = 4.dp * scale)
-            )
-        }
-        Spacer(Modifier.height(83.dp * scale))
-        entries.forEach { (id, title) ->
-            val selected = id == activeSection
-            Row(
-                modifier = Modifier.fillMaxWidth().height((76.dp * scale).coerceIn(54.dp, 94.dp))
-                    .background(
-                        if (selected) Brush.horizontalGradient(
-                            listOf(Color(0xFF5B43B7).copy(alpha = .82f), Color(0xFF2D235C).copy(alpha = .58f), Color.Transparent)
-                        ) else Brush.horizontalGradient(listOf(Color.Transparent, Color.Transparent))
-                    )
-                    .clickable { onSelect(id) }.padding(start = 40.dp * scale, end = 16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                NavigationIcon(
-                    section = id,
-                    color = if (selected) Color.White else Color(0xFFC7CED8),
-                    modifier = Modifier.size((29.dp * scale).coerceIn(22.dp, 38.dp))
-                )
-                Spacer(Modifier.width(25.dp * scale))
-                Text(
-                    title,
-                    color = if (selected) Color.White else Color(0xFFE6EAF2),
-                    fontSize = (19 * scale).sp,
-                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
-                )
-            }
-        }
-        Spacer(Modifier.weight(1f))
-        val date = Instant.ofEpochMilli(tick).atZone(ZoneId.systemDefault()).toLocalDate()
-        val locale = if (model.settings.language == AppLanguage.HUNGARIAN) Locale.forLanguageTag("hu") else Locale.ENGLISH
-        val datePattern = if (model.settings.language == AppLanguage.HUNGARIAN) "MMMM d., EEEE" else "MMMM d, EEEE"
-        Column(modifier = Modifier.padding(start = 30.dp * scale, bottom = 70.dp * scale)) {
-            Text(formatTime(tick), fontSize = (34 * scale).sp, fontWeight = FontWeight.Light)
-            Spacer(Modifier.height(5.dp * scale))
-            Text(date.format(DateTimeFormatter.ofPattern(datePattern, locale)), color = DashboardMuted, fontSize = (15 * scale).sp)
-        }
-    }
-}
-
-@Composable
-private fun NavigationIcon(section: DashboardSection, color: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier) {
-        val stroke = Stroke(width = size.minDimension * .075f)
-        val inset = size.minDimension * .12f
-        when (section) {
-            DashboardSection.LIVE -> {
-                drawRoundRect(
-                    color,
-                    topLeft = Offset(inset, size.height * .24f),
-                    size = Size(size.width - inset * 2, size.height * .61f),
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.width * .08f),
-                    style = stroke
-                )
-                val play = Path().apply {
-                    moveTo(size.width * .43f, size.height * .40f)
-                    lineTo(size.width * .68f, size.height * .55f)
-                    lineTo(size.width * .43f, size.height * .70f)
-                    close()
-                }
-                drawPath(play, color)
-                drawLine(color, Offset(size.width * .42f, size.height * .13f), Offset(size.width * .50f, size.height * .24f), stroke.width)
-                drawLine(color, Offset(size.width * .58f, size.height * .13f), Offset(size.width * .50f, size.height * .24f), stroke.width)
-            }
-
-            DashboardSection.GUIDE -> {
-                drawRoundRect(
-                    color,
-                    topLeft = Offset(inset, size.height * .20f),
-                    size = Size(size.width - inset * 2, size.height * .68f),
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.width * .08f),
-                    style = stroke
-                )
-                drawLine(color, Offset(inset, size.height * .40f), Offset(size.width - inset, size.height * .40f), stroke.width)
-                repeat(2) { column ->
-                    repeat(2) { row ->
-                        drawCircle(
-                            color,
-                            radius = size.width * .045f,
-                            center = Offset(size.width * (.36f + column * .28f), size.height * (.55f + row * .18f))
-                        )
-                    }
-                }
-                drawLine(color, Offset(size.width * .34f, size.height * .11f), Offset(size.width * .34f, size.height * .29f), stroke.width)
-                drawLine(color, Offset(size.width * .66f, size.height * .11f), Offset(size.width * .66f, size.height * .29f), stroke.width)
-            }
-
-            DashboardSection.CHANNELS -> {
-                repeat(3) { row ->
-                    val y = size.height * (.27f + row * .24f)
-                    drawCircle(color, radius = size.width * .055f, center = Offset(size.width * .20f, y))
-                    drawLine(color, Offset(size.width * .34f, y), Offset(size.width * .84f, y), stroke.width, cap = androidx.compose.ui.graphics.StrokeCap.Round)
-                }
-            }
-
-            DashboardSection.SETTINGS -> {
-                val center = Offset(size.width / 2, size.height / 2)
-                drawCircle(color, radius = size.minDimension * .24f, center = center, style = stroke)
-                drawCircle(color, radius = size.minDimension * .08f, center = center, style = stroke)
-                repeat(8) { index ->
-                    val angle = index * PI.toFloat() / 4f
-                    val inner = size.minDimension * .31f
-                    val outer = size.minDimension * .43f
-                    drawLine(
-                        color,
-                        Offset(center.x + cos(angle) * inner, center.y + sin(angle) * inner),
-                        Offset(center.x + cos(angle) * outer, center.y + sin(angle) * outer),
-                        stroke.width,
-                        cap = androidx.compose.ui.graphics.StrokeCap.Round
-                    )
-                }
-            }
-        }
-    }
-}
 
 @Composable
 private fun ChannelHeader(

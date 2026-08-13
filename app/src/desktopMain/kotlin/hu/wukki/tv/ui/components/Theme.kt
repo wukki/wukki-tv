@@ -1,4 +1,4 @@
-package hu.wukki.tv
+package hu.wukki.tv.ui.components
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.darkColorScheme

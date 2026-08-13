@@ -12,6 +12,9 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
+import hu.wukki.tv.ui.app.WukkiApp
+import hu.wukki.tv.ui.components.AppBackground
+import hu.wukki.tv.ui.components.WukkiColorScheme
 import java.awt.Dimension
 
 fun main() = application {

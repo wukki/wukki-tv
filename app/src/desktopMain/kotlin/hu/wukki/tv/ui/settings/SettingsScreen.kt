@@ -1,4 +1,7 @@
-package hu.wukki.tv
+package hu.wukki.tv.ui.settings
+
+import hu.wukki.tv.*
+import hu.wukki.tv.ui.components.formatTime
 
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*

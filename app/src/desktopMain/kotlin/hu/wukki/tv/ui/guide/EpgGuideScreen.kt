@@ -1,4 +1,7 @@
-package hu.wukki.tv
+package hu.wukki.tv.ui.guide
+
+import hu.wukki.tv.*
+import hu.wukki.tv.ui.components.formatTime
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
@@ -123,25 +126,25 @@ class EpgGuideState internal constructor(
         focusedProgrammeKey = null
     }
 
-    suspend fun initialise(model: WukkiModel, channels: List<Channel>) {
+    suspend fun initialise(data: GuideDataSource, channels: List<Channel>) {
         if (channels.isEmpty()) return
         val channelIndex = channels.indexOfFirst { it.id == focusedChannelId }
             .takeIf { it >= 0 }
-            ?: channels.indexOfFirst { it.id == model.selectedChannelId }.takeIf { it >= 0 }
+            ?: channels.indexOfFirst { it.id == data.selectedChannelId }.takeIf { it >= 0 }
             ?: 0
         val channel = channels[channelIndex]
         focusedChannelId = channel.id
-        chooseProgrammeAt(model, channel, focusMinuteOfDay)
+        chooseProgrammeAt(data, channel, focusMinuteOfDay)
         verticalList.scrollToItem(channelIndex)
     }
 
-    fun handleKey(key: Key, model: WukkiModel, scope: CoroutineScope, days: List<LocalDate>): Boolean {
-        val channels = model.guideChannels()
+    fun handleKey(key: Key, data: GuideDataSource, scope: CoroutineScope, days: List<LocalDate>): Boolean {
+        val channels = data.channels()
         return when (key) {
-            Key.DirectionUp, Key.PageUp -> true.also { scope.launch { moveChannel(model, channels, -1) } }
-            Key.DirectionDown, Key.PageDown -> true.also { scope.launch { moveChannel(model, channels, 1) } }
-            Key.DirectionLeft -> true.also { scope.launch { moveProgramme(model, channels, days, -1) } }
-            Key.DirectionRight -> true.also { scope.launch { moveProgramme(model, channels, days, 1) } }
+            Key.DirectionUp, Key.PageUp -> true.also { scope.launch { moveChannel(data, channels, -1) } }
+            Key.DirectionDown, Key.PageDown -> true.also { scope.launch { moveChannel(data, channels, 1) } }
+            Key.DirectionLeft -> true.also { scope.launch { moveProgramme(data, channels, days, -1) } }
+            Key.DirectionRight -> true.also { scope.launch { moveProgramme(data, channels, days, 1) } }
             Key.Enter, Key.NumPadEnter -> true
             else -> false
         }
@@ -151,23 +154,23 @@ class EpgGuideState internal constructor(
         scrollToMinute((currentMinuteOfDay() - HALF_HOUR_MINUTES).coerceAtLeast(0), animate = false)
     }
 
-    suspend fun changeDay(day: LocalDate, model: WukkiModel, channels: List<Channel>) {
+    suspend fun changeDay(day: LocalDate, data: GuideDataSource, channels: List<Channel>) {
         selectDay(day)
-        channels.firstOrNull { it.id == focusedChannelId }?.let { chooseProgrammeAt(model, it, focusMinuteOfDay) }
+        channels.firstOrNull { it.id == focusedChannelId }?.let { chooseProgrammeAt(data, it, focusMinuteOfDay) }
     }
 
-    private suspend fun moveChannel(model: WukkiModel, channels: List<Channel>, delta: Int) {
+    private suspend fun moveChannel(data: GuideDataSource, channels: List<Channel>, delta: Int) {
         if (channels.isEmpty()) return
         val current = channels.indexOfFirst { it.id == focusedChannelId }.let { if (it < 0) 0 else it }
         val target = (current + delta).coerceIn(0, channels.lastIndex)
         val channel = channels[target]
         focusedChannelId = channel.id
-        chooseProgrammeAt(model, channel, focusMinuteOfDay)
+        chooseProgrammeAt(data, channel, focusMinuteOfDay)
         verticalList.animateScrollToItem(target)
     }
 
     private suspend fun moveProgramme(
-        model: WukkiModel,
+        data: GuideDataSource,
         channels: List<Channel>,
         days: List<LocalDate>,
         delta: Int
@@ -176,9 +179,9 @@ class EpgGuideState internal constructor(
         val direction = delta.coerceIn(-1, 1)
         if (direction == 0) return
         val (dayStart, dayEnd) = selectedDay.bounds()
-        val programmes = model.programmesFor(channel, dayStart, dayEnd)
+        val programmes = data.programmesFor(channel, dayStart, dayEnd)
         if (programmes.isEmpty()) {
-            moveToAdjacentDay(model, channel, days, direction)
+            moveToAdjacentDay(data, channel, days, direction)
             return
         }
         val current = programmes.indexOfFirst { it.key() == focusedProgrammeKey }.let { index ->
@@ -186,7 +189,7 @@ class EpgGuideState internal constructor(
         }
         val target = current + direction
         if (target !in programmes.indices) {
-            moveToAdjacentDay(model, channel, days, direction)
+            moveToAdjacentDay(data, channel, days, direction)
             return
         }
         val programme = programmes[target]
@@ -195,7 +198,7 @@ class EpgGuideState internal constructor(
     }
 
     private suspend fun moveToAdjacentDay(
-        model: WukkiModel,
+        data: GuideDataSource,
         channel: Channel,
         days: List<LocalDate>,
         direction: Int
@@ -205,7 +208,7 @@ class EpgGuideState internal constructor(
         val targetDay = days.getOrNull(currentDayIndex + direction) ?: return
         selectDay(targetDay)
         val (dayStart, dayEnd) = targetDay.bounds()
-        val programmes = model.programmesFor(channel, dayStart, dayEnd)
+        val programmes = data.programmesFor(channel, dayStart, dayEnd)
         val programme = if (direction > 0) programmes.firstOrNull() else programmes.lastOrNull()
         if (programme != null) {
             selectProgramme(channel, programme)
@@ -216,9 +219,9 @@ class EpgGuideState internal constructor(
         }
     }
 
-    private fun chooseProgrammeAt(model: WukkiModel, channel: Channel, minute: Int) {
+    private fun chooseProgrammeAt(data: GuideDataSource, channel: Channel, minute: Int) {
         val (dayStart, dayEnd) = selectedDay.bounds()
-        val programmes = model.programmesFor(channel, dayStart, dayEnd)
+        val programmes = data.programmesFor(channel, dayStart, dayEnd)
         val timestamp = selectedDay.timestampAtMinute(minute)
         val programme = programmes.firstOrNull { timestamp in it.start until it.end }
             ?: programmes.minByOrNull { abs(it.start - timestamp) }
@@ -254,7 +257,7 @@ fun rememberEpgGuideState(): EpgGuideState {
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-fun EpgGuideScreen(model: WukkiModel, tick: Long, state: EpgGuideState, modifier: Modifier = Modifier) {
+fun EpgGuideScreen(data: GuideDataSource, tick: Long, state: EpgGuideState, modifier: Modifier = Modifier) {
     BoxWithConstraints(modifier) {
         val layoutScale = min(
             maxWidth.value / REFERENCE_GUIDE_WIDTH,
@@ -267,7 +270,7 @@ fun EpgGuideScreen(model: WukkiModel, tick: Long, state: EpgGuideState, modifier
             rowHeight = ReferenceGuideRowHeight * layoutScale,
             timelineHeight = 70.dp * layoutScale
         )
-        val channels = model.guideChannels()
+        val channels = data.channels()
         val density = LocalDensity.current
         val minuteWidthPx = with(density) { metrics.minuteWidth.toPx() }
         val dayWidth = metrics.minuteWidth * MINUTES_PER_DAY
@@ -278,9 +281,9 @@ fun EpgGuideScreen(model: WukkiModel, tick: Long, state: EpgGuideState, modifier
         var initialScrollApplied by remember(state) { mutableStateOf(false) }
 
         state.pixelsPerMinute = minuteWidthPx
-        LaunchedEffect(channels.map { it.id }) { state.initialise(model, channels) }
+        LaunchedEffect(channels.map { it.id }) { state.initialise(data, channels) }
         LaunchedEffect(today) {
-            if (state.selectedDay !in days) state.changeDay(today, model, channels)
+            if (state.selectedDay !in days) state.changeDay(today, data, channels)
         }
         LaunchedEffect(state.horizontalScroll.maxValue) {
             if (initialScrollApplied || state.horizontalScroll.maxValue == 0) return@LaunchedEffect
@@ -297,11 +300,11 @@ fun EpgGuideScreen(model: WukkiModel, tick: Long, state: EpgGuideState, modifier
         ) {
             Column(Modifier.fillMaxSize()) {
                 GuideDateHeader(
-                    model = model,
+                    language = data.language,
                     days = days,
                     state = state,
                     scale = layoutScale,
-                    onSelect = { day -> scope.launch { state.changeDay(day, model, channels) } }
+                    onSelect = { day -> scope.launch { state.changeDay(day, data, channels) } }
                 )
                 TimelineHeader(state, dayWidth, tick, metrics)
                 Box(
@@ -318,14 +321,14 @@ fun EpgGuideScreen(model: WukkiModel, tick: Long, state: EpgGuideState, modifier
                 ) {
                     if (channels.isEmpty()) {
                         Text(
-                            guideText(model, "Nincs megjeleníthető csatorna.", "No channels to display."),
+                            guideText(data.language, "Nincs megjeleníthető csatorna.", "No channels to display."),
                             color = GuideMuted,
                             modifier = Modifier.align(Alignment.Center)
                         )
                     } else {
                         LazyColumn(state = state.verticalList, modifier = Modifier.fillMaxSize()) {
                             itemsIndexed(channels, key = { _, channel -> channel.id }) { _, channel ->
-                                GuideChannelRow(model, channel, dayStart, dayEnd, state, dayWidth, metrics)
+                                GuideChannelRow(data, channel, dayStart, dayEnd, state, dayWidth, metrics)
                             }
                         }
                         CurrentTimeBodyLine(tick, state.selectedDay, state, metrics)
@@ -338,7 +341,7 @@ fun EpgGuideScreen(model: WukkiModel, tick: Long, state: EpgGuideState, modifier
 
 @Composable
 private fun GuideDateHeader(
-    model: WukkiModel,
+    language: AppLanguage,
     days: List<LocalDate>,
     state: EpgGuideState,
     scale: Float,
@@ -351,7 +354,7 @@ private fun GuideDateHeader(
         )
     ) {
         Text(
-            guideText(model, "MŰSORÚJSÁG", "TV GUIDE"),
+            guideText(language, "MŰSORÚJSÁG", "TV GUIDE"),
             color = Color.White,
             fontSize = (28f * scale).sp,
             fontWeight = FontWeight.Black,
@@ -374,7 +377,7 @@ private fun GuideDateHeader(
             ) {
                 days.forEachIndexed { index, day ->
                     GuideDayTab(
-                        model = model,
+                        language = language,
                         day = day,
                         index = index,
                         selected = day == state.selectedDay,
@@ -396,7 +399,7 @@ private fun GuideDateHeader(
 
 @Composable
 private fun GuideDayTab(
-    model: WukkiModel,
+    language: AppLanguage,
     day: LocalDate,
     index: Int,
     selected: Boolean,
@@ -418,14 +421,14 @@ private fun GuideDayTab(
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            day.dayLabel(model, index),
+            day.dayLabel(language, index),
             color = Color.White,
             fontSize = (20f * scale).sp,
             fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
             maxLines = 1
         )
         Spacer(Modifier.height(5.dp * scale))
-        Text(day.dateLabel(model), color = GuideMuted, fontSize = (14f * scale).sp, maxLines = 1)
+        Text(day.dateLabel(language), color = GuideMuted, fontSize = (14f * scale).sp, maxLines = 1)
     }
 }
 
@@ -492,7 +495,7 @@ private fun TimelineHeader(
 
 @Composable
 private fun GuideChannelRow(
-    model: WukkiModel,
+    data: GuideDataSource,
     channel: Channel,
     dayStart: Long,
     dayEnd: Long,
@@ -500,7 +503,7 @@ private fun GuideChannelRow(
     dayWidth: androidx.compose.ui.unit.Dp,
     metrics: GuideLayoutMetrics
 ) {
-    val programmes = model.programmesFor(channel, dayStart, dayEnd)
+    val programmes = data.programmesFor(channel, dayStart, dayEnd)
     val rowFocused = state.focusedChannelId == channel.id
     Row(Modifier.fillMaxWidth().height(metrics.rowHeight).background(Color(0xFF08131E))) {
         Row(
@@ -553,7 +556,7 @@ private fun GuideChannelRow(
                 }
             }
             if (programmes.isEmpty()) Text(
-                guideText(model, "EPG nincs", "No EPG"),
+                guideText(data.language, "EPG nincs", "No EPG"),
                 color = GuideMuted,
                 fontSize = (15f * metrics.scale).sp,
                 modifier = Modifier.align(Alignment.CenterStart).padding(start = 18.dp * metrics.scale)
@@ -675,21 +678,19 @@ private fun Long.minuteOfDay(): Float = Instant.ofEpochMilli(this).atZone(ZoneId
     it.hour * 60f + it.minute + it.second / 60f
 }
 private fun currentMinuteOfDay(): Int = java.time.ZonedDateTime.now().let { it.hour * 60 + it.minute }
-@Composable private fun guideText(model: WukkiModel, hu: String, en: String): String = if (model.settings.language == AppLanguage.HUNGARIAN) hu else en
-@Composable
-private fun LocalDate.dayLabel(model: WukkiModel, index: Int): String = if (index == 0) {
-    guideText(model, "Ma", "Today")
+private fun guideText(language: AppLanguage, hu: String, en: String): String = if (language == AppLanguage.HUNGARIAN) hu else en
+private fun LocalDate.dayLabel(language: AppLanguage, index: Int): String = if (index == 0) {
+    guideText(language, "Ma", "Today")
 } else {
-    format(DateTimeFormatter.ofPattern("EEEE", model.guideLocale()))
+    format(DateTimeFormatter.ofPattern("EEEE", language.guideLocale()))
 }
 
-@Composable
-private fun LocalDate.dateLabel(model: WukkiModel): String = format(
+private fun LocalDate.dateLabel(language: AppLanguage): String = format(
     DateTimeFormatter.ofPattern(
-        if (model.settings.language == AppLanguage.HUNGARIAN) "MMMM d." else "MMM d",
-        model.guideLocale()
+        if (language == AppLanguage.HUNGARIAN) "MMMM d." else "MMM d",
+        language.guideLocale()
     )
 )
 
-private fun WukkiModel.guideLocale(): Locale =
-    if (settings.language == AppLanguage.HUNGARIAN) Locale.forLanguageTag("hu") else Locale.ENGLISH
+private fun AppLanguage.guideLocale(): Locale =
+    if (this == AppLanguage.HUNGARIAN) Locale.forLanguageTag("hu") else Locale.ENGLISH

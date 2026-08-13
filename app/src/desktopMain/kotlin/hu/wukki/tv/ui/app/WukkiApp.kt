@@ -1,4 +1,8 @@
-package hu.wukki.tv
+package hu.wukki.tv.ui.app
+
+import hu.wukki.tv.*
+import hu.wukki.tv.ui.guide.*
+import hu.wukki.tv.ui.settings.*
 
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Column
@@ -162,7 +166,7 @@ fun WukkiApp() {
                 .onPreviewKeyEvent { event ->
                     if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                     if (activeSection == DashboardSection.GUIDE &&
-                        guideState.handleKey(event.key, model, scope, guideDays(tick))
+                        guideState.handleKey(event.key, model.guideDataSource(), scope, guideDays(tick))
                     ) {
                         return@onPreviewKeyEvent true
                     }
