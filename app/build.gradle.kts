@@ -1,4 +1,9 @@
 import org.gradle.api.tasks.Sync
+import java.io.StringReader
+import java.nio.ByteBuffer
+import java.nio.charset.CodingErrorAction
+import java.nio.charset.StandardCharsets
+import java.nio.file.Files
 import java.util.Properties
 
 plugins {
@@ -64,11 +69,19 @@ tasks.matching { it.name == "prepareAppResources" || it.name.startsWith("package
 
 val checkLocalizationBundles by tasks.registering {
     group = "verification"
-    description = "Checks that Hungarian and English localization bundles expose the same keys."
+    description = "Checks UTF-8 encoding and matching keys in the Hungarian and English localization bundles."
     doLast {
-        fun loadBundle(name: String) = Properties().apply {
-            file("src/desktopMain/resources/i18n/messages_$name.properties").inputStream().use(::load)
-        }.stringPropertyNames()
+        fun loadBundle(name: String): Set<String> {
+            val path = file("src/desktopMain/resources/i18n/messages_$name.properties").toPath()
+            val content = StandardCharsets.UTF_8.newDecoder()
+                .onMalformedInput(CodingErrorAction.REPORT)
+                .onUnmappableCharacter(CodingErrorAction.REPORT)
+                .decode(ByteBuffer.wrap(Files.readAllBytes(path)))
+                .toString()
+            check(!content.startsWith('\uFEFF')) { "$path must be UTF-8 without a BOM." }
+            check('\r' !in content) { "$path must use Unix (LF) line endings." }
+            return Properties().apply { load(StringReader(content)) }.stringPropertyNames()
+        }
 
         val hungarian = loadBundle("hu")
         val english = loadBundle("en")
