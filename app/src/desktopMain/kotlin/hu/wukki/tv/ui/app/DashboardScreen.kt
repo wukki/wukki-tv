@@ -24,6 +24,12 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Favorite
+import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.SignalCellularAlt
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -329,26 +335,12 @@ private fun ChannelHeaderIcon(close: Boolean, scale: Float, onClick: () -> Unit)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        Canvas(Modifier.size(22.dp * scale)) {
-            val strokeWidth = size.minDimension * .09f
-            if (close) {
-                drawLine(WukkiColors.textPrimary, Offset(size.width * .22f, size.height * .22f), Offset(size.width * .78f, size.height * .78f), strokeWidth)
-                drawLine(WukkiColors.textPrimary, Offset(size.width * .78f, size.height * .22f), Offset(size.width * .22f, size.height * .78f), strokeWidth)
-            } else {
-                drawCircle(
-                    color = WukkiColors.textPrimary,
-                    radius = size.minDimension * .28f,
-                    center = Offset(size.width * .43f, size.height * .42f),
-                    style = Stroke(strokeWidth)
-                )
-                drawLine(
-                    color = WukkiColors.textPrimary,
-                    start = Offset(size.width * .64f, size.height * .64f),
-                    end = Offset(size.width * .86f, size.height * .86f),
-                    strokeWidth = strokeWidth
-                )
-            }
-        }
+        Icon(
+            imageVector = if (close) Icons.Outlined.Close else Icons.Outlined.Search,
+            contentDescription = null,
+            tint = WukkiColors.textPrimary,
+            modifier = Modifier.size(22.dp * scale)
+        )
     }
 }
 
@@ -433,19 +425,7 @@ private fun ChannelDirectory(model: WukkiModel, tick: Long, scale: Float, modifi
 
 @Composable
 private fun ChannelSignalIcon(scale: Float) {
-    Canvas(Modifier.size(38.dp * scale, 30.dp * scale)) {
-        val barWidth = size.width * .105f
-        val gap = size.width * .105f
-        repeat(4) { index ->
-            val height = size.height * (.28f + index * .18f)
-            drawRoundRect(
-                color = FocusPurple,
-                topLeft = Offset(index * (barWidth + gap), size.height - height),
-                size = Size(barWidth, height),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(barWidth / 2f)
-            )
-        }
-    }
+    Icon(Icons.Outlined.SignalCellularAlt, contentDescription = null, tint = FocusPurple, modifier = Modifier.size(30.dp * scale))
 }
 
 @Composable
@@ -454,21 +434,12 @@ private fun ChannelFavoriteIcon(favorite: Boolean, scale: Float, onClick: () -> 
         modifier = Modifier.size(38.dp * scale).clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        Canvas(Modifier.size(27.dp * scale)) {
-            val heart = Path().apply {
-                moveTo(size.width * .50f, size.height * .86f)
-                cubicTo(size.width * .42f, size.height * .78f, size.width * .10f, size.height * .58f, size.width * .10f, size.height * .32f)
-                cubicTo(size.width * .10f, size.height * .12f, size.width * .34f, size.height * .05f, size.width * .50f, size.height * .24f)
-                cubicTo(size.width * .66f, size.height * .05f, size.width * .90f, size.height * .12f, size.width * .90f, size.height * .32f)
-                cubicTo(size.width * .90f, size.height * .58f, size.width * .58f, size.height * .78f, size.width * .50f, size.height * .86f)
-                close()
-            }
-            if (favorite) {
-                drawPath(heart, FocusPurple)
-            } else {
-                drawPath(heart, WukkiColors.textSecondary, style = Stroke(size.minDimension * .065f))
-            }
-        }
+        Icon(
+            imageVector = if (favorite) Icons.Outlined.Favorite else Icons.Outlined.FavoriteBorder,
+            contentDescription = null,
+            tint = if (favorite) FocusPurple else WukkiColors.textSecondary,
+            modifier = Modifier.size(27.dp * scale)
+        )
     }
 }
 
