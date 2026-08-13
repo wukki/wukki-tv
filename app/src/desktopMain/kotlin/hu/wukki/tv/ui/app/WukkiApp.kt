@@ -3,6 +3,8 @@ package hu.wukki.tv.ui.app
 import hu.wukki.tv.*
 import hu.wukki.tv.ui.guide.*
 import hu.wukki.tv.ui.settings.*
+import hu.wukki.tv.ui.components.displayTitle
+import hu.wukki.tv.ui.components.tr
 
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Column
@@ -33,7 +35,7 @@ import kotlin.math.ceil
 @Composable
 fun WukkiApp() {
     val model = remember { WukkiModel() }
-    val playbackController = remember { PlaybackController() }
+    val playbackController = remember { PlaybackController(model.settings.language) }
     val scope = rememberCoroutineScope()
     val focusRequester = remember { FocusRequester() }
     var tick by remember { mutableStateOf(System.currentTimeMillis()) }
@@ -55,8 +57,8 @@ fun WukkiApp() {
     DisposableEffect(playbackController) {
         onDispose { playbackController.release() }
     }
-    LaunchedEffect(model.selectedChannelId, model.settings.playback, model.settings.display.showLogos) {
-        playbackController.play(model.selectedChannel(), model.settings.playback, model.settings.display.showLogos)
+    LaunchedEffect(model.selectedChannelId, model.settings.playback, model.settings.display.showLogos, model.settings.language) {
+        playbackController.play(model.selectedChannel(), model.settings.playback, model.settings.display.showLogos, model.settings.language)
     }
     LaunchedEffect(model.selectedChannelId, activeSection, overlayRequest) {
         if (activeSection == DashboardSection.LIVE && model.selectedChannel() != null) {
@@ -103,15 +105,15 @@ fun WukkiApp() {
     val overlayChannel = model.selectedChannel()
     val overlayCurrent = overlayChannel?.let { model.currentProgram(it, tick) }
     val overlayNext = overlayChannel?.let { channel -> overlayCurrent?.let { model.nextProgram(channel, it) } }
-    val hungarian = model.settings.language == AppLanguage.HUNGARIAN
+    val language = model.settings.language
     val playbackStatus = when (playbackController.state) {
         PlaybackState.IDLE, PlaybackState.PLAYING -> null
-        PlaybackState.OPENING -> if (hungarian) "Betöltés" else "Opening"
-        PlaybackState.BUFFERING -> if (hungarian) "Pufferelés" else "Buffering"
-        PlaybackState.RECONNECTING -> if (hungarian) "Újracsatlakozás" else "Reconnecting"
-        PlaybackState.ERROR -> if (hungarian) "Lejátszási hiba" else "Playback error"
+        PlaybackState.OPENING -> tr(language, "playback.opening")
+        PlaybackState.BUFFERING -> tr(language, "playback.buffering")
+        PlaybackState.RECONNECTING -> tr(language, "playback.reconnecting")
+        PlaybackState.ERROR -> tr(language, "playback.error")
     }?.let { label ->
-        listOf(label, playbackController.detail.takeIf { hungarian }).filterNotNull().joinToString(" · ")
+        listOf(label, playbackController.detail).filterNotNull().joinToString(" · ")
     }
     LaunchedEffect(
         overlayChannel,
@@ -141,15 +143,13 @@ fun WukkiApp() {
                     channelNumberInput = channelNumberInput.takeIf {
                         activeSection == DashboardSection.LIVE && it.isNotEmpty()
                     },
-                    noEpgLabel = if (hungarian) "EPG nincs" else "No EPG",
-                    nextLabel = if (hungarian) "Következő" else "Next",
-                    currentTitle = overlayCurrent?.title,
+                    noEpgLabel = tr(language, "epg.none"),
+                    nextLabel = tr(language, "epg.next"),
+                    currentTitle = overlayCurrent?.displayTitle(language),
                     currentStart = overlayCurrent?.start,
                     currentEnd = overlayCurrent?.end,
-                    remainingText = remainingMinutes?.let { minutes ->
-                        if (hungarian) "$minutes perc van hátra" else "$minutes min remaining"
-                    },
-                    nextTitle = overlayNext?.title,
+                    remainingText = remainingMinutes?.let { minutes -> tr(language, "playback.remaining", minutes) },
+                    nextTitle = overlayNext?.displayTitle(language),
                     nextStart = overlayNext?.start,
                     nextEnd = overlayNext?.end,
                     now = tick,

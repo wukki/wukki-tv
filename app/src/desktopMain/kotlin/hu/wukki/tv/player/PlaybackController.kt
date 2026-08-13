@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.awt.SwingPanel
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import hu.wukki.tv.ui.components.tr
 import uk.co.caprica.vlcj.factory.discovery.NativeDiscovery
 import uk.co.caprica.vlcj.player.base.MediaPlayer
 import uk.co.caprica.vlcj.player.base.MediaPlayerEventAdapter
@@ -63,7 +64,7 @@ data class PlaybackOverlayData(
  * Owns one libVLC instance for the full lifetime of the Compose application.
  * The Swing host may be removed while browsing other screens; audio and the stream keep running.
  */
-class PlaybackController {
+class PlaybackController(initialLanguage: AppLanguage = AppLanguage.HUNGARIAN) {
     private val retryExecutor = Executors.newSingleThreadScheduledExecutor { runnable ->
         Thread(runnable, "wukki-vlc-reconnect").apply { isDaemon = true }
     }
@@ -77,6 +78,7 @@ class PlaybackController {
     private var currentChannel: Channel? = null
     private var currentSettings: PlaybackSettings = PlaybackSettings()
     private var currentShowLogos = true
+    private var currentLanguage = initialLanguage
     private var attempt = 0
     private var released = false
 
@@ -98,7 +100,7 @@ class PlaybackController {
             override fun opening(mediaPlayer: MediaPlayer) = updateState(PlaybackState.OPENING, null)
 
             override fun buffering(mediaPlayer: MediaPlayer, newCache: Float) {
-                if (newCache < 100f) updateState(PlaybackState.BUFFERING, "Pufferelés: ${newCache.toInt()}%")
+                if (newCache < 100f) updateState(PlaybackState.BUFFERING, tr(currentLanguage, "playback.buffering.progress", newCache.toInt()))
             }
 
             override fun playing(mediaPlayer: MediaPlayer) {
@@ -113,13 +115,14 @@ class PlaybackController {
         })
     }
 
-    fun play(channel: Channel?, settings: PlaybackSettings, showLogos: Boolean = true) {
+    fun play(channel: Channel?, settings: PlaybackSettings, showLogos: Boolean = true, language: AppLanguage = AppLanguage.HUNGARIAN) {
         if (channel == null || released) return
         val changedChannel = currentChannel?.streamUrl != channel.streamUrl
         val changedBuffer = currentSettings.bufferProfile != settings.bufferProfile
         currentChannel = channel
         currentSettings = settings
         currentShowLogos = showLogos
+        currentLanguage = language
         applyAspectRatio(settings.aspectRatio ?: AspectRatioMode.AUTO)
         component?.mediaPlayer()?.audio()?.setVolume(settings.volume)
 
@@ -133,7 +136,7 @@ class PlaybackController {
 
     fun updateSettings(settings: PlaybackSettings) {
         val channel = currentChannel ?: return
-        play(channel, settings, currentShowLogos)
+        play(channel, settings, currentShowLogos, currentLanguage)
     }
 
     /** Updates the Java2D video overlay without restarting or reconfiguring the stream. */
@@ -181,13 +184,13 @@ class PlaybackController {
 
     private fun createComponent(): OverlayCallbackMediaPlayerComponent? = try {
         if (runtime == null && !NativeDiscovery().discover()) {
-            updateState(PlaybackState.ERROR, "A beágyazott VLC runtime nem található. Telepíts VLC-t, vagy használj a VLC runtime-ot tartalmazó alkalmazáscsomagot.")
+            updateState(PlaybackState.ERROR, tr(currentLanguage, "playback.runtime.missing"))
             null
         } else {
             OverlayCallbackMediaPlayerComponent(*runtime?.factoryArguments.orEmpty())
         }
     } catch (exception: Exception) {
-        updateState(PlaybackState.ERROR, "A VLC inicializálása sikertelen: ${exception.message ?: "ismeretlen hiba"}")
+        updateState(PlaybackState.ERROR, tr(currentLanguage, "playback.runtime.initialization", exception.message ?: tr(currentLanguage, "error.unknown")))
         null
     }
 
@@ -195,13 +198,13 @@ class PlaybackController {
         val channel = currentChannel ?: return
         val player = component?.mediaPlayer()
         if (player == null) {
-            updateState(PlaybackState.ERROR, detail ?: "A VLC lejátszó nem indítható.")
+            updateState(PlaybackState.ERROR, detail ?: tr(currentLanguage, "playback.player.unavailable"))
             return
         }
         try {
             player.controls().stop()
             player.audio().setVolume(currentSettings.volume)
-            updateState(PlaybackState.OPENING, "${channel.name} betöltése…")
+            updateState(PlaybackState.OPENING, tr(currentLanguage, "playback.channel.opening", channel.name))
             player.media().play(channel.streamUrl, currentSettings.bufferProfile.vlcOption(), ":http-reconnect")
         } catch (exception: Exception) {
             onPlaybackFailure(exception.message)
@@ -223,11 +226,11 @@ class PlaybackController {
         if (released || retryTask != null) return
         val nextAttempt = attempt + 1
         if (!currentSettings.autoReconnect || nextAttempt > currentSettings.reconnectAttempts) {
-            updateState(PlaybackState.ERROR, "${channel.name} nem indítható${reason?.let { ": $it" } ?: ". Ellenőrizd a stream URL-t vagy a hálózatot."}")
+            updateState(PlaybackState.ERROR, tr(currentLanguage, "playback.stream.failed", channel.name, reason ?: tr(currentLanguage, "error.unknown")))
             return
         }
         attempt = nextAttempt
-        updateState(PlaybackState.RECONNECTING, "${channel.name} újracsatlakoztatása ($attempt/${currentSettings.reconnectAttempts})…")
+        updateState(PlaybackState.RECONNECTING, tr(currentLanguage, "playback.reconnect.attempt", channel.name, attempt, currentSettings.reconnectAttempts))
         retryTask = retryExecutor.schedule({
             retryTask = null
             startCurrentChannel()

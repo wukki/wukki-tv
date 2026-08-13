@@ -21,7 +21,7 @@ object EpgParser {
             val end = parseTime(element.getAttribute("stop")) ?: return@mapNotNull null
             val channelId = element.getAttribute("channel").trim()
             if (channelId.isBlank() || end <= start) return@mapNotNull null
-            Programme(channelId, element.textOf("title").ifBlank { "Műsor" }, start, end, element.textOf("desc").ifBlank { null })
+            Programme(channelId, element.textOf("title"), start, end, element.textOf("desc").ifBlank { null })
         }.sortedBy { it.start }
     }
 

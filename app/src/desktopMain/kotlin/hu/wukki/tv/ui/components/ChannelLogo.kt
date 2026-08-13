@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.SubcomposeAsyncImage
 import hu.wukki.tv.Channel
+import hu.wukki.tv.AppLanguage
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -22,13 +23,13 @@ import java.util.logging.Logger
 private val logoLogger = Logger.getLogger("hu.wukki.tv.ChannelLogo")
 
 @Composable
-fun ChannelLogo(channel: Channel, modifier: Modifier = Modifier) {
+fun ChannelLogo(channel: Channel, language: AppLanguage, modifier: Modifier = Modifier) {
     val shape = RoundedCornerShape(8.dp)
     Box(modifier = modifier.clip(shape), contentAlignment = Alignment.Center) {
         if (channel.logo.isNullOrBlank()) LogoFallback(channel) else {
             SubcomposeAsyncImage(
                 model = channel.logo,
-                contentDescription = "${channel.name} logója",
+                contentDescription = tr(language, "logo.description", channel.name),
                 contentScale = ContentScale.Fit,
                 modifier = Modifier.fillMaxSize(),
                 loading = { LogoFallback(channel) },

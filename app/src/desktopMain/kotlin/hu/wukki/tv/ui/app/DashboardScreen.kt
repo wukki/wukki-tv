@@ -66,20 +66,19 @@ private val DashboardBorder = Color(0xFF223047)
 private val FocusPurple = Color(0xFF8B5CF6)
 
 private fun navigationState(model: WukkiModel, activeSection: DashboardSection, tick: Long): SideNavigationUiState {
-    val hungarian = model.settings.language == AppLanguage.HUNGARIAN
+    val language = model.settings.language
     val date = Instant.ofEpochMilli(tick).atZone(ZoneId.systemDefault()).toLocalDate()
-    val locale = if (hungarian) Locale.forLanguageTag("hu") else Locale.ENGLISH
-    val datePattern = if (hungarian) "MMMM d., EEEE" else "MMMM d, EEEE"
+    val locale = Localizer.locale(language)
     return SideNavigationUiState(
         entries = listOf(
-            NavigationEntryUiState(DashboardSection.LIVE, if (hungarian) "Élő adás" else "Live TV"),
-            NavigationEntryUiState(DashboardSection.GUIDE, if (hungarian) "Műsorújság" else "TV Guide"),
-            NavigationEntryUiState(DashboardSection.CHANNELS, if (hungarian) "Csatornák" else "Channels"),
-            NavigationEntryUiState(DashboardSection.SETTINGS, if (hungarian) "Beállítások" else "Settings")
+            NavigationEntryUiState(DashboardSection.LIVE, tr(language, "nav.live")),
+            NavigationEntryUiState(DashboardSection.GUIDE, tr(language, "nav.guide")),
+            NavigationEntryUiState(DashboardSection.CHANNELS, tr(language, "nav.channels")),
+            NavigationEntryUiState(DashboardSection.SETTINGS, tr(language, "nav.settings"))
         ),
         activeSection = activeSection,
         timeLabel = formatTime(tick),
-        dateLabel = date.format(DateTimeFormatter.ofPattern(datePattern, locale))
+        dateLabel = date.format(DateTimeFormatter.ofPattern(tr(language, "date.sidebar.pattern"), locale))
     )
 }
 
@@ -117,7 +116,7 @@ fun DashboardScreen(
                 DashboardSection.LIVE -> LiveTvScreen(
                     state = LiveTvUiState(
                         hasChannel = model.selectedChannel() != null,
-                        emptyMessage = d(model, "Tölts be egy M3U playlistet a kezdéshez.", "Load an M3U playlist to get started.")
+                        emptyMessage = tr(model.settings.language, "live.empty")
                     ),
                     scale = referenceScale,
                     video = { EmbeddedVlcPlayer(playbackController, Modifier.fillMaxSize()) },
@@ -152,8 +151,8 @@ fun DashboardScreen(
             modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 24.dp).widthIn(max = 720.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            model.error?.let { DashboardMessage("Hiba: $it", Color(0xFFFFB4AB), Color(0xE65F1D22)) }
-            model.status?.let { DashboardMessage(it, Color(0xFFB9F6CA), Color(0xE612352C)) }
+            model.error?.let { DashboardMessage(tr(model.settings.language, "app.error.prefix", it.text(model.settings.language)), Color(0xFFFFB4AB), Color(0xE65F1D22)) }
+            model.status?.let { DashboardMessage(it.text(model.settings.language), Color(0xFFB9F6CA), Color(0xE612352C)) }
         }
     }
 }
@@ -220,7 +219,7 @@ private fun ChannelHeader(
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
-            d(model, "CSATORNÁK", "CHANNELS"),
+            tr(model.settings.language, "channels.title"),
             color = Color.White,
             fontSize = (28f * scale).sp,
             fontWeight = FontWeight.Bold
@@ -236,7 +235,7 @@ private fun ChannelHeader(
                     value = model.query,
                     onValueChange = { model.query = it },
                     singleLine = true,
-                    placeholder = { Text(d(model, "Csatorna keresése", "Search channels"), color = DashboardMuted) },
+                    placeholder = { Text(tr(model.settings.language, "channels.search"), color = DashboardMuted) },
                     textStyle = LocalTextStyle.current.copy(color = Color.White, fontSize = (15f * scale).sp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = FocusPurple,
@@ -269,7 +268,7 @@ private fun ChannelHeader(
                     horizontalArrangement = Arrangement.spacedBy(8.dp * scale)
                 ) {
                     ChannelFilterTab(
-                        label = d(model, "Minden", "All"),
+                        label = tr(model.settings.language, "channels.all"),
                         selected = model.category == null && !model.onlyFavorites,
                         scale = scale,
                         onClick = {
@@ -278,7 +277,7 @@ private fun ChannelHeader(
                         }
                     )
                     ChannelFilterTab(
-                        label = d(model, "Kedvencek", "Favorites"),
+                        label = tr(model.settings.language, "channels.favorites"),
                         selected = model.onlyFavorites,
                         scale = scale,
                         onClick = {
@@ -288,7 +287,7 @@ private fun ChannelHeader(
                     )
                     model.categories().forEach { category ->
                         ChannelFilterTab(
-                            label = category,
+                        label = if (category == OTHER_CATEGORY_ID) tr(model.settings.language, "channels.other") else category,
                             selected = model.category == category && !model.onlyFavorites,
                             scale = scale,
                             onClick = {
@@ -374,7 +373,7 @@ private fun ChannelDirectory(model: WukkiModel, tick: Long, scale: Float, modifi
     ) {
         if (channels.isEmpty()) {
             Text(
-                d(model, "Nincs megjeleníthető csatorna.", "No channels to display."),
+                tr(model.settings.language, "channels.empty"),
                 color = DashboardMuted,
                 modifier = Modifier.align(Alignment.Center)
             )
@@ -417,7 +416,7 @@ private fun ChannelDirectory(model: WukkiModel, tick: Long, scale: Float, modifi
                         if (model.settings.display.showChannelProgramme) {
                             Spacer(Modifier.height(3.dp * scale))
                             Text(
-                                model.currentProgram(channel, tick)?.title ?: d(model, "EPG nincs", "No EPG"),
+                                model.currentProgram(channel, tick)?.displayTitle(model.settings.language) ?: tr(model.settings.language, "epg.none"),
                                 color = DashboardMuted,
                                 fontSize = (13f * scale).sp,
                                 maxLines = 1,
@@ -490,7 +489,7 @@ private fun ProgrammeInformation(
     DashboardCard(modifier, contentPadding = 0.dp) {
         if (channel == null) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(d(model, "Válassz csatornát.", "Select a channel."), color = DashboardMuted)
+                Text(tr(model.settings.language, "channels.select"), color = DashboardMuted)
             }
         } else {
             Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(Color.Black)) {
@@ -503,7 +502,7 @@ private fun ProgrammeInformation(
             ) {
                 Text(channel.name, color = Color.White, fontSize = (24f * scale).sp, fontWeight = FontWeight.Bold)
                 Text(
-                    programme?.title ?: d(model, "EPG nincs", "No EPG"),
+                    programme?.displayTitle(model.settings.language) ?: tr(model.settings.language, "epg.none"),
                     color = Color.White,
                     fontSize = (17f * scale).sp,
                     fontWeight = FontWeight.SemiBold,
@@ -511,7 +510,7 @@ private fun ProgrammeInformation(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    programme?.let { "${formatTime(it.start)} – ${formatTime(it.end)}" } ?: d(model, "Nincs műsoradat", "No programme data"),
+                    programme?.let { "${formatTime(it.start)} – ${formatTime(it.end)}" } ?: tr(model.settings.language, "epg.none.description"),
                     color = DashboardMuted,
                     fontSize = (13f * scale).sp
                 )
@@ -534,7 +533,7 @@ private fun ProgrammeInformation(
                 if (model.settings.display.showMiniGuide) {
                     Text(
                         programme?.description?.takeIf { it.isNotBlank() }
-                            ?: d(model, "Ehhez a műsorhoz nincs leírás.", "No description is available for this programme."),
+                            ?: tr(model.settings.language, "epg.no.description"),
                         color = Color(0xFFC5CDD8),
                         fontSize = (13f * scale).sp,
                         maxLines = 5,
@@ -551,9 +550,9 @@ private fun ProgrammeInformation(
                 ) {
                     Text(
                         if (channel.favorite) {
-                            "♥ ${d(model, "Kedvenc", "Favorite")}"
+                            "♥ ${tr(model.settings.language, "favourite.current")}"
                         } else {
-                            "♡ ${d(model, "Kedvencekhez adom", "Add to favorites")}"
+                            "♡ ${tr(model.settings.language, "favourite.add")}"
                         },
                         fontSize = (14f * scale).sp
                     )
@@ -605,9 +604,5 @@ private fun DashboardMessage(message: String, color: Color, background: Color) {
 
 @Composable
 private fun DashboardLogo(model: WukkiModel, channel: Channel, modifier: Modifier) {
-    ChannelLogo(channel, modifier)
+    ChannelLogo(channel, model.settings.language, modifier)
 }
-
-@Composable
-private fun d(model: WukkiModel, hungarian: String, english: String): String =
-    if (model.settings.language == AppLanguage.HUNGARIAN) hungarian else english

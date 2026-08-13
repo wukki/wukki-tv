@@ -24,13 +24,14 @@ class WukkiModel {
     var query by mutableStateOf("")
     var category by mutableStateOf<String?>(null)
     var onlyFavorites by mutableStateOf(false)
-    var status by mutableStateOf<String?>(null)
-    var error by mutableStateOf<String?>(null)
+    var status by mutableStateOf<UserMessage?>(null)
+    var error by mutableStateOf<UserMessage?>(null)
 
     val settings: AppSettings get() = state.settings ?: AppSettings()
     val epgSources: List<EpgSource> get() = state.epgSources.orEmpty().sortedBy { it.priority }
 
-    fun showError(message: String) { error = message; status = null }
+    /** For diagnostics that do not have a translation key yet. */
+    fun showRawError(message: String) { error = UserMessage.Raw(message); status = null }
     fun setLanguage(language: AppLanguage) = updateSettings { it.copy(language = language) }
     fun setPlaylistRefresh(interval: RefreshInterval) = updateSettings { it.copy(playlistRefresh = interval) }
     fun setEpgRefresh(interval: RefreshInterval) = updateSettings { it.copy(epgRefresh = interval) }
@@ -54,7 +55,7 @@ class WukkiModel {
     suspend fun addEpgSource(name: String, url: String, managedByPlaylist: Boolean = false) {
         val normalizedUrl = url.trim()
         if (!normalizedUrl.startsWith("http://") && !normalizedUrl.startsWith("https://")) {
-            showError("Az EPG URL-nek http:// vagy https:// címmel kell kezdődnie.")
+            showErrorKey("error.epg.url")
             return
         }
         val existing = epgSources.firstOrNull { it.url.equals(normalizedUrl, ignoreCase = true) }
@@ -69,18 +70,18 @@ class WukkiModel {
     suspend fun refreshEpgSource(sourceId: String) {
         val source = epgSources.firstOrNull { it.id == sourceId } ?: return
         try {
-            showStatus("EPG frissítése: ${source.name}…")
+            showStatus("status.epg.loading", source.name)
             val xml = withContext(Dispatchers.IO) { readLocation(source.url, PlaylistSource.URL) }
             val programmes = withContext(Dispatchers.Default) { EpgParser.parse(xml) }
-            if (programmes.isEmpty()) throw IllegalArgumentException("Az XMLTV fájl nem tartalmaz feldolgozható műsort.")
+            if (programmes.isEmpty()) throw IllegalArgumentException("error.epg.empty")
             val cache = state.epgProgrammesBySource.orEmpty().toMutableMap().apply { put(source.id, programmes) }
             val updatedSources = state.epgSources.orEmpty().map { if (it.id == source.id) it.copy(lastUpdatedAt = System.currentTimeMillis()) else it }
             state = state.copy(epgSources = updatedSources, epgProgrammesBySource = cache, programmes = programmes, epgUrl = source.url)
             rematchChannels()
             persist()
-            showStatus("${programmes.size} EPG műsor betöltve: ${source.name}")
+            showStatus("status.epg.loaded", programmes.size, source.name)
         } catch (exception: Exception) {
-            showError("Az EPG nem tölthető be (${source.name}): ${exception.message ?: "ismeretlen hiba"}")
+            showErrorKey("error.epg.load", source.name, messageArgument(exception))
         }
     }
 
@@ -123,7 +124,7 @@ class WukkiModel {
         selectedPlaylistId = state.playlists.firstOrNull()?.id
         selectedChannelId = state.channels.firstOrNull()?.id
         persist()
-        showStatus("Playlist eltávolítva.")
+        showStatus("status.playlist.removed")
     }
 
     /** Compatibility bridge for the first dashboard version. */
@@ -175,11 +176,11 @@ class WukkiModel {
     }
     private suspend fun loadPlaylist(name: String, location: String, source: PlaylistSource) {
         try {
-            showStatus("Playlist betöltése…")
+            showStatus("status.playlist.loading")
             val text = withContext(Dispatchers.IO) { readLocation(location, source) }
             val playlistId = UUID.randomUUID().toString()
             val channels = PlaylistParser.parse(text, playlistId)
-            if (channels.isEmpty()) throw IllegalArgumentException("Az M3U fájlban nem találtam lejátszható csatornát.")
+            if (channels.isEmpty()) throw IllegalArgumentException("error.playlist.empty")
             state = state.copy(
                 playlists = state.playlists + PlaylistDefinition(playlistId, name, location, source, System.currentTimeMillis()),
                 channels = state.channels + channels
@@ -187,13 +188,13 @@ class WukkiModel {
             selectedPlaylistId = playlistId; selectedChannelId = channels.first().id
             ensurePlaylistEpg(text, name)
             rematchChannels(); persist()
-            showStatus("${channels.size} csatorna betöltve: $name")
-        } catch (exception: Exception) { showError("A playlist nem tölthető be: ${exception.message ?: "ismeretlen hiba"}") }
+            showStatus("status.playlist.loaded", channels.size, name)
+        } catch (exception: Exception) { showErrorKey("error.playlist.load", messageArgument(exception)) }
     }
 
     private suspend fun refreshPlaylist(playlist: PlaylistDefinition, showFeedback: Boolean) {
         try {
-            if (showFeedback) showStatus("${playlist.name} frissítése…")
+            if (showFeedback) showStatus("status.playlist.refreshing", playlist.name)
             val text = withContext(Dispatchers.IO) { readLocation(playlist.location, playlist.source) }
             val refreshed = PlaylistParser.parse(text, playlist.id)
             state = state.copy(
@@ -202,8 +203,8 @@ class WukkiModel {
             )
             ensurePlaylistEpg(text, playlist.name)
             rematchChannels(); persist()
-            if (showFeedback) showStatus("${refreshed.size} csatorna frissítve.")
-        } catch (exception: Exception) { if (showFeedback) showError("A frissítés sikertelen: ${exception.message ?: "ismeretlen hiba"}") }
+            if (showFeedback) showStatus("status.playlist.refreshed", refreshed.size)
+        } catch (exception: Exception) { if (showFeedback) showErrorKey("error.playlist.refresh", messageArgument(exception)) }
     }
 
     private suspend fun ensurePlaylistEpg(playlistText: String, playlistName: String) {
@@ -237,11 +238,20 @@ class WukkiModel {
         }
         return programmes.sortedBy { it.start }
     }
-    private fun channelCategoryName(channel: Channel): String = channel.group.ifBlank {
-        if (settings.language == AppLanguage.HUNGARIAN) "Egyéb" else "Other"
-    }
-    private fun showStatus(message: String) { status = message; error = null }
+    private fun channelCategoryName(channel: Channel): String = channel.group.ifBlank { OTHER_CATEGORY_ID }
+    private fun showStatus(key: String, vararg args: Any?) { status = UserMessage.Key(key, args.toList()); error = null }
+    private fun showErrorKey(key: String, vararg args: Any?) { error = UserMessage.Key(key, args.toList()); status = null }
+    private fun messageArgument(exception: Exception): UserMessage = exception.message?.let { message ->
+        if (message.startsWith("error.")) UserMessage.Key(message) else UserMessage.Raw(message)
+    } ?: UserMessage.Key("error.unknown")
     private fun persist() = LocalStore.save(state)
+}
+
+const val OTHER_CATEGORY_ID = "__wukki_other__"
+
+sealed interface UserMessage {
+    data class Key(val key: String, val arguments: List<Any?> = emptyList()) : UserMessage
+    data class Raw(val value: String) : UserMessage
 }
 
 private fun List<EpgSource>.withPriorities(): List<EpgSource> = mapIndexed { index, source -> source.copy(priority = index) }

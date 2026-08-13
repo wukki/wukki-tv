@@ -2,6 +2,7 @@ package hu.wukki.tv.ui.settings
 
 import hu.wukki.tv.*
 import hu.wukki.tv.ui.components.formatTime
+import hu.wukki.tv.ui.components.tr
 
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
@@ -54,7 +55,7 @@ fun SettingsScreen(
         ).coerceIn(.70f, 1f)
         Column(Modifier.fillMaxSize()) {
             Text(
-                t(model, "BEÁLLÍTÁSOK", "SETTINGS"),
+                tr(model.settings.language, "settings.title"),
                 color = Color.White,
                 fontWeight = FontWeight.Black,
                 fontSize = (29f * scale).sp,
@@ -119,7 +120,7 @@ private fun SettingsNavigation(
                 )
                 if (item == SettingsSection.LANGUAGE) {
                     Text(
-                        if (model.settings.language == AppLanguage.HUNGARIAN) "Magyar" else "English",
+                        tr(model.settings.language, "settings.language.current"),
                         color = Color.White,
                         fontSize = (16f * scale).sp,
                         modifier = Modifier.padding(end = 14.dp * scale)
@@ -141,7 +142,7 @@ private fun SettingsHome(model: WukkiModel, scale: Float, modifier: Modifier) {
         SettingsGear(scale)
         Spacer(Modifier.height(52.dp * scale))
         Text(
-            t(model, "Állítsd be az alkalmazást\na saját igényeid szerint.", "Customize the application\nto suit your needs."),
+            tr(model.settings.language, "settings.home"),
             color = Color(0xFFC1C8D2),
             fontSize = (18f * scale).sp,
             lineHeight = (28f * scale).sp,
@@ -213,30 +214,30 @@ private fun PlaybackSettings(model: WukkiModel) {
     Column(
         modifier = Modifier.fillMaxWidth(),
     ) {
-        PlaybackSettingRow(model, "Alkalmazás hangerő", "Application volume", "A Wukki TV lejátszási hangereje", "Wukki TV playback volume", focusedOption == PlaybackOption.VOLUME, { focusedOption = PlaybackOption.VOLUME }) {
+        PlaybackSettingRow(model, "settings.playback.volume", "settings.playback.volume.description", focusedOption == PlaybackOption.VOLUME, { focusedOption = PlaybackOption.VOLUME }) {
             Column(modifier = Modifier.widthIn(min = 150.dp, max = 205.dp)) {
                 Text("${settings.volume}%", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                 Slider(value = settings.volume.toFloat(), onValueChange = { volume -> model.updatePlayback { it.copy(volume = volume.toInt()) } }, valueRange = 0f..100f)
             }
         }
-        PlaybackSettingRow(model, "Puffer profil", "Buffer profile", "Nagyobb puffer stabilabb lejátszást biztosít", "A larger buffer provides more stable playback", focusedOption == PlaybackOption.BUFFER, { focusedOption = PlaybackOption.BUFFER }) {
+        PlaybackSettingRow(model, "settings.playback.buffer", "settings.playback.buffer.description", focusedOption == PlaybackOption.BUFFER, { focusedOption = PlaybackOption.BUFFER }) {
             Column(modifier = Modifier.widthIn(min = 150.dp, max = 205.dp)) {
             PlaybackSelect(settings.bufferProfile, BufferProfile.entries.toList(), { it.label(model) }) { profile -> model.updatePlayback { it.copy(bufferProfile = profile) } }
             }
         }
-        PlaybackSettingRow(model, "Képarány", "Aspect ratio", "A kép megjelenítési aránya", "The display ratio of the video", focusedOption == PlaybackOption.ASPECT_RATIO, { focusedOption = PlaybackOption.ASPECT_RATIO }) {
+        PlaybackSettingRow(model, "settings.playback.aspect", "settings.playback.aspect.description", focusedOption == PlaybackOption.ASPECT_RATIO, { focusedOption = PlaybackOption.ASPECT_RATIO }) {
             Column(modifier = Modifier.widthIn(min = 150.dp, max = 205.dp)) {
             PlaybackSelect(settings.aspectRatio ?: AspectRatioMode.AUTO, AspectRatioMode.entries.toList(), { it.label(model) }) { ratio -> model.updatePlayback { it.copy(aspectRatio = ratio) } }
             }
         }
-        PlaybackSettingRow(model, "Automatikus újracsatlakozás", "Automatic reconnect", "A stream megszakadásakor újrapróbálkozik", "Retries when the stream is interrupted", focusedOption == PlaybackOption.RECONNECT, { focusedOption = PlaybackOption.RECONNECT }) {
+        PlaybackSettingRow(model, "settings.playback.reconnect", "settings.playback.reconnect.description", focusedOption == PlaybackOption.RECONNECT, { focusedOption = PlaybackOption.RECONNECT }) {
             Switch(
                 checked = settings.autoReconnect,
                 onCheckedChange = { enabled -> model.updatePlayback { it.copy(autoReconnect = enabled) } },
                 colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = SettingsAccent, uncheckedThumbColor = SettingsMuted, uncheckedTrackColor = Color(0xFF26364A))
             )
         }
-        PlaybackSettingRow(model, "Újracsatlakozási kísérletek száma", "Reconnect attempts", "Hányszor próbálja újraindítani a streamet", "How many times the stream is restarted", focusedOption == PlaybackOption.RETRIES, { focusedOption = PlaybackOption.RETRIES }) {
+        PlaybackSettingRow(model, "settings.playback.attempts", "settings.playback.attempts.description", focusedOption == PlaybackOption.RETRIES, { focusedOption = PlaybackOption.RETRIES }) {
             PlaybackStepper(
                 value = settings.reconnectAttempts,
                 onDecrease = { model.updatePlayback { it.copy(reconnectAttempts = (it.reconnectAttempts - 1).coerceAtLeast(1)) } },
@@ -249,10 +250,8 @@ private fun PlaybackSettings(model: WukkiModel) {
 @Composable
 private fun PlaybackSettingRow(
     model: WukkiModel,
-    titleHu: String,
-    titleEn: String,
-    descriptionHu: String,
-    descriptionEn: String,
+    titleKey: String,
+    descriptionKey: String,
     selected: Boolean,
     onSelect: () -> Unit,
     control: @Composable () -> Unit
@@ -266,9 +265,9 @@ private fun PlaybackSettingRow(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f).padding(end = 18.dp)) {
-            Text(t(model, titleHu, titleEn), color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+            Text(tr(model.settings.language, titleKey), color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
             Spacer(Modifier.height(2.dp))
-            Text(t(model, descriptionHu, descriptionEn), color = SettingsMuted, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(tr(model.settings.language, descriptionKey), color = SettingsMuted, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         control()
     }
@@ -312,17 +311,17 @@ private fun PlaybackStepper(value: Int, onDecrease: () -> Unit, onIncrease: () -
 private fun androidx.compose.foundation.layout.ColumnScope.EpgSettings(model: WukkiModel, scope: CoroutineScope) {
     var name by remember { mutableStateOf("") }
     var url by remember { mutableStateOf("") }
-    SettingsRow(model, "Automatikus EPG frissítés", "Automatic EPG refresh") {
+    SettingsRow(model, "settings.epg.refresh") {
         RefreshSelector(model, model.settings.epgRefresh, onSelect = model::setEpgRefresh)
     }
-    Text(t(model, "EPG források", "EPG sources"), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+    Text(tr(model.settings.language, "settings.epg.sources"), fontWeight = FontWeight.Bold, fontSize = 16.sp)
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text(t(model, "Név", "Name")) }, singleLine = true, modifier = Modifier.weight(.3f))
-        OutlinedTextField(value = url, onValueChange = { url = it }, label = { Text("XMLTV URL") }, singleLine = true, modifier = Modifier.weight(.55f))
-        Button(onClick = { if (url.isNotBlank()) scope.launch { model.addEpgSource(name, url); name = ""; url = "" } }) { Text(t(model, "Hozzáadás", "Add")) }
+        OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text(tr(model.settings.language, "settings.name")) }, singleLine = true, modifier = Modifier.weight(.3f))
+        OutlinedTextField(value = url, onValueChange = { url = it }, label = { Text(tr(model.settings.language, "settings.epg.url")) }, singleLine = true, modifier = Modifier.weight(.55f))
+        Button(onClick = { if (url.isNotBlank()) scope.launch { model.addEpgSource(name, url); name = ""; url = "" } }) { Text(tr(model.settings.language, "settings.add")) }
     }
     Spacer(Modifier.height(8.dp))
-    if (model.epgSources.isEmpty()) Text(t(model, "Nincs EPG forrás.", "No EPG sources."), color = SettingsMuted)
+    if (model.epgSources.isEmpty()) Text(tr(model.settings.language, "settings.no.sources"), color = SettingsMuted)
     LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth()) {
         items(model.epgSources, key = { it.id }) { source ->
             Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(SettingsSurface).padding(10.dp)) {
@@ -334,9 +333,9 @@ private fun androidx.compose.foundation.layout.ColumnScope.EpgSettings(model: Wu
                 }
                 Text(source.url, color = SettingsMuted, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(source.lastUpdatedAt?.let { "${t(model, "Frissítve", "Updated")}: ${formatTime(it)}" } ?: t(model, "Még nincs frissítve", "Not updated yet"), color = SettingsMuted, fontSize = 11.sp, modifier = Modifier.weight(1f))
-                    TextButton(onClick = { scope.launch { model.refreshEpgSource(source.id) } }) { Text(t(model, "Frissítés", "Refresh")) }
-                    TextButton(onClick = { model.removeEpgSource(source.id) }) { Text(t(model, "Törlés", "Delete"), color = Color(0xFFFFA4A1)) }
+                    Text(source.lastUpdatedAt?.let { "${tr(model.settings.language, "settings.updated")}: ${formatTime(it)}" } ?: tr(model.settings.language, "settings.not.updated"), color = SettingsMuted, fontSize = 11.sp, modifier = Modifier.weight(1f))
+                    TextButton(onClick = { scope.launch { model.refreshEpgSource(source.id) } }) { Text(tr(model.settings.language, "settings.refresh")) }
+                    TextButton(onClick = { model.removeEpgSource(source.id) }) { Text(tr(model.settings.language, "settings.delete"), color = Color(0xFFFFA4A1)) }
                 }
             }
             Spacer(Modifier.height(6.dp))
@@ -346,26 +345,26 @@ private fun androidx.compose.foundation.layout.ColumnScope.EpgSettings(model: Wu
 
 @Composable
 private fun DisplaySettings(model: WukkiModel) {
-    SettingsRow(model, "Felület mérete", "Interface size") {
+    SettingsRow(model, "settings.display.scale") {
         Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-            listOf(.9f to t(model, "Kicsi", "Small"), 1f to t(model, "Normál", "Normal"), 1.15f to t(model, "Nagy", "Large")).forEach { (scale, title) ->
+            listOf(.9f to tr(model.settings.language, "settings.display.small"), 1f to tr(model.settings.language, "settings.display.normal"), 1.15f to tr(model.settings.language, "settings.display.large")).forEach { (scale, title) ->
                 FilterChip(selected = model.settings.display.uiScale == scale, onClick = { model.updateDisplay { it.copy(uiScale = scale) } }, label = { Text(title) })
             }
         }
     }
-    SettingsToggle(model, "Csatornalista műsorinformáció", "Channel-list programme information", model.settings.display.showChannelProgramme) { model.updateDisplay { settings -> settings.copy(showChannelProgramme = it) } }
-    SettingsToggle(model, "Mini guide", "Mini guide", model.settings.display.showMiniGuide) { model.updateDisplay { settings -> settings.copy(showMiniGuide = it) } }
-    SettingsToggle(model, "Csatornalogók", "Channel logos", model.settings.display.showLogos) { model.updateDisplay { settings -> settings.copy(showLogos = it) } }
+    SettingsToggle(model, "settings.display.programme", model.settings.display.showChannelProgramme) { model.updateDisplay { settings -> settings.copy(showChannelProgramme = it) } }
+    SettingsToggle(model, "settings.display.mini.guide", model.settings.display.showMiniGuide) { model.updateDisplay { settings -> settings.copy(showMiniGuide = it) } }
+    SettingsToggle(model, "settings.display.logos", model.settings.display.showLogos) { model.updateDisplay { settings -> settings.copy(showLogos = it) } }
 }
 
 @Composable
 private fun androidx.compose.foundation.layout.ColumnScope.PlaylistSettings(model: WukkiModel, scope: CoroutineScope) {
     var url by remember { mutableStateOf("") }
-    SettingsRow(model, "Automatikus playlist frissítés", "Automatic playlist refresh") { RefreshSelector(model, model.settings.playlistRefresh, onSelect = model::setPlaylistRefresh) }
+    SettingsRow(model, "settings.playlist.refresh") { RefreshSelector(model, model.settings.playlistRefresh, onSelect = model::setPlaylistRefresh) }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        OutlinedTextField(value = url, onValueChange = { url = it }, label = { Text("M3U URL") }, singleLine = true, modifier = Modifier.weight(1f))
-        Button(onClick = { if (url.isNotBlank()) scope.launch { model.addPlaylistFromUrl(url); url = "" } }) { Text(t(model, "Hozzáadás", "Add")) }
-        Button(onClick = { choosePlaylistFile()?.let { scope.launch { model.addPlaylistFromFile(it) } } }) { Text(t(model, "Fájl", "File")) }
+        OutlinedTextField(value = url, onValueChange = { url = it }, label = { Text(tr(model.settings.language, "settings.playlist.url")) }, singleLine = true, modifier = Modifier.weight(1f))
+        Button(onClick = { if (url.isNotBlank()) scope.launch { model.addPlaylistFromUrl(url); url = "" } }) { Text(tr(model.settings.language, "settings.add")) }
+        Button(onClick = { choosePlaylistFile(model.settings.language)?.let { scope.launch { model.addPlaylistFromFile(it) } } }) { Text(tr(model.settings.language, "settings.file")) }
     }
     Spacer(Modifier.height(8.dp))
     LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth()) {
@@ -374,9 +373,9 @@ private fun androidx.compose.foundation.layout.ColumnScope.PlaylistSettings(mode
                 OutlinedTextField(value = playlist.name, onValueChange = { model.renamePlaylist(playlist.id, it) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Text(playlist.location, color = SettingsMuted, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("${model.state.channels.count { it.playlistId == playlist.id }} ${t(model, "csatorna", "channels")}", color = SettingsMuted, fontSize = 11.sp, modifier = Modifier.weight(1f))
-                    TextButton(onClick = { model.selectedPlaylistId = playlist.id; scope.launch { model.refreshSelected() } }) { Text(t(model, "Frissítés", "Refresh")) }
-                    TextButton(onClick = { model.selectedPlaylistId = playlist.id; model.removeSelectedPlaylist() }) { Text(t(model, "Törlés", "Delete"), color = Color(0xFFFFA4A1)) }
+                    Text(tr(model.settings.language, "settings.channels.count", model.state.channels.count { it.playlistId == playlist.id }), color = SettingsMuted, fontSize = 11.sp, modifier = Modifier.weight(1f))
+                    TextButton(onClick = { model.selectedPlaylistId = playlist.id; scope.launch { model.refreshSelected() } }) { Text(tr(model.settings.language, "settings.refresh")) }
+                    TextButton(onClick = { model.selectedPlaylistId = playlist.id; model.removeSelectedPlaylist() }) { Text(tr(model.settings.language, "settings.delete"), color = Color(0xFFFFA4A1)) }
                 }
             }
             Spacer(Modifier.height(6.dp))
@@ -386,14 +385,14 @@ private fun androidx.compose.foundation.layout.ColumnScope.PlaylistSettings(mode
 
 @Composable
 private fun LanguageSettings(model: WukkiModel) {
-    Text(t(model, "Alkalmazás nyelve", "Application language"), fontSize = 17.sp, fontWeight = FontWeight.Bold)
+    Text(tr(model.settings.language, "settings.language.title"), fontSize = 17.sp, fontWeight = FontWeight.Bold)
     Spacer(Modifier.height(10.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        FilterChip(selected = model.settings.language == AppLanguage.HUNGARIAN, onClick = { model.setLanguage(AppLanguage.HUNGARIAN) }, label = { Text("Magyar") })
-        FilterChip(selected = model.settings.language == AppLanguage.ENGLISH, onClick = { model.setLanguage(AppLanguage.ENGLISH) }, label = { Text("English") })
+        FilterChip(selected = model.settings.language == AppLanguage.HUNGARIAN, onClick = { model.setLanguage(AppLanguage.HUNGARIAN) }, label = { Text(tr(model.settings.language, "language.hungarian")) })
+        FilterChip(selected = model.settings.language == AppLanguage.ENGLISH, onClick = { model.setLanguage(AppLanguage.ENGLISH) }, label = { Text(tr(model.settings.language, "language.english")) })
     }
     Spacer(Modifier.height(18.dp))
-    SettingsNotice(model, "A beállítások és a dashboard fő navigációja azonnal a választott nyelvre vált.", "Settings and primary dashboard navigation switch immediately to the selected language.")
+    SettingsNotice(model, "settings.language.notice")
 }
 
 @Composable
@@ -404,13 +403,9 @@ private fun ParentalSettings(model: WukkiModel) {
             .padding(22.dp)
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(t(model, "Fejlesztés alatt", "Coming soon"), color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+            Text(tr(model.settings.language, "settings.parental.coming"), color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.Bold)
             Text(
-                t(
-                    model,
-                    "A PIN-kódos védelem és a korhatár szerinti csatornazárolás egy későbbi verzióban lesz elérhető.",
-                    "PIN protection and age-based channel locking will be available in a future version."
-                ),
+                tr(model.settings.language, "settings.parental.description"),
                 color = SettingsMuted,
                 fontSize = 13.sp
             )
@@ -422,18 +417,14 @@ private fun ParentalSettings(model: WukkiModel) {
 private fun AboutSettings(model: WukkiModel) {
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text("Wukki TV", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Black)
-        SettingsInfoLine(t(model, "Verzió", "Version"), WUKKI_VERSION)
-        SettingsInfoLine(t(model, "Lejátszómotor", "Playback engine"), "VLC / libVLC")
+        SettingsInfoLine(tr(model.settings.language, "settings.about.version"), WUKKI_VERSION)
+        SettingsInfoLine(tr(model.settings.language, "settings.about.engine"), "VLC / libVLC")
         Box(
             modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(SettingsSurface)
                 .border(1.dp, Color(0xFF263648), RoundedCornerShape(10.dp)).padding(16.dp)
         ) {
             Text(
-                t(
-                    model,
-                    "A Wukki TV a VideoLAN VLC/libVLC technológiáját és más nyílt forráskódú komponenseket használ. A harmadik féltől származó licencek és szerzői jogi értesítések az alkalmazáscsomag LICENSES mappájában találhatók.",
-                    "Wukki TV uses VideoLAN VLC/libVLC technology and other open-source components. Third-party licences and copyright notices are included in the application's LICENSES directory."
-                ),
+                tr(model.settings.language, "settings.about.licenses"),
                 color = SettingsMuted,
                 fontSize = 13.sp
             )
@@ -454,10 +445,10 @@ private fun SettingsInfoLine(label: String, value: String) {
 }
 
 @Composable
-private fun SettingsRow(model: WukkiModel, hungarian: String, english: String, value: String? = null, content: @Composable () -> Unit) {
+private fun SettingsRow(model: WukkiModel, titleKey: String, value: String? = null, content: @Composable () -> Unit) {
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(t(model, hungarian, english), fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+            Text(tr(model.settings.language, titleKey), fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
             value?.let { Text(it, color = SettingsMuted) }
         }
         Spacer(Modifier.height(8.dp)); content()
@@ -465,9 +456,9 @@ private fun SettingsRow(model: WukkiModel, hungarian: String, english: String, v
 }
 
 @Composable
-private fun SettingsToggle(model: WukkiModel, hungarian: String, english: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+private fun SettingsToggle(model: WukkiModel, titleKey: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     Row(modifier = Modifier.fillMaxWidth().padding(vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(t(model, hungarian, english), fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+        Text(tr(model.settings.language, titleKey), fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
         Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
@@ -480,8 +471,8 @@ private fun RefreshSelector(model: WukkiModel, selected: RefreshInterval, onSele
 }
 
 @Composable
-private fun SettingsNotice(model: WukkiModel, hungarian: String, english: String) {
-    Text(t(model, hungarian, english), color = SettingsMuted, fontSize = 12.sp, modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(7.dp)).background(Color(0xFF12263A)).padding(10.dp))
+private fun SettingsNotice(model: WukkiModel, textKey: String) {
+    Text(tr(model.settings.language, textKey), color = SettingsMuted, fontSize = 12.sp, modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(7.dp)).background(Color(0xFF12263A)).padding(10.dp))
     Spacer(Modifier.height(8.dp))
 }
 
@@ -492,22 +483,25 @@ private fun SettingsCard(modifier: Modifier, content: @Composable androidx.compo
     }
 }
 
-private fun choosePlaylistFile(): File? {
-    val dialog = FileDialog(null as java.awt.Frame?, "M3U playlist", FileDialog.LOAD)
+private fun choosePlaylistFile(language: AppLanguage): File? {
+    val dialog = FileDialog(null as java.awt.Frame?, tr(language, "file.playlist.title"), FileDialog.LOAD)
     dialog.isVisible = true
     return dialog.file?.let { File(dialog.directory, it) }
 }
 
-@Composable private fun t(model: WukkiModel, hungarian: String, english: String): String = if (model.settings.language == AppLanguage.HUNGARIAN) hungarian else english
-@Composable private fun SettingsSection.title(model: WukkiModel): String = when (this) {
-    SettingsSection.PLAYBACK -> t(model, "Lejátszási beállítások", "Playback settings")
-    SettingsSection.EPG -> t(model, "EPG beállítások", "EPG settings")
-    SettingsSection.DISPLAY -> t(model, "Megjelenítés", "Appearance")
-    SettingsSection.PARENTAL -> t(model, "Szülői felügyelet", "Parental controls")
-    SettingsSection.PLAYLISTS -> t(model, "Playlist kezelése", "Playlist management")
-    SettingsSection.LANGUAGE -> t(model, "Nyelv", "Language")
-    SettingsSection.ABOUT -> t(model, "Névjegy", "About")
-}
-@Composable private fun RefreshInterval.label(model: WukkiModel): String = when (this) { RefreshInterval.MANUAL -> t(model, "Kézi", "Manual"); RefreshInterval.SIX_HOURS -> t(model, "6 óra", "6 hours"); RefreshInterval.DAILY -> t(model, "Napi", "Daily") }
-@Composable private fun BufferProfile.label(model: WukkiModel): String = when (this) { BufferProfile.LOW_LATENCY -> t(model, "Alacsony késés", "Low latency"); BufferProfile.BALANCED -> t(model, "Kiegyensúlyozott", "Balanced"); BufferProfile.STABLE -> t(model, "Stabil", "Stable") }
-@Composable private fun AspectRatioMode.label(model: WukkiModel): String = when (this) { AspectRatioMode.AUTO -> t(model, "Automatikus", "Automatic"); AspectRatioMode.RATIO_16_9 -> "16:9"; AspectRatioMode.RATIO_4_3 -> "4:3"; AspectRatioMode.RATIO_21_9 -> "21:9"; AspectRatioMode.FILL_CROP -> t(model, "Kitöltés", "Fill") }
+private fun SettingsSection.title(model: WukkiModel): String = tr(model.settings.language, when (this) {
+    SettingsSection.PLAYBACK -> "settings.playback"
+    SettingsSection.EPG -> "settings.epg"
+    SettingsSection.DISPLAY -> "settings.display"
+    SettingsSection.PARENTAL -> "settings.parental"
+    SettingsSection.PLAYLISTS -> "settings.playlists"
+    SettingsSection.LANGUAGE -> "settings.language"
+    SettingsSection.ABOUT -> "settings.about"
+})
+private fun RefreshInterval.label(model: WukkiModel): String = tr(model.settings.language, when (this) {
+    RefreshInterval.MANUAL -> "refresh.manual"; RefreshInterval.SIX_HOURS -> "refresh.six.hours"; RefreshInterval.DAILY -> "refresh.daily"
+})
+private fun BufferProfile.label(model: WukkiModel): String = tr(model.settings.language, when (this) {
+    BufferProfile.LOW_LATENCY -> "buffer.low.latency"; BufferProfile.BALANCED -> "buffer.balanced"; BufferProfile.STABLE -> "buffer.stable"
+})
+private fun AspectRatioMode.label(model: WukkiModel): String = when (this) { AspectRatioMode.AUTO -> tr(model.settings.language, "aspect.auto"); AspectRatioMode.RATIO_16_9 -> "16:9"; AspectRatioMode.RATIO_4_3 -> "4:3"; AspectRatioMode.RATIO_21_9 -> "21:9"; AspectRatioMode.FILL_CROP -> tr(model.settings.language, "aspect.fill") }

@@ -1,7 +1,10 @@
 package hu.wukki.tv.ui.guide
 
 import hu.wukki.tv.*
+import hu.wukki.tv.ui.components.Localizer
+import hu.wukki.tv.ui.components.displayTitle
 import hu.wukki.tv.ui.components.formatTime
+import hu.wukki.tv.ui.components.tr
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
@@ -66,7 +69,6 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -321,7 +323,7 @@ fun EpgGuideScreen(data: GuideDataSource, tick: Long, state: EpgGuideState, modi
                 ) {
                     if (channels.isEmpty()) {
                         Text(
-                            guideText(data.language, "Nincs megjeleníthető csatorna.", "No channels to display."),
+                            tr(data.language, "channels.empty"),
                             color = GuideMuted,
                             modifier = Modifier.align(Alignment.Center)
                         )
@@ -354,7 +356,7 @@ private fun GuideDateHeader(
         )
     ) {
         Text(
-            guideText(language, "MŰSORÚJSÁG", "TV GUIDE"),
+            tr(language, "epg.guide.title"),
             color = Color.White,
             fontSize = (28f * scale).sp,
             fontWeight = FontWeight.Black,
@@ -546,6 +548,7 @@ private fun GuideChannelRow(
                     val durationMinutes = ((clippedEnd - clippedStart) / 60_000f).coerceAtLeast(0.16f)
                     ProgrammeCell(
                         programme = programme,
+                        language = data.language,
                         focused = rowFocused && state.focusedProgrammeKey == programme.key(),
                         scale = metrics.scale,
                         modifier = Modifier.offset(x = metrics.minuteWidth * startMinute)
@@ -556,7 +559,7 @@ private fun GuideChannelRow(
                 }
             }
             if (programmes.isEmpty()) Text(
-                guideText(data.language, "EPG nincs", "No EPG"),
+                tr(data.language, "epg.none"),
                 color = GuideMuted,
                 fontSize = (15f * metrics.scale).sp,
                 modifier = Modifier.align(Alignment.CenterStart).padding(start = 18.dp * metrics.scale)
@@ -566,7 +569,14 @@ private fun GuideChannelRow(
 }
 
 @Composable
-private fun ProgrammeCell(programme: Programme, focused: Boolean, scale: Float, modifier: Modifier, onClick: () -> Unit) {
+private fun ProgrammeCell(
+    programme: Programme,
+    language: AppLanguage,
+    focused: Boolean,
+    scale: Float,
+    modifier: Modifier,
+    onClick: () -> Unit
+) {
     val shape = RoundedCornerShape(4.dp * scale)
     val background = if (focused) {
         Modifier.background(Brush.horizontalGradient(listOf(Color(0xFF41366F), Color(0xFF292044))))
@@ -580,7 +590,7 @@ private fun ProgrammeCell(programme: Programme, focused: Boolean, scale: Float, 
             .padding(horizontal = 16.dp * scale, vertical = 14.dp * scale)
     ) {
         Text(
-            programme.title,
+            programme.displayTitle(language),
             color = Color.White,
             fontSize = (18f * scale).sp,
             fontWeight = FontWeight.SemiBold,
@@ -678,19 +688,15 @@ private fun Long.minuteOfDay(): Float = Instant.ofEpochMilli(this).atZone(ZoneId
     it.hour * 60f + it.minute + it.second / 60f
 }
 private fun currentMinuteOfDay(): Int = java.time.ZonedDateTime.now().let { it.hour * 60 + it.minute }
-private fun guideText(language: AppLanguage, hu: String, en: String): String = if (language == AppLanguage.HUNGARIAN) hu else en
 private fun LocalDate.dayLabel(language: AppLanguage, index: Int): String = if (index == 0) {
-    guideText(language, "Ma", "Today")
+    tr(language, "epg.today")
 } else {
-    format(DateTimeFormatter.ofPattern("EEEE", language.guideLocale()))
+    format(DateTimeFormatter.ofPattern(tr(language, "date.guide.weekday.pattern"), Localizer.locale(language)))
 }
 
 private fun LocalDate.dateLabel(language: AppLanguage): String = format(
     DateTimeFormatter.ofPattern(
-        if (language == AppLanguage.HUNGARIAN) "MMMM d." else "MMM d",
-        language.guideLocale()
+        tr(language, "date.guide.pattern"),
+        Localizer.locale(language)
     )
 )
-
-private fun AppLanguage.guideLocale(): Locale =
-    if (this == AppLanguage.HUNGARIAN) Locale.forLanguageTag("hu") else Locale.ENGLISH

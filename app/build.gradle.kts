@@ -1,4 +1,5 @@
 import org.gradle.api.tasks.Sync
+import java.util.Properties
 
 plugins {
     kotlin("multiplatform")
@@ -59,4 +60,24 @@ compose.desktop {
 
 tasks.matching { it.name == "prepareAppResources" || it.name.startsWith("package") }.configureEach {
     dependsOn(prepareVlcRuntime)
+}
+
+val checkLocalizationBundles by tasks.registering {
+    group = "verification"
+    description = "Checks that Hungarian and English localization bundles expose the same keys."
+    doLast {
+        fun loadBundle(name: String) = Properties().apply {
+            file("src/desktopMain/resources/i18n/messages_$name.properties").inputStream().use(::load)
+        }.stringPropertyNames()
+
+        val hungarian = loadBundle("hu")
+        val english = loadBundle("en")
+        check(hungarian == english) {
+            "Localization keys differ. Missing from English: ${hungarian - english}; missing from Hungarian: ${english - hungarian}"
+        }
+    }
+}
+
+tasks.matching { it.name == "check" }.configureEach {
+    dependsOn(checkLocalizationBundles)
 }
