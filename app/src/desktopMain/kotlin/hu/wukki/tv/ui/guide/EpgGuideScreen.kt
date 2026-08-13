@@ -2,6 +2,8 @@ package hu.wukki.tv.ui.guide
 
 import hu.wukki.tv.*
 import hu.wukki.tv.ui.components.Localizer
+import hu.wukki.tv.ui.components.WukkiColors
+import hu.wukki.tv.ui.components.WukkiBrushes
 import hu.wukki.tv.ui.components.displayTitle
 import hu.wukki.tv.ui.components.formatTime
 import hu.wukki.tv.ui.components.tr
@@ -83,11 +85,11 @@ private val ReferenceChannelColumnWidth = 160.dp
 private val ReferenceGuideRowHeight = 112.dp
 private const val REFERENCE_GUIDE_WIDTH = 1116f
 private const val REFERENCE_GUIDE_HEIGHT = 892f
-private val GuidePanel = Color(0xFF050D16)
-private val GuideSurface = Color(0xFF101D2B)
-private val GuideBorder = Color(0xFF1E2D3B)
-private val GuideMuted = Color(0xFFB1BBC9)
-private val GuideAccent = Color(0xFF8B5CF6)
+private val GuidePanel = WukkiColors.background
+private val GuideSurface = WukkiColors.surface
+private val GuideBorder = WukkiColors.borderSubtle
+private val GuideMuted = WukkiColors.textMuted
+private val GuideAccent = WukkiColors.primary
 
 private data class GuideLayoutMetrics(
     val scale: Float,
@@ -352,12 +354,12 @@ private fun GuideDateHeader(
     val selectedIndex = days.indexOf(state.selectedDay).coerceAtLeast(0)
     Column(
         modifier = Modifier.fillMaxWidth().background(
-            Brush.verticalGradient(listOf(Color(0xFF050E17), Color(0xFF06111B)))
+            WukkiBrushes.appBackground()
         )
     ) {
         Text(
             tr(language, "epg.guide.title"),
-            color = Color.White,
+            color = WukkiColors.textPrimary,
             fontSize = (28f * scale).sp,
             fontWeight = FontWeight.Black,
             modifier = Modifier.padding(start = 28.dp * scale, top = 25.dp * scale, bottom = 17.dp * scale)
@@ -410,10 +412,10 @@ private fun GuideDayTab(
 ) {
     val background = if (selected) {
         Modifier.background(
-            Brush.horizontalGradient(listOf(Color(0xFF3D3268), Color(0xFF2A214D)))
+            WukkiBrushes.selectedSurface()
         )
     } else {
-        Modifier.background(Color.Transparent)
+        Modifier.background(WukkiColors.transparent)
     }
     Column(
         modifier = Modifier.width(184.dp * scale).fillMaxHeight()
@@ -424,7 +426,7 @@ private fun GuideDayTab(
     ) {
         Text(
             day.dayLabel(language, index),
-            color = Color.White,
+            color = WukkiColors.textPrimary,
             fontSize = (20f * scale).sp,
             fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
             maxLines = 1
@@ -443,7 +445,7 @@ private fun GuideDayArrow(symbol: String, enabled: Boolean, scale: Float, onClic
     ) {
         Text(
             symbol,
-            color = if (enabled) Color.White else GuideMuted.copy(alpha = .28f),
+            color = if (enabled) WukkiColors.textPrimary else GuideMuted.copy(alpha = .28f),
             fontSize = (42f * scale).sp,
             fontWeight = FontWeight.Light
         )
@@ -459,10 +461,10 @@ private fun TimelineHeader(
 ) {
     Row(
         Modifier.fillMaxWidth().height(metrics.timelineHeight)
-            .background(Color(0xFF08131E)).border(BorderStroke(1.dp, GuideBorder))
+            .background(WukkiColors.backgroundRaised).border(BorderStroke(1.dp, GuideBorder))
     ) {
         Box(
-            Modifier.width(metrics.channelColumnWidth).fillMaxHeight().background(Color(0xFF07111B)),
+            Modifier.width(metrics.channelColumnWidth).fillMaxHeight().background(WukkiColors.navigationBackground),
             contentAlignment = Alignment.CenterStart
         ) {
             Text("·", color = GuideMuted, fontSize = (18f * metrics.scale).sp, modifier = Modifier.padding(start = 28.dp * metrics.scale))
@@ -507,23 +509,23 @@ private fun GuideChannelRow(
 ) {
     val programmes = data.programmesFor(channel, dayStart, dayEnd)
     val rowFocused = state.focusedChannelId == channel.id
-    Row(Modifier.fillMaxWidth().height(metrics.rowHeight).background(Color(0xFF08131E))) {
+    Row(Modifier.fillMaxWidth().height(metrics.rowHeight).background(WukkiColors.backgroundRaised)) {
         Row(
             modifier = Modifier.width(metrics.channelColumnWidth).fillMaxHeight()
-                .background(Color(0xFF07111B)).border(BorderStroke(1.dp, GuideBorder))
+                .background(WukkiColors.navigationBackground).border(BorderStroke(1.dp, GuideBorder))
                 .clickable { state.selectChannel(channel) }.padding(horizontal = 15.dp * metrics.scale),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 channel.tvgChno?.toString() ?: "–",
-                color = Color.White,
+                color = WukkiColors.textPrimary,
                 fontSize = (24f * metrics.scale).sp,
                 fontWeight = FontWeight.Light,
                 modifier = Modifier.width(48.dp * metrics.scale)
             )
             Text(
                 channel.name,
-                color = Color.White,
+                color = WukkiColors.textPrimary,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = (18f * metrics.scale).sp,
                 maxLines = 2,
@@ -579,19 +581,19 @@ private fun ProgrammeCell(
 ) {
     val shape = RoundedCornerShape(4.dp * scale)
     val background = if (focused) {
-        Modifier.background(Brush.horizontalGradient(listOf(Color(0xFF41366F), Color(0xFF292044))))
+        Modifier.background(WukkiBrushes.selectedSurface())
     } else {
         Modifier.background(GuideSurface)
     }
     Column(
         modifier = modifier.padding(1.dp).clip(shape).then(background)
-            .border(if (focused) 2.dp else 1.dp, if (focused) Color(0xFFA277FF) else GuideBorder, shape)
+            .border(if (focused) 2.dp else 1.dp, if (focused) WukkiColors.focus else GuideBorder, shape)
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp * scale, vertical = 14.dp * scale)
     ) {
         Text(
             programme.displayTitle(language),
-            color = Color.White,
+            color = WukkiColors.textPrimary,
             fontSize = (18f * scale).sp,
             fontWeight = FontWeight.SemiBold,
             maxLines = 1,
@@ -625,10 +627,10 @@ private fun CurrentTimeHeaderIndicator(now: Long, day: LocalDate, metrics: Guide
     ) {
         Box(
             modifier = Modifier.fillMaxWidth().height(bubbleHeight)
-                .clip(RoundedCornerShape(9.dp * metrics.scale)).background(Color(0xFF3A2D68)),
+                .clip(RoundedCornerShape(9.dp * metrics.scale)).background(WukkiColors.primaryMuted),
             contentAlignment = Alignment.Center
         ) {
-            Text(formatTime(now), color = Color.White, fontSize = (18f * metrics.scale).sp, fontWeight = FontWeight.SemiBold)
+            Text(formatTime(now), color = WukkiColors.textPrimary, fontSize = (18f * metrics.scale).sp, fontWeight = FontWeight.SemiBold)
         }
         Canvas(Modifier.size(18.dp * metrics.scale, pointerHeight)) {
             val triangle = androidx.compose.ui.graphics.Path().apply {

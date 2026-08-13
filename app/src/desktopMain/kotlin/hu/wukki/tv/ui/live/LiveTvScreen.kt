@@ -11,8 +11,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import hu.wukki.tv.ui.components.WukkiColors
 
 data class LiveTvUiState(val hasChannel: Boolean, val emptyMessage: String)
 
@@ -21,9 +21,9 @@ data class LiveTvUiState(val hasChannel: Boolean, val emptyMessage: String)
 fun LiveTvScreen(state: LiveTvUiState, scale: Float, video: @Composable () -> Unit, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier.padding(top = (38.dp * scale).coerceAtLeast(20.dp), end = (36.dp * scale).coerceAtLeast(18.dp), bottom = (120.dp * scale).coerceAtLeast(54.dp))
-            .clip(RoundedCornerShape((8.dp * scale).coerceAtLeast(5.dp))).background(Color.Black)
-            .border(1.dp, Color(0xFF172536), RoundedCornerShape((8.dp * scale).coerceAtLeast(5.dp)))
+            .clip(RoundedCornerShape((8.dp * scale).coerceAtLeast(5.dp))).background(WukkiColors.video)
+            .border(1.dp, WukkiColors.border, RoundedCornerShape((8.dp * scale).coerceAtLeast(5.dp)))
     ) {
-        if (state.hasChannel) video() else Text(state.emptyMessage, color = Color(0xFF93A0B5), modifier = Modifier.align(Alignment.Center))
+        if (state.hasChannel) video() else Text(state.emptyMessage, color = WukkiColors.textMuted, modifier = Modifier.align(Alignment.Center))
     }
 }

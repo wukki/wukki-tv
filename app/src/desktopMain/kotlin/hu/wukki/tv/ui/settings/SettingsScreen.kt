@@ -3,6 +3,8 @@ package hu.wukki.tv.ui.settings
 import hu.wukki.tv.*
 import hu.wukki.tv.ui.components.formatTime
 import hu.wukki.tv.ui.components.tr
+import hu.wukki.tv.ui.components.WukkiBrushes
+import hu.wukki.tv.ui.components.WukkiColors
 
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
@@ -31,10 +33,10 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 enum class SettingsSection { PLAYBACK, EPG, DISPLAY, PARENTAL, PLAYLISTS, LANGUAGE, ABOUT }
-private val SettingsPanel = Color(0xF20A1421)
-private val SettingsSurface = Color(0xFF111E2F)
-private val SettingsMuted = Color(0xFF9BA9BE)
-private val SettingsAccent = Color(0xFF8B5CF6)
+private val SettingsPanel = WukkiColors.surfaceOverlay
+private val SettingsSurface = WukkiColors.surface
+private val SettingsMuted = WukkiColors.textMuted
+private val SettingsAccent = WukkiColors.primary
 private const val SETTINGS_REFERENCE_WIDTH = 1116f
 private const val SETTINGS_REFERENCE_HEIGHT = 892f
 private const val WUKKI_VERSION = "1.0.0"
@@ -56,7 +58,7 @@ fun SettingsScreen(
         Column(Modifier.fillMaxSize()) {
             Text(
                 tr(model.settings.language, "settings.title"),
-                color = Color.White,
+                color = WukkiColors.textPrimary,
                 fontWeight = FontWeight.Black,
                 fontSize = (29f * scale).sp,
                 modifier = Modifier.padding(start = 8.dp * scale, top = 8.dp * scale, bottom = 34.dp * scale)
@@ -98,20 +100,20 @@ private fun SettingsNavigation(
 ) {
     val shape = RoundedCornerShape(12.dp * scale)
     Column(
-        modifier = modifier.clip(shape).background(SettingsSurface).border(1.dp, Color(0xFF263648), shape)
+        modifier = modifier.clip(shape).background(SettingsSurface).border(1.dp, WukkiColors.border, shape)
     ) {
         SettingsSection.entries.forEach { item ->
             val active = item == selected
             Row(
                 modifier = Modifier.fillMaxWidth().height(81.dp * scale)
-                    .background(if (active) Color(0xFF292141) else Color.Transparent)
-                    .border(0.5.dp, Color(0xFF263648).copy(alpha = .72f))
+                    .background(if (active) WukkiColors.surfaceSelected else WukkiColors.transparent)
+                    .border(0.5.dp, WukkiColors.border.copy(alpha = .72f))
                     .clickable { onSelect(item) }.padding(horizontal = 24.dp * scale),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     item.title(model),
-                    color = Color.White,
+                    color = WukkiColors.textPrimary,
                     fontSize = (19f * scale).sp,
                     fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
                     modifier = Modifier.weight(1f),
@@ -121,12 +123,12 @@ private fun SettingsNavigation(
                 if (item == SettingsSection.LANGUAGE) {
                     Text(
                         tr(model.settings.language, "settings.language.current"),
-                        color = Color.White,
+                        color = WukkiColors.textPrimary,
                         fontSize = (16f * scale).sp,
                         modifier = Modifier.padding(end = 14.dp * scale)
                     )
                 }
-                Text("›", color = Color(0xFFD0D7E1), fontSize = (34f * scale).sp, fontWeight = FontWeight.Light)
+                Text("›", color = WukkiColors.textSecondary, fontSize = (34f * scale).sp, fontWeight = FontWeight.Light)
             }
         }
     }
@@ -143,7 +145,7 @@ private fun SettingsHome(model: WukkiModel, scale: Float, modifier: Modifier) {
         Spacer(Modifier.height(52.dp * scale))
         Text(
             tr(model.settings.language, "settings.home"),
-            color = Color(0xFFC1C8D2),
+            color = WukkiColors.textSecondary,
             fontSize = (18f * scale).sp,
             lineHeight = (28f * scale).sp,
             fontWeight = FontWeight.SemiBold
@@ -155,11 +157,7 @@ private fun SettingsHome(model: WukkiModel, scale: Float, modifier: Modifier) {
 private fun SettingsGear(scale: Float) {
     Canvas(Modifier.size(184.dp * scale)) {
         val center = Offset(size.width / 2f, size.height / 2f)
-        val brush = Brush.linearGradient(
-            colors = listOf(Color(0xFF5EA7FF), Color(0xFF7654F5), Color(0xFF9A4DE0)),
-            start = Offset(size.width, 0f),
-            end = Offset(0f, size.height)
-        )
+        val brush = WukkiBrushes.accent()
         val inner = size.minDimension * .31f
         val outer = size.minDimension * .45f
         repeat(8) { index ->
@@ -173,7 +171,7 @@ private fun SettingsGear(scale: Float) {
             )
         }
         drawCircle(brush = brush, radius = size.minDimension * .34f, center = center)
-        drawCircle(color = Color(0xFF07121C), radius = size.minDimension * .17f, center = center)
+        drawCircle(color = WukkiColors.navigationBackground, radius = size.minDimension * .17f, center = center)
     }
 }
 
@@ -186,7 +184,7 @@ private fun SettingsDetail(
     modifier: Modifier
 ) {
     SettingsCard(modifier) {
-        Text(selectedSection.title(model), color = Color.White, fontWeight = FontWeight.Black, fontSize = (23f * scale).sp)
+        Text(selectedSection.title(model), color = WukkiColors.textPrimary, fontWeight = FontWeight.Black, fontSize = (23f * scale).sp)
         Spacer(Modifier.height(16.dp * scale))
         when (selectedSection) {
             SettingsSection.EPG -> EpgSettings(model, scope)
@@ -216,7 +214,7 @@ private fun PlaybackSettings(model: WukkiModel) {
     ) {
         PlaybackSettingRow(model, "settings.playback.volume", "settings.playback.volume.description", focusedOption == PlaybackOption.VOLUME, { focusedOption = PlaybackOption.VOLUME }) {
             Column(modifier = Modifier.widthIn(min = 150.dp, max = 205.dp)) {
-                Text("${settings.volume}%", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                Text("${settings.volume}%", color = WukkiColors.textPrimary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                 Slider(value = settings.volume.toFloat(), onValueChange = { volume -> model.updatePlayback { it.copy(volume = volume.toInt()) } }, valueRange = 0f..100f)
             }
         }
@@ -234,7 +232,7 @@ private fun PlaybackSettings(model: WukkiModel) {
             Switch(
                 checked = settings.autoReconnect,
                 onCheckedChange = { enabled -> model.updatePlayback { it.copy(autoReconnect = enabled) } },
-                colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = SettingsAccent, uncheckedThumbColor = SettingsMuted, uncheckedTrackColor = Color(0xFF26364A))
+                colors = SwitchDefaults.colors(checkedThumbColor = WukkiColors.textPrimary, checkedTrackColor = SettingsAccent, uncheckedThumbColor = SettingsMuted, uncheckedTrackColor = WukkiColors.border)
             )
         }
         PlaybackSettingRow(model, "settings.playback.attempts", "settings.playback.attempts.description", focusedOption == PlaybackOption.RETRIES, { focusedOption = PlaybackOption.RETRIES }) {
@@ -259,13 +257,13 @@ private fun PlaybackSettingRow(
     Row(
         modifier = Modifier.fillMaxWidth().height(66.dp)
             .clip(RoundedCornerShape(6.dp))
-            .background(if (selected) Color(0xFF1B1B3B) else Color(0xFF0D1A2A))
-            .border(1.dp, if (selected) SettingsAccent else Color(0xFF24364B), RoundedCornerShape(6.dp))
+            .background(if (selected) WukkiColors.surfaceSelected else WukkiColors.backgroundRaised)
+            .border(1.dp, if (selected) SettingsAccent else WukkiColors.border, RoundedCornerShape(6.dp))
             .clickable(onClick = onSelect).padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f).padding(end = 18.dp)) {
-            Text(tr(model.settings.language, titleKey), color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+            Text(tr(model.settings.language, titleKey), color = WukkiColors.textPrimary, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
             Spacer(Modifier.height(2.dp))
             Text(tr(model.settings.language, descriptionKey), color = SettingsMuted, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
@@ -278,17 +276,17 @@ private fun <T> PlaybackSelect(value: T, entries: List<T>, label: @Composable (T
     var expanded by remember { mutableStateOf(false) }
     Box {
         Row(
-            modifier = Modifier.widthIn(min = 155.dp).clip(RoundedCornerShape(5.dp)).background(Color(0xFF17283A))
-                .border(1.dp, Color(0xFF263C53), RoundedCornerShape(5.dp)).clickable { expanded = true }
+            modifier = Modifier.widthIn(min = 155.dp).clip(RoundedCornerShape(5.dp)).background(WukkiColors.surfaceInput)
+                .border(1.dp, WukkiColors.border, RoundedCornerShape(5.dp)).clickable { expanded = true }
                 .padding(horizontal = 11.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(label(value), color = Color.White, fontSize = 12.sp, modifier = Modifier.weight(1f))
+            Text(label(value), color = WukkiColors.textPrimary, fontSize = 12.sp, modifier = Modifier.weight(1f))
             Text("⌄", color = SettingsMuted, fontSize = 15.sp)
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             entries.forEach { entry ->
-                DropdownMenuItem(text = { Text(label(entry), color = Color.White) }, onClick = { onSelect(entry); expanded = false })
+                DropdownMenuItem(text = { Text(label(entry), color = WukkiColors.textPrimary) }, onClick = { onSelect(entry); expanded = false })
             }
         }
     }
@@ -297,13 +295,13 @@ private fun <T> PlaybackSelect(value: T, entries: List<T>, label: @Composable (T
 @Composable
 private fun PlaybackStepper(value: Int, onDecrease: () -> Unit, onIncrease: () -> Unit) {
     Row(
-        modifier = Modifier.clip(RoundedCornerShape(5.dp)).background(Color(0xFF17283A))
-            .border(1.dp, Color(0xFF263C53), RoundedCornerShape(5.dp)),
+        modifier = Modifier.clip(RoundedCornerShape(5.dp)).background(WukkiColors.surfaceInput)
+            .border(1.dp, WukkiColors.border, RoundedCornerShape(5.dp)),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        TextButton(onClick = onDecrease, modifier = Modifier.size(34.dp)) { Text("−", color = Color.White, fontSize = 17.sp) }
-        Text(value.toString(), color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(30.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-        TextButton(onClick = onIncrease, modifier = Modifier.size(34.dp)) { Text("+", color = Color.White, fontSize = 17.sp) }
+        TextButton(onClick = onDecrease, modifier = Modifier.size(34.dp)) { Text("−", color = WukkiColors.textPrimary, fontSize = 17.sp) }
+        Text(value.toString(), color = WukkiColors.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(30.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        TextButton(onClick = onIncrease, modifier = Modifier.size(34.dp)) { Text("+", color = WukkiColors.textPrimary, fontSize = 17.sp) }
     }
 }
 
@@ -335,7 +333,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.EpgSettings(model: Wu
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(source.lastUpdatedAt?.let { "${tr(model.settings.language, "settings.updated")}: ${formatTime(it)}" } ?: tr(model.settings.language, "settings.not.updated"), color = SettingsMuted, fontSize = 11.sp, modifier = Modifier.weight(1f))
                     TextButton(onClick = { scope.launch { model.refreshEpgSource(source.id) } }) { Text(tr(model.settings.language, "settings.refresh")) }
-                    TextButton(onClick = { model.removeEpgSource(source.id) }) { Text(tr(model.settings.language, "settings.delete"), color = Color(0xFFFFA4A1)) }
+                    TextButton(onClick = { model.removeEpgSource(source.id) }) { Text(tr(model.settings.language, "settings.delete"), color = WukkiColors.error) }
                 }
             }
             Spacer(Modifier.height(6.dp))
@@ -375,7 +373,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.PlaylistSettings(mode
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(tr(model.settings.language, "settings.channels.count", model.state.channels.count { it.playlistId == playlist.id }), color = SettingsMuted, fontSize = 11.sp, modifier = Modifier.weight(1f))
                     TextButton(onClick = { model.selectedPlaylistId = playlist.id; scope.launch { model.refreshSelected() } }) { Text(tr(model.settings.language, "settings.refresh")) }
-                    TextButton(onClick = { model.selectedPlaylistId = playlist.id; model.removeSelectedPlaylist() }) { Text(tr(model.settings.language, "settings.delete"), color = Color(0xFFFFA4A1)) }
+                    TextButton(onClick = { model.selectedPlaylistId = playlist.id; model.removeSelectedPlaylist() }) { Text(tr(model.settings.language, "settings.delete"), color = WukkiColors.error) }
                 }
             }
             Spacer(Modifier.height(6.dp))
@@ -399,11 +397,11 @@ private fun LanguageSettings(model: WukkiModel) {
 private fun ParentalSettings(model: WukkiModel) {
     Box(
         modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
-            .background(SettingsSurface).border(1.dp, Color(0xFF263648), RoundedCornerShape(10.dp))
+            .background(SettingsSurface).border(1.dp, WukkiColors.border, RoundedCornerShape(10.dp))
             .padding(22.dp)
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(tr(model.settings.language, "settings.parental.coming"), color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+            Text(tr(model.settings.language, "settings.parental.coming"), color = WukkiColors.textPrimary, fontSize = 19.sp, fontWeight = FontWeight.Bold)
             Text(
                 tr(model.settings.language, "settings.parental.description"),
                 color = SettingsMuted,
@@ -416,12 +414,12 @@ private fun ParentalSettings(model: WukkiModel) {
 @Composable
 private fun AboutSettings(model: WukkiModel) {
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        Text("Wukki TV", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Black)
+        Text("Wukki TV", color = WukkiColors.textPrimary, fontSize = 27.sp, fontWeight = FontWeight.Black)
         SettingsInfoLine(tr(model.settings.language, "settings.about.version"), WUKKI_VERSION)
         SettingsInfoLine(tr(model.settings.language, "settings.about.engine"), "VLC / libVLC")
         Box(
             modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(SettingsSurface)
-                .border(1.dp, Color(0xFF263648), RoundedCornerShape(10.dp)).padding(16.dp)
+                .border(1.dp, WukkiColors.border, RoundedCornerShape(10.dp)).padding(16.dp)
         ) {
             Text(
                 tr(model.settings.language, "settings.about.licenses"),
@@ -440,7 +438,7 @@ private fun SettingsInfoLine(label: String, value: String) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(label, color = SettingsMuted, modifier = Modifier.weight(1f))
-        Text(value, color = Color.White, fontWeight = FontWeight.SemiBold)
+        Text(value, color = WukkiColors.textPrimary, fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -472,13 +470,13 @@ private fun RefreshSelector(model: WukkiModel, selected: RefreshInterval, onSele
 
 @Composable
 private fun SettingsNotice(model: WukkiModel, textKey: String) {
-    Text(tr(model.settings.language, textKey), color = SettingsMuted, fontSize = 12.sp, modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(7.dp)).background(Color(0xFF12263A)).padding(10.dp))
+    Text(tr(model.settings.language, textKey), color = SettingsMuted, fontSize = 12.sp, modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(7.dp)).background(WukkiColors.surfaceRaised).padding(10.dp))
     Spacer(Modifier.height(8.dp))
 }
 
 @Composable
 private fun SettingsCard(modifier: Modifier, content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
-    Card(modifier = modifier, shape = RoundedCornerShape(12.dp), border = BorderStroke(1.dp, Color(0xFF24344A)), colors = CardDefaults.cardColors(containerColor = SettingsPanel)) {
+    Card(modifier = modifier, shape = RoundedCornerShape(12.dp), border = BorderStroke(1.dp, WukkiColors.border), colors = CardDefaults.cardColors(containerColor = SettingsPanel)) {
         Column(modifier = Modifier.fillMaxSize().padding(18.dp), content = content)
     }
 }

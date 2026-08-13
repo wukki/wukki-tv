@@ -20,6 +20,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import hu.wukki.tv.ui.guide.DashboardSection
+import hu.wukki.tv.ui.components.WukkiBrushes
+import hu.wukki.tv.ui.components.WukkiColors
 import java.time.LocalDate
 import kotlin.math.PI
 import kotlin.math.cos
@@ -43,20 +45,18 @@ fun SideNavigation(
     modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = modifier.background(
-            Brush.horizontalGradient(listOf(Color(0xFF02080E), Color(0xFF07121C), Color(0xFF06101A)))
-        )
+        modifier = modifier.background(WukkiBrushes.navigationBackground())
     ) {
         Row(
             modifier = Modifier.padding(start = 30.dp * scale, top = 40.dp * scale),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            androidx.compose.material3.Text("Wukki", color = Color.White, fontWeight = FontWeight.Black, fontSize = (36 * scale).sp, letterSpacing = (-1.2).sp)
+            androidx.compose.material3.Text("Wukki", color = WukkiColors.textPrimary, fontWeight = FontWeight.Black, fontSize = (36 * scale).sp, letterSpacing = (-1.2).sp)
             Spacer(Modifier.width(7.dp * scale))
             androidx.compose.material3.Text(
-                "TV", color = Color.White, fontSize = (17 * scale).sp, fontWeight = FontWeight.Bold,
+                "TV", color = WukkiColors.textPrimary, fontSize = (17 * scale).sp, fontWeight = FontWeight.Bold,
                 modifier = Modifier.clip(RoundedCornerShape(5.dp * scale))
-                    .background(Brush.verticalGradient(listOf(Color(0xFF7662F4), Color(0xFF4C35B8))))
+                    .background(WukkiBrushes.accent())
                     .padding(horizontal = 7.dp * scale, vertical = 4.dp * scale)
             )
         }
@@ -66,22 +66,22 @@ fun SideNavigation(
             Row(
                 modifier = Modifier.fillMaxWidth().height((76.dp * scale).coerceIn(54.dp, 94.dp))
                     .background(
-                        if (selected) Brush.horizontalGradient(listOf(Color(0xFF5B43B7).copy(alpha = .82f), Color(0xFF2D235C).copy(alpha = .58f), Color.Transparent))
-                        else Brush.horizontalGradient(listOf(Color.Transparent, Color.Transparent))
+                        if (selected) WukkiBrushes.navigationSelected()
+                        else Brush.horizontalGradient(listOf(WukkiColors.transparent, WukkiColors.transparent))
                     )
                     .clickable { onSelect(entry.section) }.padding(start = 40.dp * scale, end = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                NavigationIcon(entry.section, if (selected) Color.White else Color(0xFFC7CED8), Modifier.size((29.dp * scale).coerceIn(22.dp, 38.dp)))
+                NavigationIcon(entry.section, if (selected) WukkiColors.textPrimary else WukkiColors.textSecondary, Modifier.size((29.dp * scale).coerceIn(22.dp, 38.dp)))
                 Spacer(Modifier.width(25.dp * scale))
-                androidx.compose.material3.Text(entry.label, color = if (selected) Color.White else Color(0xFFE6EAF2), fontSize = (19 * scale).sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
+                androidx.compose.material3.Text(entry.label, color = if (selected) WukkiColors.textPrimary else WukkiColors.textSecondary, fontSize = (19 * scale).sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
             }
         }
         Spacer(Modifier.weight(1f))
         Column(modifier = Modifier.padding(start = 30.dp * scale, bottom = 70.dp * scale)) {
-            androidx.compose.material3.Text(state.timeLabel, color = Color.White, fontSize = (34 * scale).sp, fontWeight = FontWeight.Light)
+            androidx.compose.material3.Text(state.timeLabel, color = WukkiColors.textPrimary, fontSize = (34 * scale).sp, fontWeight = FontWeight.Light)
             Spacer(Modifier.height(5.dp * scale))
-            androidx.compose.material3.Text(state.dateLabel, color = Color(0xFF93A0B5), fontSize = (15 * scale).sp)
+            androidx.compose.material3.Text(state.dateLabel, color = WukkiColors.textMuted, fontSize = (15 * scale).sp)
         }
     }
 }

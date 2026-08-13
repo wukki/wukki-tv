@@ -60,10 +60,10 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 
-private val DashboardPanel = AppBackground
-private val DashboardMuted = Color(0xFF93A0B5)
-private val DashboardBorder = Color(0xFF223047)
-private val FocusPurple = Color(0xFF8B5CF6)
+private val DashboardPanel = WukkiColors.background
+private val DashboardMuted = WukkiColors.textMuted
+private val DashboardBorder = WukkiColors.border
+private val FocusPurple = WukkiColors.primary
 
 private fun navigationState(model: WukkiModel, activeSection: DashboardSection, tick: Long): SideNavigationUiState {
     val language = model.settings.language
@@ -95,11 +95,7 @@ fun DashboardScreen(
     onSettingsSectionChange: (SettingsSection?) -> Unit
 ) {
     BoxWithConstraints(
-        modifier = Modifier.fillMaxSize().background(
-            Brush.linearGradient(
-                colors = listOf(Color(0xFF02080E), Color(0xFF07131F), Color(0xFF02070C))
-            )
-        )
+        modifier = Modifier.fillMaxSize().background(WukkiBrushes.appBackground())
     ) {
         val referenceScale = minOf(maxWidth.value / 1470f, maxHeight.value / 920f).coerceIn(.70f, 1.45f)
         val navigationWidth = (326.dp * referenceScale).coerceIn(220.dp, 430.dp)
@@ -151,8 +147,8 @@ fun DashboardScreen(
             modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 24.dp).widthIn(max = 720.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            model.error?.let { DashboardMessage(tr(model.settings.language, "app.error.prefix", it.text(model.settings.language)), Color(0xFFFFB4AB), Color(0xE65F1D22)) }
-            model.status?.let { DashboardMessage(it.text(model.settings.language), Color(0xFFB9F6CA), Color(0xE612352C)) }
+            model.error?.let { DashboardMessage(tr(model.settings.language, "app.error.prefix", it.text(model.settings.language)), WukkiColors.error, WukkiColors.errorContainer) }
+            model.status?.let { DashboardMessage(it.text(model.settings.language), WukkiColors.success, WukkiColors.successContainer) }
         }
     }
 }
@@ -220,7 +216,7 @@ private fun ChannelHeader(
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             tr(model.settings.language, "channels.title"),
-            color = Color.White,
+            color = WukkiColors.textPrimary,
             fontSize = (28f * scale).sp,
             fontWeight = FontWeight.Bold
         )
@@ -236,12 +232,12 @@ private fun ChannelHeader(
                     onValueChange = { model.query = it },
                     singleLine = true,
                     placeholder = { Text(tr(model.settings.language, "channels.search"), color = DashboardMuted) },
-                    textStyle = LocalTextStyle.current.copy(color = Color.White, fontSize = (15f * scale).sp),
+                    textStyle = LocalTextStyle.current.copy(color = WukkiColors.textPrimary, fontSize = (15f * scale).sp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = FocusPurple,
                         unfocusedBorderColor = DashboardBorder,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
+                        focusedTextColor = WukkiColors.textPrimary,
+                        unfocusedTextColor = WukkiColors.textPrimary,
                         cursorColor = FocusPurple
                     ),
                     modifier = Modifier.weight(1f).fillMaxHeight().focusRequester(searchFocusRequester)
@@ -306,9 +302,9 @@ private fun ChannelHeader(
 @Composable
 private fun ChannelFilterTab(label: String, selected: Boolean, scale: Float, onClick: () -> Unit) {
     val background = if (selected) {
-        Modifier.background(Brush.horizontalGradient(listOf(Color(0xFF443671), Color(0xFF2D2450))))
+        Modifier.background(WukkiBrushes.selectedSurface())
     } else {
-        Modifier.background(Color.Transparent)
+        Modifier.background(WukkiColors.transparent)
     }
     Box(
         modifier = Modifier.fillMaxHeight().clip(RoundedCornerShape(9.dp * scale)).then(background)
@@ -317,7 +313,7 @@ private fun ChannelFilterTab(label: String, selected: Boolean, scale: Float, onC
     ) {
         Text(
             label,
-            color = if (selected) Color.White else Color(0xFFC2CAD5),
+            color = if (selected) WukkiColors.textPrimary else WukkiColors.textSecondary,
             fontSize = (15f * scale).sp,
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
             maxLines = 1
@@ -329,24 +325,24 @@ private fun ChannelFilterTab(label: String, selected: Boolean, scale: Float, onC
 private fun ChannelHeaderIcon(close: Boolean, scale: Float, onClick: () -> Unit) {
     Box(
         modifier = Modifier.size(46.dp * scale).clip(RoundedCornerShape(9.dp * scale))
-            .background(Color(0xFF0D1926)).border(1.dp, DashboardBorder, RoundedCornerShape(9.dp * scale))
+            .background(WukkiColors.backgroundRaised).border(1.dp, DashboardBorder, RoundedCornerShape(9.dp * scale))
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Canvas(Modifier.size(22.dp * scale)) {
             val strokeWidth = size.minDimension * .09f
             if (close) {
-                drawLine(Color.White, Offset(size.width * .22f, size.height * .22f), Offset(size.width * .78f, size.height * .78f), strokeWidth)
-                drawLine(Color.White, Offset(size.width * .78f, size.height * .22f), Offset(size.width * .22f, size.height * .78f), strokeWidth)
+                drawLine(WukkiColors.textPrimary, Offset(size.width * .22f, size.height * .22f), Offset(size.width * .78f, size.height * .78f), strokeWidth)
+                drawLine(WukkiColors.textPrimary, Offset(size.width * .78f, size.height * .22f), Offset(size.width * .22f, size.height * .78f), strokeWidth)
             } else {
                 drawCircle(
-                    color = Color.White,
+                    color = WukkiColors.textPrimary,
                     radius = size.minDimension * .28f,
                     center = Offset(size.width * .43f, size.height * .42f),
                     style = Stroke(strokeWidth)
                 )
                 drawLine(
-                    color = Color.White,
+                    color = WukkiColors.textPrimary,
                     start = Offset(size.width * .64f, size.height * .64f),
                     end = Offset(size.width * .86f, size.height * .86f),
                     strokeWidth = strokeWidth
@@ -368,7 +364,7 @@ private fun ChannelDirectory(model: WukkiModel, tick: Long, scale: Float, modifi
     }
 
     Box(
-        modifier = modifier.clip(RoundedCornerShape(8.dp * scale)).background(Color(0xD906111B))
+        modifier = modifier.clip(RoundedCornerShape(8.dp * scale)).background(WukkiColors.surfaceOverlay)
             .border(1.dp, DashboardBorder, RoundedCornerShape(8.dp * scale))
     ) {
         if (channels.isEmpty()) {
@@ -384,19 +380,19 @@ private fun ChannelDirectory(model: WukkiModel, tick: Long, scale: Float, modifi
                 val shape = RoundedCornerShape(6.dp * scale)
                 Row(
                     modifier = Modifier.fillMaxWidth().height(rowHeight).clip(shape)
-                        .background(if (selected) Color(0xFF211C38) else Color(0xFF07121C))
-                        .border(if (selected) 2.dp else 1.dp, if (selected) Color(0xFFA277FF) else DashboardBorder.copy(alpha = .58f), shape)
+                        .background(if (selected) WukkiColors.surfaceSelected else WukkiColors.navigationBackground)
+                        .border(if (selected) 2.dp else 1.dp, if (selected) WukkiColors.focus else DashboardBorder.copy(alpha = .58f), shape)
                         .clickable { model.selectChannel(channel.id) },
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Box(
                         modifier = Modifier.width(54.dp * scale).fillMaxHeight()
-                            .background(if (selected) Color(0xFF09131E) else Color.Transparent),
+                            .background(if (selected) WukkiColors.backgroundRaised else WukkiColors.transparent),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             channel.tvgChno?.toString() ?: (index + 1).toString(),
-                            color = Color.White,
+                            color = WukkiColors.textPrimary,
                             fontSize = (22f * scale).sp,
                             fontWeight = FontWeight.Light
                         )
@@ -407,7 +403,7 @@ private fun ChannelDirectory(model: WukkiModel, tick: Long, scale: Float, modifi
                     Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
                         Text(
                             channel.name,
-                            color = Color.White,
+                            color = WukkiColors.textPrimary,
                             fontWeight = FontWeight.SemiBold,
                             fontSize = (18f * scale).sp,
                             maxLines = 1,
@@ -470,7 +466,7 @@ private fun ChannelFavoriteIcon(favorite: Boolean, scale: Float, onClick: () -> 
             if (favorite) {
                 drawPath(heart, FocusPurple)
             } else {
-                drawPath(heart, Color(0xFFD0D7E1), style = Stroke(size.minDimension * .065f))
+                drawPath(heart, WukkiColors.textSecondary, style = Stroke(size.minDimension * .065f))
             }
         }
     }
@@ -492,7 +488,7 @@ private fun ProgrammeInformation(
                 Text(tr(model.settings.language, "channels.select"), color = DashboardMuted)
             }
         } else {
-            Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(Color.Black)) {
+            Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(WukkiColors.video)) {
                 EmbeddedVlcPlayer(playbackController, modifier = Modifier.fillMaxSize())
             }
             HorizontalDivider(color = DashboardBorder)
@@ -500,10 +496,10 @@ private fun ProgrammeInformation(
                 modifier = Modifier.fillMaxWidth().weight(1f).padding(18.dp * scale),
                 verticalArrangement = Arrangement.spacedBy(7.dp * scale)
             ) {
-                Text(channel.name, color = Color.White, fontSize = (24f * scale).sp, fontWeight = FontWeight.Bold)
+                Text(channel.name, color = WukkiColors.textPrimary, fontSize = (24f * scale).sp, fontWeight = FontWeight.Bold)
                 Text(
                     programme?.displayTitle(model.settings.language) ?: tr(model.settings.language, "epg.none"),
-                    color = Color.White,
+                    color = WukkiColors.textPrimary,
                     fontSize = (17f * scale).sp,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
@@ -524,7 +520,7 @@ private fun ProgrammeInformation(
                     } else {
                         Box(
                             Modifier.weight(1f).height(5.dp * scale).clip(RoundedCornerShape(99.dp))
-                                .background(Color(0xFF27364B))
+                                .background(WukkiColors.overlayDivider)
                         )
                     }
                     Text(formatTime(tick), color = DashboardMuted, fontSize = (12f * scale).sp)
@@ -534,7 +530,7 @@ private fun ProgrammeInformation(
                     Text(
                         programme?.description?.takeIf { it.isNotBlank() }
                             ?: tr(model.settings.language, "epg.no.description"),
-                        color = Color(0xFFC5CDD8),
+                        color = WukkiColors.textSecondary,
                         fontSize = (13f * scale).sp,
                         maxLines = 5,
                         overflow = TextOverflow.Ellipsis
@@ -546,7 +542,7 @@ private fun ProgrammeInformation(
                     modifier = Modifier.fillMaxWidth().height(48.dp * scale),
                     shape = RoundedCornerShape(8.dp * scale),
                     border = BorderStroke(1.dp, DashboardBorder),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = WukkiColors.textPrimary)
                 ) {
                     Text(
                         if (channel.favorite) {
@@ -569,7 +565,7 @@ private fun ProgrammeProgress(programme: Programme, now: Long, modifier: Modifie
     LinearProgressIndicator(
         progress = { progress },
         color = FocusPurple,
-        trackColor = Color(0xFF27364B),
+        trackColor = WukkiColors.overlayDivider,
         modifier = modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(99.dp))
     )
 }

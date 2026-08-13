@@ -42,7 +42,7 @@ fun ChannelLogo(channel: Channel, language: AppLanguage, modifier: Modifier = Mo
 
 @Composable
 private fun LogoFallback(channel: Channel) {
-    androidx.compose.material3.Text(channel.name.trim().firstOrNull()?.uppercase() ?: "TV", color = androidx.compose.ui.graphics.Color.White, fontWeight = FontWeight.Black, fontSize = 16.sp)
+    androidx.compose.material3.Text(channel.name.trim().firstOrNull()?.uppercase() ?: "TV", color = WukkiColors.textPrimary, fontWeight = FontWeight.Black, fontSize = 16.sp)
 }
 
 fun formatTime(millis: Long): String =

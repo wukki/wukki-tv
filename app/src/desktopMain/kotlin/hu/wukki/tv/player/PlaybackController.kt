@@ -7,6 +7,7 @@ import androidx.compose.ui.awt.SwingPanel
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import hu.wukki.tv.ui.components.tr
+import hu.wukki.tv.ui.components.WukkiOverlayColors
 import uk.co.caprica.vlcj.factory.discovery.NativeDiscovery
 import uk.co.caprica.vlcj.player.base.MediaPlayer
 import uk.co.caprica.vlcj.player.base.MediaPlayerEventAdapter
@@ -307,10 +308,10 @@ private fun drawChannelNumberInput(graphics: Graphics2D, number: String, width: 
     val y = margin
     val arc = (16 * scale).toInt().coerceAtLeast(10)
 
-    graphics.color = Color(4, 12, 22, 225)
+    graphics.color = WukkiOverlayColors.panel
     graphics.fillRoundRect(x, y, boxWidth, boxHeight, arc, arc)
     graphics.stroke = BasicStroke((2 * scale).coerceAtLeast(1f))
-    graphics.color = Color(139, 92, 246)
+    graphics.color = WukkiOverlayColors.accent
     graphics.drawRoundRect(x, y, boxWidth, boxHeight, arc, arc)
     graphics.color = Color.WHITE
     graphics.drawString(
@@ -336,10 +337,10 @@ private fun drawProgrammePanel(
     val radius = (6 * scale).toInt().coerceAtLeast(4)
     val previousComposite = graphics.composite
     graphics.composite = AlphaComposite.getInstance(AlphaComposite.SRC_OVER, .92f)
-    graphics.color = Color(5, 14, 23)
+    graphics.color = WukkiOverlayColors.panel
     graphics.fillRoundRect(margin, top, panelWidth, panelHeight, radius, radius)
     graphics.composite = previousComposite
-    graphics.color = Color(39, 55, 72)
+    graphics.color = WukkiOverlayColors.divider
     graphics.stroke = BasicStroke((1.2f * scale).coerceAtLeast(1f))
     graphics.drawRoundRect(margin, top, panelWidth, panelHeight, radius, radius)
 
@@ -377,7 +378,7 @@ private fun drawProgrammePanel(
 
     val metaFont = Font(Font.SANS_SERIF, Font.PLAIN, (20 * scale).toInt().coerceAtLeast(12))
     graphics.font = metaFont
-    graphics.color = Color(204, 210, 220)
+    graphics.color = WukkiOverlayColors.text
     val timeY = top + (94 * scale).toInt()
     if (data.currentStart != null && data.currentEnd != null && data.currentEnd > data.currentStart) {
         val startText = overlayTime(data.currentStart)
@@ -389,11 +390,11 @@ private fun drawProgrammePanel(
             val progressY = timeY - (8 * scale).toInt()
             val barHeight = (6 * scale).toInt().coerceAtLeast(3)
             val progress = ((data.now - data.currentStart).toDouble() / (data.currentEnd - data.currentStart)).coerceIn(0.0, 1.0)
-            graphics.color = Color(44, 58, 75)
+            graphics.color = WukkiOverlayColors.divider
             graphics.fillRoundRect(progressLeft, progressY, progressRight - progressLeft, barHeight, barHeight, barHeight)
-            graphics.color = Color(139, 92, 246)
+            graphics.color = WukkiOverlayColors.accent
             graphics.fillRoundRect(progressLeft, progressY, ((progressRight - progressLeft) * progress).toInt(), barHeight, barHeight, barHeight)
-            graphics.color = Color(204, 210, 220)
+            graphics.color = WukkiOverlayColors.text
             graphics.drawString(endText, progressRight + (16 * scale).toInt(), timeY)
         }
     } else {
@@ -406,15 +407,15 @@ private fun drawProgrammePanel(
     graphics.drawString(nowText, contentRight - graphics.fontMetrics.stringWidth(nowText), top + (50 * scale).toInt())
     data.remainingText?.let { remaining ->
         graphics.font = Font(Font.SANS_SERIF, Font.PLAIN, (17 * scale).toInt().coerceAtLeast(11))
-        graphics.color = Color(202, 208, 219)
+        graphics.color = WukkiOverlayColors.text
         graphics.drawString(remaining, contentRight - graphics.fontMetrics.stringWidth(remaining), top + (84 * scale).toInt())
     }
 
     val horizontalDividerY = top + (132 * scale).toInt()
-    graphics.color = Color(39, 55, 72)
+    graphics.color = WukkiOverlayColors.divider
     graphics.drawLine(contentLeft, horizontalDividerY, contentRight, horizontalDividerY)
     graphics.font = Font(Font.SANS_SERIF, Font.PLAIN, (17 * scale).toInt().coerceAtLeast(11))
-    graphics.color = Color(170, 179, 192)
+    graphics.color = WukkiOverlayColors.muted
     graphics.drawString("${data.nextLabel}:", contentLeft, horizontalDividerY + (43 * scale).toInt())
     data.nextTitle?.let { nextTitle ->
         val nextLeft = contentLeft + (170 * scale).toInt()
@@ -423,7 +424,7 @@ private fun drawProgrammePanel(
         drawClippedText(graphics, nextTitle, nextLeft, horizontalDividerY + (43 * scale).toInt(), contentRight - nextLeft)
         if (data.nextStart != null && data.nextEnd != null) {
             graphics.font = metaFont
-            graphics.color = Color(202, 208, 219)
+            graphics.color = WukkiOverlayColors.text
             graphics.drawString(
                 "${overlayTime(data.nextStart)}  –  ${overlayTime(data.nextEnd)}",
                 nextLeft,
@@ -450,9 +451,9 @@ private fun drawPlaybackStatus(
     val boxWidth = graphics.fontMetrics.stringWidth(visibleLabel) + paddingX * 2
     val left = (width - boxWidth) / 2
     val top = if (centered) (height - boxHeight) / 2 else height - boxHeight - (20 * scale).toInt()
-    graphics.color = if (isError) Color(86, 23, 30, 235) else Color(6, 16, 27, 225)
+    graphics.color = if (isError) WukkiOverlayColors.errorPanel else WukkiOverlayColors.panel
     graphics.fillRoundRect(left, top, boxWidth, boxHeight, 10, 10)
-    graphics.color = if (isError) Color(255, 180, 171) else Color.WHITE
+    graphics.color = if (isError) WukkiOverlayColors.errorText else Color.WHITE
     graphics.drawString(visibleLabel, left + paddingX, top + (boxHeight + graphics.fontMetrics.ascent) / 2 - 3)
 }
 
