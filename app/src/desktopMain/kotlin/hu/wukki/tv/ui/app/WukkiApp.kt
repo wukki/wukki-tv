@@ -40,7 +40,10 @@ fun WukkiApp() {
     val focusRequester = remember { FocusRequester() }
     var tick by remember { mutableStateOf(System.currentTimeMillis()) }
     var settingsSection by remember { mutableStateOf<SettingsSection?>(null) }
-    var activeSection by remember { mutableStateOf(DashboardSection.LIVE) }
+    val autoPlayOnLaunch = model.settings.playback.autoPlayOnLaunch != false
+    var activeSection by remember { mutableStateOf(if (autoPlayOnLaunch) DashboardSection.LIVE else DashboardSection.CHANNELS) }
+    var automaticLaunchPending by remember { mutableStateOf(autoPlayOnLaunch) }
+    var observedAutoPlaySetting by remember { mutableStateOf(autoPlayOnLaunch) }
     var overlayRequest by remember { mutableIntStateOf(0) }
     var programmeOverlayVisible by remember { mutableStateOf(false) }
     var channelNumberInput by remember { mutableStateOf("") }
@@ -49,6 +52,7 @@ fun WukkiApp() {
 
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
+        if (autoPlayOnLaunch) model.requestPlayback()
         while (true) {
             delay(30_000)
             tick = System.currentTimeMillis()
@@ -57,8 +61,33 @@ fun WukkiApp() {
     DisposableEffect(playbackController) {
         onDispose { playbackController.release() }
     }
-    LaunchedEffect(model.selectedChannelId, model.settings.playback, model.settings.display.showLogos, model.settings.language) {
-        playbackController.play(model.selectedChannel(), model.settings.playback, model.settings.display.showLogos, model.settings.language)
+    LaunchedEffect(
+        model.playbackRequestToken,
+        model.selectedChannelId,
+        model.settings.playback,
+        model.settings.display.showLogos,
+        model.settings.language
+    ) {
+        if (model.playbackRequestToken > 0) {
+            playbackController.play(model.selectedChannel(), model.settings.playback, model.settings.display.showLogos, model.settings.language)
+        }
+    }
+    LaunchedEffect(autoPlayOnLaunch) {
+        if (!observedAutoPlaySetting && autoPlayOnLaunch) model.requestPlayback()
+        observedAutoPlaySetting = autoPlayOnLaunch
+    }
+    LaunchedEffect(playbackController.successfullyPlayedChannelId) {
+        playbackController.successfullyPlayedChannelId?.let { channelId ->
+            model.markChannelPlaybackSuccessful(channelId)
+            automaticLaunchPending = false
+        }
+    }
+    LaunchedEffect(playbackController.state, automaticLaunchPending) {
+        if (automaticLaunchPending && playbackController.state == PlaybackState.ERROR) {
+            automaticLaunchPending = false
+            activeSection = DashboardSection.CHANNELS
+            model.showRawError(playbackController.detail ?: tr(model.settings.language, "playback.error"))
+        }
     }
     LaunchedEffect(model.selectedChannelId, activeSection, overlayRequest) {
         if (activeSection == DashboardSection.LIVE && model.selectedChannel() != null) {

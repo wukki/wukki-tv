@@ -92,6 +92,9 @@ class PlaybackController(initialLanguage: AppLanguage = AppLanguage.HUNGARIAN) {
         private set
     var detail by mutableStateOf<String?>(null)
         private set
+    /** Set from libVLC's `playing` event; consumed by the Compose application layer. */
+    var successfullyPlayedChannelId by mutableStateOf<String?>(null)
+        private set
 
     private val runtime = VlcRuntimeResolver.find()
     /**
@@ -114,6 +117,7 @@ class PlaybackController(initialLanguage: AppLanguage = AppLanguage.HUNGARIAN) {
                 retryTask?.cancel(false)
                 retryTask = null
                 cancelBufferingIndicator()
+                successfullyPlayedChannelId = currentChannel?.id
                 updateState(PlaybackState.PLAYING, null)
             }
 

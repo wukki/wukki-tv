@@ -47,7 +47,7 @@ private val SettingsAccent = WukkiColors.primary
 private const val SETTINGS_REFERENCE_WIDTH = 1116f
 private const val SETTINGS_REFERENCE_HEIGHT = 892f
 private const val WUKKI_VERSION = "1.0.0"
-private enum class PlaybackOption { VOLUME, BUFFER, ASPECT_RATIO, RECONNECT, RETRIES }
+private enum class PlaybackOption { AUTOPLAY, VOLUME, BUFFER, ASPECT_RATIO, RECONNECT, RETRIES }
 
 @Composable
 fun SettingsScreen(
@@ -196,11 +196,18 @@ private fun SettingsDetail(
 @Composable
 private fun PlaybackSettings(model: WukkiModel) {
     val settings = model.settings.playback
-    var focusedOption by remember { mutableStateOf(PlaybackOption.VOLUME) }
+    var focusedOption by remember { mutableStateOf(PlaybackOption.AUTOPLAY) }
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
+        SettingsOptionRow(model, "settings.playback.autoplay", "settings.playback.autoplay.description", focusedOption == PlaybackOption.AUTOPLAY, { focusedOption = PlaybackOption.AUTOPLAY }) {
+            Switch(
+                checked = settings.autoPlayOnLaunch != false,
+                onCheckedChange = { enabled -> model.updatePlayback { it.copy(autoPlayOnLaunch = enabled) } },
+                colors = SwitchDefaults.colors(checkedThumbColor = WukkiColors.textPrimary, checkedTrackColor = SettingsAccent, uncheckedThumbColor = SettingsMuted, uncheckedTrackColor = WukkiColors.border)
+            )
+        }
         SettingsOptionRow(model, "settings.playback.volume", "settings.playback.volume.description", focusedOption == PlaybackOption.VOLUME, { focusedOption = PlaybackOption.VOLUME }) {
             Row(
                 modifier = Modifier.widthIn(min = 150.dp, max = 205.dp),

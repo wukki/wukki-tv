@@ -1,6 +1,7 @@
 package hu.wukki.tv
 
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.CoroutineScope
@@ -26,6 +27,9 @@ class WukkiModel {
     var onlyFavorites by mutableStateOf(false)
     var status by mutableStateOf<UserMessage?>(null)
     var error by mutableStateOf<UserMessage?>(null)
+    /** Increments only for an explicit request to start the selected channel. */
+    var playbackRequestToken by mutableIntStateOf(0)
+        private set
 
     val settings: AppSettings get() = state.settings ?: AppSettings()
     val epgSources: List<EpgSource> get() = state.epgSources.orEmpty().sortedBy { it.priority }
@@ -133,6 +137,16 @@ class WukkiModel {
     fun selectChannel(id: String) {
         if (state.channels.none { it.id == id }) return
         selectedChannelId = id
+        requestPlayback()
+    }
+
+    fun requestPlayback() {
+        if (selectedChannel() != null) playbackRequestToken++
+    }
+
+    /** Persists only channels that libVLC has confirmed as successfully playing. */
+    fun markChannelPlaybackSuccessful(id: String) {
+        if (state.lastChannelId == id || state.channels.none { it.id == id }) return
         state = state.copy(lastChannelId = id)
         persist()
     }

@@ -11,6 +11,8 @@ enum class AspectRatioMode { AUTO, RATIO_16_9, RATIO_4_3, RATIO_21_9, FILL_CROP 
 data class PlaybackSettings(
     val volume: Int = 100,
     val bufferProfile: BufferProfile = BufferProfile.BALANCED,
+    /** Nullable only for compatibility with settings serialized before autoplay support. */
+    val autoPlayOnLaunch: Boolean? = true,
     val autoReconnect: Boolean = true,
     val reconnectAttempts: Int = 3,
     /** Nullable only for compatibility with settings serialized before this field existed. */
@@ -107,7 +109,12 @@ data class AppState(
     }
 
     fun normalized(): AppState {
-        val migratedSettings = settings ?: AppSettings(playlistRefresh = RefreshInterval.entries.first { it.hours == autoRefreshHours })
+        val loadedSettings = settings ?: AppSettings(playlistRefresh = RefreshInterval.entries.first { it.hours == autoRefreshHours })
+        // Java serialization supplies null for fields that did not exist in older state files.
+        // Normalising here preserves the intended, enabled-by-default autoplay behaviour.
+        val migratedSettings = loadedSettings.copy(
+            playback = loadedSettings.playback.copy(autoPlayOnLaunch = loadedSettings.playback.autoPlayOnLaunch ?: true)
+        )
         val migratedSources = epgSources ?: epgUrl.takeIf { it.isNotBlank() }?.let {
             listOf(EpgSource(id = "legacy-epg", name = "EPG", url = it, lastUpdatedAt = null))
         }.orEmpty()
