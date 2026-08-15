@@ -54,6 +54,7 @@ fun WukkiApp() {
     var settingsCategoryIndex by remember { mutableIntStateOf(0) }
     var settingsOptionIndex by remember { mutableIntStateOf(0) }
     var guideProgrammeDetailsVisible by remember { mutableStateOf(false) }
+    var guideProgrammeDialogState by remember { mutableStateOf(GuideProgrammeDialogState()) }
     var automaticLaunchPending by remember { mutableStateOf(autoPlayOnLaunch) }
     var observedAutoPlaySetting by remember { mutableStateOf(autoPlayOnLaunch) }
     var overlayRequest by remember { mutableIntStateOf(0) }
@@ -69,6 +70,32 @@ fun WukkiApp() {
         mainNavigationIndex = mainSections.indexOf(section).coerceAtLeast(0)
         focusZone = TvFocusZone.CONTENT
         if (section == DashboardSection.CHANNELS) channelRemoteFocus = ChannelRemoteFocus.LIST
+    }
+
+    fun openGuideProgrammeChannel(channelId: String) {
+        model.selectChannel(channelId)
+        guideProgrammeDetailsVisible = false
+        activateSection(DashboardSection.LIVE)
+        overlayRequest++
+    }
+
+    fun showGuideProgrammeDetails() {
+        if (guideState.focusedProgramme(model.guideDataSource(), guideTimeline(tick, model.guideLatestProgrammeEnd())) != null) {
+            guideProgrammeDetailsVisible = true
+            guideProgrammeDialogState = GuideProgrammeDialogState()
+        }
+    }
+
+    fun handleGuideProgrammeDialogEvent(dialogEvent: GuideProgrammeDialogEvent) {
+        val transition = guideProgrammeDialogState.reduce(dialogEvent)
+        guideProgrammeDialogState = transition.state
+        when (transition.effect) {
+            GuideProgrammeDialogEffect.DISMISS -> guideProgrammeDetailsVisible = false
+            GuideProgrammeDialogEffect.OPEN_CHANNEL -> guideState.focusedProgramme(model.guideDataSource(), guideTimeline(tick, model.guideLatestProgrammeEnd()))?.first?.let { channel ->
+                openGuideProgrammeChannel(channel.id)
+            } ?: run { guideProgrammeDetailsVisible = false }
+            GuideProgrammeDialogEffect.NONE -> Unit
+        }
     }
 
     LaunchedEffect(Unit) {
@@ -142,12 +169,18 @@ fun WukkiApp() {
             }
         }
     }
-    LaunchedEffect(model.settings.epgRefresh) {
-        val hours = model.settings.epgRefresh.hours
-        if (hours > 0) {
+    val epgRefreshSources = model.epgSources.map { source -> Triple(source.id, source.enabled, source.lastUpdatedAt) }
+    LaunchedEffect(model.settings.epgRefresh, epgRefreshSources) {
+        val interval = model.settings.epgRefresh
+        if (interval.hours > 0) {
             while (true) {
-                delay(hours * 60L * 60L * 1000L)
-                model.refreshAllEpg(scope)
+                val allDueRefreshesSucceeded = model.refreshDueEpgSources(interval)
+                val waitMillis = if (allDueRefreshesSucceeded) {
+                    model.nextEpgRefreshDelayMillis(interval)
+                } else {
+                    interval.hours * 60L * 60L * 1000L
+                }
+                delay(waitMillis.coerceAtLeast(1_000L))
             }
         }
     }
@@ -217,6 +250,20 @@ fun WukkiApp() {
             modifier = Modifier.fillMaxSize().focusRequester(focusRequester).focusable()
                 .onPreviewKeyEvent { event ->
                     if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                    if (guideProgrammeDetailsVisible) {
+                        val dialogEvent = when {
+                            event.key.isBackKey() -> GuideProgrammeDialogEvent.BACK
+                            event.key == Key.DirectionLeft -> GuideProgrammeDialogEvent.LEFT
+                            event.key == Key.DirectionRight -> GuideProgrammeDialogEvent.RIGHT
+                            event.key.isConfirmKey() -> GuideProgrammeDialogEvent.CONFIRM
+                            else -> null
+                        }
+                        if (dialogEvent != null) {
+                            handleGuideProgrammeDialogEvent(dialogEvent)
+                            return@onPreviewKeyEvent true
+                        }
+                        return@onPreviewKeyEvent false
+                    }
                     if (event.key.isBackKey()) {
                         when {
                             guideProgrammeDetailsVisible -> guideProgrammeDetailsVisible = false
@@ -239,10 +286,10 @@ fun WukkiApp() {
                     }
                     if (activeSection == DashboardSection.GUIDE) {
                         if (event.key.isConfirmKey()) {
-                            guideProgrammeDetailsVisible = guideState.focusedProgramme(model.guideDataSource()) != null
+                            showGuideProgrammeDetails()
                             return@onPreviewKeyEvent true
                         }
-                        if (guideState.handleKey(event.key, model.guideDataSource(), scope, guideDays(tick))) return@onPreviewKeyEvent true
+                        if (guideState.handleKey(event.key, model.guideDataSource(), scope, guideTimeline(tick, model.guideLatestProgrammeEnd()))) return@onPreviewKeyEvent true
                     }
                     if (activeSection == DashboardSection.LIVE && (event.key == Key.Enter || event.key == Key.NumPadEnter)) {
                         if (channelNumberInput.isNotEmpty()) {
@@ -411,7 +458,11 @@ fun WukkiApp() {
                 settingsCategoryIndex = settingsCategoryIndex,
                 settingsOptionIndex = settingsOptionIndex,
                 guideProgrammeDetailsVisible = guideProgrammeDetailsVisible,
-                onDismissGuideProgrammeDetails = { guideProgrammeDetailsVisible = false }
+                guideProgrammeDialogFocusedAction = guideProgrammeDialogState.focusedAction,
+                onShowGuideProgrammeDetails = ::showGuideProgrammeDetails,
+                onDismissGuideProgrammeDetails = { guideProgrammeDetailsVisible = false },
+                onOpenGuideProgrammeChannel = ::openGuideProgrammeChannel,
+                onGuideProgrammeDialogEvent = ::handleGuideProgrammeDialogEvent
             )
         }
     }

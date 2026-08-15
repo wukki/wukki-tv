@@ -9,6 +9,8 @@ import hu.wukki.tv.ui.navigation.NavigationEntryUiState
 import hu.wukki.tv.ui.navigation.ChannelRemoteFocus
 import hu.wukki.tv.ui.navigation.SideNavigation
 import hu.wukki.tv.ui.navigation.SideNavigationUiState
+import hu.wukki.tv.ui.navigation.isBackKey
+import hu.wukki.tv.ui.navigation.isConfirmKey
 import hu.wukki.tv.ui.settings.*
 
 import androidx.compose.foundation.BorderStroke
@@ -114,7 +116,11 @@ fun DashboardScreen(
     settingsCategoryIndex: Int,
     settingsOptionIndex: Int,
     guideProgrammeDetailsVisible: Boolean,
-    onDismissGuideProgrammeDetails: () -> Unit
+    guideProgrammeDialogFocusedAction: GuideProgrammeDialogAction,
+    onShowGuideProgrammeDetails: () -> Unit,
+    onDismissGuideProgrammeDetails: () -> Unit,
+    onOpenGuideProgrammeChannel: (String) -> Unit,
+    onGuideProgrammeDialogEvent: (GuideProgrammeDialogEvent) -> Unit
 ) {
     BoxWithConstraints(
         modifier = Modifier.fillMaxSize().background(WukkiBrushes.appBackground())
@@ -145,6 +151,7 @@ fun DashboardScreen(
                     model.guideDataSource(),
                     tick,
                     guideState,
+                    onProgrammeClick = { _, _ -> onShowGuideProgrammeDetails() },
                     modifier = Modifier.weight(1f).fillMaxHeight().padding(contentPadding)
                 )
 
@@ -179,7 +186,14 @@ fun DashboardScreen(
             model.status?.let { DashboardMessage(it.text(model.settings.language), WukkiColors.success, WukkiColors.successContainer) }
         }
         if (guideProgrammeDetailsVisible) {
-            GuideProgrammeDetails(model, guideState, onDismissGuideProgrammeDetails)
+            GuideProgrammeDetails(
+                model,
+                guideState,
+                guideProgrammeDialogFocusedAction,
+                onDismissGuideProgrammeDetails,
+                onOpenGuideProgrammeChannel,
+                onGuideProgrammeDialogEvent
+            )
         }
     }
 }
@@ -633,9 +647,21 @@ private fun DashboardMessage(message: String, color: Color, background: Color) {
 }
 
 @Composable
-private fun GuideProgrammeDetails(model: WukkiModel, state: EpgGuideState, onDismiss: () -> Unit) {
+private fun GuideProgrammeDetails(
+    model: WukkiModel,
+    state: EpgGuideState,
+    focusedAction: GuideProgrammeDialogAction,
+    onDismiss: () -> Unit,
+    onOpenChannel: (String) -> Unit,
+    onRemoteEvent: (GuideProgrammeDialogEvent) -> Unit
+) {
     val language = model.settings.language
-    val focused = state.focusedProgramme(model.guideDataSource()) ?: run {
+    val dialogFocusRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) { dialogFocusRequester.requestFocus() }
+    val focused = state.focusedProgramme(
+        model.guideDataSource(),
+        guideTimeline(System.currentTimeMillis(), model.guideLatestProgrammeEnd())
+    ) ?: run {
         LaunchedEffect(Unit) { onDismiss() }
         return
     }
@@ -643,6 +669,17 @@ private fun GuideProgrammeDetails(model: WukkiModel, state: EpgGuideState, onDis
     val next = model.programmesFor(channel, programme.end, programme.end + 24 * 60 * 60 * 1000L).firstOrNull()
     AlertDialog(
         onDismissRequest = onDismiss,
+        modifier = Modifier.focusRequester(dialogFocusRequester).focusable().onPreviewKeyEvent { event ->
+            if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+            val dialogEvent = when {
+                event.key.isBackKey() -> GuideProgrammeDialogEvent.BACK
+                event.key == Key.DirectionLeft -> GuideProgrammeDialogEvent.LEFT
+                event.key == Key.DirectionRight -> GuideProgrammeDialogEvent.RIGHT
+                event.key.isConfirmKey() -> GuideProgrammeDialogEvent.CONFIRM
+                else -> null
+            }
+            dialogEvent?.let(onRemoteEvent) != null
+        },
         containerColor = WukkiColors.surfaceOverlay,
         titleContentColor = WukkiColors.textPrimary,
         textContentColor = WukkiColors.textSecondary,
@@ -658,7 +695,22 @@ private fun GuideProgrammeDetails(model: WukkiModel, state: EpgGuideState, onDis
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text(tr(language, "action.close")) }
+            Button(
+                onClick = { onOpenChannel(channel.id) },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (focusedAction == GuideProgrammeDialogAction.OPEN) WukkiColors.primary else WukkiColors.surfaceInput,
+                    contentColor = if (focusedAction == GuideProgrammeDialogAction.OPEN) WukkiColors.textPrimary else WukkiColors.textSecondary
+                )
+            ) { Text(tr(language, "action.open")) }
+        },
+        dismissButton = {
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (focusedAction == GuideProgrammeDialogAction.CANCEL) WukkiColors.primary else WukkiColors.surfaceInput,
+                    contentColor = if (focusedAction == GuideProgrammeDialogAction.CANCEL) WukkiColors.textPrimary else WukkiColors.textSecondary
+                )
+            ) { Text(tr(language, "action.cancel")) }
         }
     )
 }

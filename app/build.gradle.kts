@@ -45,6 +45,11 @@ kotlin {
                 implementation("uk.co.caprica:vlcj:4.8.3")
             }
         }
+        val desktopTest by getting {
+            dependencies {
+                implementation(kotlin("test"))
+            }
+        }
     }
 }
 

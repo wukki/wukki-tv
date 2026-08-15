@@ -37,6 +37,7 @@ internal fun WukkiModel.guideDataSource(): GuideDataSource = object : GuideDataS
     override val language get() = settings.language
     override val selectedChannelId get() = this@guideDataSource.selectedChannelId
     override fun channels() = guideChannels()
+    override fun latestProgrammeEnd() = guideLatestProgrammeEnd()
     override fun programmesFor(channel: hu.wukki.tv.Channel, from: Long, to: Long) =
         this@guideDataSource.programmesFor(channel, from, to)
 }

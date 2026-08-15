@@ -328,7 +328,13 @@ private fun androidx.compose.foundation.layout.ColumnScope.EpgSettings(model: Wu
     var name by remember { mutableStateOf("") }
     var url by remember { mutableStateOf("") }
     SettingsOptionRow(model, "settings.epg.refresh") {
-        RefreshSelector(model, model.settings.epgRefresh, onSelect = model::setEpgRefresh)
+        RefreshSelector(
+            model,
+            model.settings.epgRefresh,
+            intervals = RefreshInterval.entries.toList(),
+            useHourlyLabels = true,
+            onSelect = model::setEpgRefresh
+        )
     }
     Spacer(Modifier.height(8.dp))
     SettingsOptionRow(model, "settings.epg.sources") {
@@ -380,7 +386,14 @@ private fun DisplaySettings(model: WukkiModel, remoteOptionIndex: Int) {
 @Composable
 private fun androidx.compose.foundation.layout.ColumnScope.PlaylistSettings(model: WukkiModel, scope: CoroutineScope) {
     var url by remember { mutableStateOf("") }
-    SettingsOptionRow(model, "settings.playlist.refresh") { RefreshSelector(model, model.settings.playlistRefresh, onSelect = model::setPlaylistRefresh) }
+    SettingsOptionRow(model, "settings.playlist.refresh") {
+        RefreshSelector(
+            model,
+            model.settings.playlistRefresh,
+            intervals = listOf(RefreshInterval.MANUAL, RefreshInterval.SIX_HOURS, RefreshInterval.DAILY),
+            onSelect = model::setPlaylistRefresh
+        )
+    }
     Spacer(Modifier.height(8.dp))
     SettingsOptionRow(model, "settings.playlists") {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -454,9 +467,21 @@ private fun SettingsToggle(model: WukkiModel, titleKey: String, checked: Boolean
 }
 
 @Composable
-private fun RefreshSelector(model: WukkiModel, selected: RefreshInterval, onSelect: (RefreshInterval) -> Unit) {
+private fun RefreshSelector(
+    model: WukkiModel,
+    selected: RefreshInterval,
+    intervals: List<RefreshInterval>,
+    useHourlyLabels: Boolean = false,
+    onSelect: (RefreshInterval) -> Unit
+) {
     Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-        RefreshInterval.entries.forEach { interval -> FilterChip(selected = interval == selected, onClick = { onSelect(interval) }, label = { Text(interval.label(model)) }) }
+        intervals.forEach { interval ->
+            FilterChip(
+                selected = interval == selected,
+                onClick = { onSelect(interval) },
+                label = { Text(interval.label(model, useHourlyLabels)) }
+            )
+        }
     }
 }
 
@@ -482,8 +507,11 @@ private fun SettingsSection.title(model: WukkiModel): String = tr(model.settings
     SettingsSection.LANGUAGE -> "settings.language"
     SettingsSection.ABOUT -> "settings.about"
 })
-private fun RefreshInterval.label(model: WukkiModel): String = tr(model.settings.language, when (this) {
-    RefreshInterval.MANUAL -> "refresh.manual"; RefreshInterval.SIX_HOURS -> "refresh.six.hours"; RefreshInterval.DAILY -> "refresh.daily"
+private fun RefreshInterval.label(model: WukkiModel, useHourlyLabels: Boolean = false): String = tr(model.settings.language, when (this) {
+    RefreshInterval.MANUAL -> "refresh.manual"
+    RefreshInterval.SIX_HOURS -> "refresh.six.hours"
+    RefreshInterval.TWELVE_HOURS -> "refresh.twelve.hours"
+    RefreshInterval.DAILY -> if (useHourlyLabels) "refresh.twentyfour.hours" else "refresh.daily"
 })
 private fun BufferProfile.label(model: WukkiModel): String = tr(model.settings.language, when (this) {
     BufferProfile.LOW_LATENCY -> "buffer.low.latency"; BufferProfile.BALANCED -> "buffer.balanced"; BufferProfile.STABLE -> "buffer.stable"

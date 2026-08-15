@@ -17,6 +17,7 @@ import java.util.UUID
 import java.util.zip.GZIPInputStream
 
 class WukkiModel {
+    private val refreshingEpgSourceIds = mutableSetOf<String>()
     var state by mutableStateOf(LocalStore.load().normalized())
     var selectedPlaylistId by mutableStateOf(state.playlists.firstOrNull()?.id)
     var selectedChannelId by mutableStateOf(
@@ -71,8 +72,9 @@ class WukkiModel {
         refreshEpgSource(source.id)
     }
 
-    suspend fun refreshEpgSource(sourceId: String) {
-        val source = epgSources.firstOrNull { it.id == sourceId } ?: return
+    suspend fun refreshEpgSource(sourceId: String): Boolean {
+        val source = epgSources.firstOrNull { it.id == sourceId } ?: return false
+        if (!refreshingEpgSourceIds.add(source.id)) return false
         try {
             showStatus("status.epg.loading", source.name)
             val xml = withContext(Dispatchers.IO) { readLocation(source.url, PlaylistSource.URL) }
@@ -84,14 +86,29 @@ class WukkiModel {
             rematchChannels()
             persist()
             showStatus("status.epg.loaded", programmes.size, source.name)
+            return true
         } catch (exception: Exception) {
             showErrorKey("error.epg.load", source.name, messageArgument(exception))
+            return false
+        } finally {
+            refreshingEpgSourceIds.remove(source.id)
         }
     }
 
     fun refreshAllEpg(scope: CoroutineScope) {
         epgSources.filter { it.enabled }.forEach { source -> scope.launch { refreshEpgSource(source.id) } }
     }
+
+    /** Refreshes only enabled sources whose last successful update is older than the selected interval. */
+    suspend fun refreshDueEpgSources(interval: RefreshInterval, now: Long = System.currentTimeMillis()): Boolean {
+        if (interval.hours <= 0) return true
+        val dueSources = epgSources.filter { source -> source.isEpgRefreshDue(interval, now) }
+        return dueSources.all { source -> refreshEpgSource(source.id) }
+    }
+
+    /** Time until the first enabled EPG source becomes due, based on successful refresh timestamps. */
+    fun nextEpgRefreshDelayMillis(interval: RefreshInterval, now: Long = System.currentTimeMillis()): Long =
+        nextEpgRefreshDelayMillis(epgSources, interval, now)
 
     fun renameEpgSource(id: String, name: String) = updateEpgSource(id) { it.copy(name = name.trim().ifBlank { it.name }) }
     fun setEpgSourceEnabled(id: String, enabled: Boolean) = updateEpgSource(id) { it.copy(enabled = enabled) }
@@ -166,6 +183,14 @@ class WukkiModel {
     fun guideChannels(): List<Channel> = state.channels.filter { channel ->
         selectedPlaylistId == null || channel.playlistId == selectedPlaylistId
     }.sortedWith(compareBy<Channel> { it.tvgChno ?: Int.MAX_VALUE }.thenBy { normalize(it.name) })
+
+    /**
+     * The continuous guide only spans programmes that can actually be shown for the active playlist.
+     * It deliberately follows each channel's assigned EPG source, matching `programmesFor` semantics.
+     */
+    fun guideLatestProgrammeEnd(): Long? = guideChannels().asSequence()
+        .flatMap { channel -> channelProgrammes(channel).asSequence() }
+        .maxOfOrNull { programme -> programme.end }
 
     fun currentProgram(channel: Channel, now: Long = System.currentTimeMillis()): Programme? = channelProgrammes(channel).firstOrNull { now in it.start until it.end }
     fun nextProgram(channel: Channel, current: Programme): Programme? = channelProgrammes(channel).firstOrNull { it.start >= current.end }
@@ -269,6 +294,17 @@ sealed interface UserMessage {
 }
 
 private fun List<EpgSource>.withPriorities(): List<EpgSource> = mapIndexed { index, source -> source.copy(priority = index) }
+internal fun EpgSource.isEpgRefreshDue(interval: RefreshInterval, now: Long): Boolean =
+    enabled && interval.hours > 0 && (lastUpdatedAt == null || now - lastUpdatedAt >= interval.hours * 60L * 60L * 1000L)
+
+internal fun nextEpgRefreshDelayMillis(sources: List<EpgSource>, interval: RefreshInterval, now: Long): Long {
+    val intervalMillis = interval.hours * 60L * 60L * 1000L
+    if (intervalMillis <= 0L) return Long.MAX_VALUE
+    val nextDueAt = sources.asSequence().filter { it.enabled }.map { source ->
+        (source.lastUpdatedAt ?: now) + intervalMillis
+    }.minOrNull() ?: (now + intervalMillis)
+    return (nextDueAt - now).coerceAtLeast(0L)
+}
 private fun Int.floorMod(modulus: Int): Int = ((this % modulus) + modulus) % modulus
 private fun playlistName(url: String): String = runCatching { URI(url).host.removePrefix("www.").ifBlank { url } }.getOrDefault(url)
 private fun sourceName(url: String): String = playlistName(url)

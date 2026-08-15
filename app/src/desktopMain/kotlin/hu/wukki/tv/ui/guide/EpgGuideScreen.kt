@@ -103,26 +103,19 @@ class EpgGuideState internal constructor(
     val horizontalScroll: androidx.compose.foundation.ScrollState,
     val verticalList: LazyListState
 ) {
-    var selectedDay by mutableStateOf(LocalDate.now())
-        private set
     var focusedChannelId by mutableStateOf<String?>(null)
         private set
     var focusedProgrammeKey by mutableStateOf<String?>(null)
         private set
-    var focusMinuteOfDay by mutableIntStateOf(currentMinuteOfDay())
+    var focusTime by mutableStateOf(System.currentTimeMillis())
         private set
     var pixelsPerMinute: Float = 6f
     var viewportWidthPx: Int = 0
 
-    fun selectDay(day: LocalDate) {
-        selectedDay = day
-        focusedProgrammeKey = null
-    }
-
     fun selectProgramme(channel: Channel, programme: Programme) {
         focusedChannelId = channel.id
         focusedProgrammeKey = programme.key()
-        focusMinuteOfDay = programme.middleMinute(selectedDay)
+        focusTime = programme.middleTime()
     }
 
     fun selectChannel(channel: Channel) {
@@ -131,17 +124,16 @@ class EpgGuideState internal constructor(
     }
 
     /** The programme currently targeted by D-pad navigation, if the row has EPG data. */
-    fun focusedProgramme(data: GuideDataSource): Pair<Channel, Programme>? {
+    fun focusedProgramme(data: GuideDataSource, timeline: GuideTimeline): Pair<Channel, Programme>? {
         val channel = data.channels().firstOrNull { it.id == focusedChannelId } ?: return null
-        val (dayStart, dayEnd) = selectedDay.bounds()
-        val programmes = data.programmesFor(channel, dayStart, dayEnd)
+        val programmes = data.programmesFor(channel, timeline.start, timeline.end)
         val programme = programmes.firstOrNull { it.key() == focusedProgrammeKey }
-            ?: programmes.minByOrNull { abs(it.start - selectedDay.timestampAtMinute(focusMinuteOfDay)) }
+            ?: programmes.minByOrNull { abs(it.start - focusTime) }
             ?: return null
         return channel to programme
     }
 
-    suspend fun initialise(data: GuideDataSource, channels: List<Channel>) {
+    suspend fun initialise(data: GuideDataSource, channels: List<Channel>, timeline: GuideTimeline) {
         if (channels.isEmpty()) return
         val channelIndex = channels.indexOfFirst { it.id == focusedChannelId }
             .takeIf { it >= 0 }
@@ -149,104 +141,69 @@ class EpgGuideState internal constructor(
             ?: 0
         val channel = channels[channelIndex]
         focusedChannelId = channel.id
-        chooseProgrammeAt(data, channel, focusMinuteOfDay)
+        chooseProgrammeAt(data, channel, focusTime, timeline)
         verticalList.scrollToItem(channelIndex)
     }
 
-    fun handleKey(key: Key, data: GuideDataSource, scope: CoroutineScope, days: List<LocalDate>): Boolean {
+    fun handleKey(key: Key, data: GuideDataSource, scope: CoroutineScope, timeline: GuideTimeline): Boolean {
         val channels = data.channels()
         return when (key) {
-            Key.DirectionUp, Key.PageUp -> true.also { scope.launch { moveChannel(data, channels, -1) } }
-            Key.DirectionDown, Key.PageDown -> true.also { scope.launch { moveChannel(data, channels, 1) } }
-            Key.DirectionLeft -> true.also { scope.launch { moveProgramme(data, channels, days, -1) } }
-            Key.DirectionRight -> true.also { scope.launch { moveProgramme(data, channels, days, 1) } }
+            Key.DirectionUp, Key.PageUp -> true.also { scope.launch { moveChannel(data, channels, timeline, -1) } }
+            Key.DirectionDown, Key.PageDown -> true.also { scope.launch { moveChannel(data, channels, timeline, 1) } }
+            Key.DirectionLeft -> true.also { scope.launch { moveProgramme(data, channels, timeline, -1) } }
+            Key.DirectionRight -> true.also { scope.launch { moveProgramme(data, channels, timeline, 1) } }
             Key.Enter, Key.NumPadEnter -> true
             else -> false
         }
     }
 
-    suspend fun scrollToInitialTime() {
-        scrollToMinute((currentMinuteOfDay() - HALF_HOUR_MINUTES).coerceAtLeast(0), animate = false)
+    suspend fun scrollToInitialTime(timeline: GuideTimeline, now: Long) {
+        scrollToTime((now - HALF_HOUR_MINUTES * 60_000L).coerceIn(timeline.start, timeline.end - 1), timeline, animate = false)
     }
 
-    suspend fun changeDay(day: LocalDate, data: GuideDataSource, channels: List<Channel>) {
-        selectDay(day)
-        channels.firstOrNull { it.id == focusedChannelId }?.let { chooseProgrammeAt(data, it, focusMinuteOfDay) }
-    }
-
-    private suspend fun moveChannel(data: GuideDataSource, channels: List<Channel>, delta: Int) {
+    private suspend fun moveChannel(data: GuideDataSource, channels: List<Channel>, timeline: GuideTimeline, delta: Int) {
         if (channels.isEmpty()) return
         val current = channels.indexOfFirst { it.id == focusedChannelId }.let { if (it < 0) 0 else it }
         val target = (current + delta).coerceIn(0, channels.lastIndex)
         val channel = channels[target]
         focusedChannelId = channel.id
-        chooseProgrammeAt(data, channel, focusMinuteOfDay)
+        chooseProgrammeAt(data, channel, focusTime, timeline)
         verticalList.animateScrollToItem(target)
     }
 
     private suspend fun moveProgramme(
         data: GuideDataSource,
         channels: List<Channel>,
-        days: List<LocalDate>,
+        timeline: GuideTimeline,
         delta: Int
     ) {
         val channel = channels.firstOrNull { it.id == focusedChannelId } ?: return
         val direction = delta.coerceIn(-1, 1)
         if (direction == 0) return
-        val (dayStart, dayEnd) = selectedDay.bounds()
-        val programmes = data.programmesFor(channel, dayStart, dayEnd)
-        if (programmes.isEmpty()) {
-            moveToAdjacentDay(data, channel, days, direction)
-            return
-        }
+        val programmes = data.programmesFor(channel, timeline.start, timeline.end)
+        if (programmes.isEmpty()) return
         val current = programmes.indexOfFirst { it.key() == focusedProgrammeKey }.let { index ->
-            if (index >= 0) index else programmes.indexOfClosest(focusMinuteOfDay, selectedDay)
+            if (index >= 0) index else programmes.indexOfClosest(focusTime)
         }
         val target = current + direction
-        if (target !in programmes.indices) {
-            moveToAdjacentDay(data, channel, days, direction)
-            return
-        }
+        if (target !in programmes.indices) return
         val programme = programmes[target]
         selectProgramme(channel, programme)
-        ensureVisible(programme, dayStart)
+        ensureVisible(programme, timeline)
     }
 
-    private suspend fun moveToAdjacentDay(
-        data: GuideDataSource,
-        channel: Channel,
-        days: List<LocalDate>,
-        direction: Int
-    ) {
-        val currentDayIndex = days.indexOf(selectedDay)
-        if (currentDayIndex < 0) return
-        val targetDay = days.getOrNull(currentDayIndex + direction) ?: return
-        selectDay(targetDay)
-        val (dayStart, dayEnd) = targetDay.bounds()
-        val programmes = data.programmesFor(channel, dayStart, dayEnd)
-        val programme = if (direction > 0) programmes.firstOrNull() else programmes.lastOrNull()
-        if (programme != null) {
-            selectProgramme(channel, programme)
-            ensureVisible(programme, dayStart)
-        } else {
-            focusMinuteOfDay = if (direction > 0) 0 else MINUTES_PER_DAY - 1
-            scrollToMinute(if (direction > 0) 0 else MINUTES_PER_DAY, animate = true)
-        }
-    }
-
-    private fun chooseProgrammeAt(data: GuideDataSource, channel: Channel, minute: Int) {
-        val (dayStart, dayEnd) = selectedDay.bounds()
-        val programmes = data.programmesFor(channel, dayStart, dayEnd)
-        val timestamp = selectedDay.timestampAtMinute(minute)
+    private fun chooseProgrammeAt(data: GuideDataSource, channel: Channel, timestamp: Long, timeline: GuideTimeline) {
+        val programmes = data.programmesFor(channel, timeline.start, timeline.end)
         val programme = programmes.firstOrNull { timestamp in it.start until it.end }
             ?: programmes.minByOrNull { abs(it.start - timestamp) }
         focusedProgrammeKey = programme?.key()
+        focusTime = programme?.middleTime() ?: timestamp.coerceIn(timeline.start, timeline.end - 1)
     }
 
-    private suspend fun ensureVisible(programme: Programme, dayStart: Long) {
+    private suspend fun ensureVisible(programme: Programme, timeline: GuideTimeline) {
         if (viewportWidthPx <= 0) return
-        val left = ((max(programme.start, dayStart) - dayStart) / 60_000f * pixelsPerMinute).roundToInt()
-        val right = ((programme.end - dayStart) / 60_000f * pixelsPerMinute).roundToInt()
+        val left = ((max(programme.start, timeline.start) - timeline.start) / 60_000f * pixelsPerMinute).roundToInt()
+        val right = ((min(programme.end, timeline.end) - timeline.start) / 60_000f * pixelsPerMinute).roundToInt()
         val margin = (HALF_HOUR_MINUTES * pixelsPerMinute).roundToInt()
         val current = horizontalScroll.value
         val target = when {
@@ -257,8 +214,8 @@ class EpgGuideState internal constructor(
         horizontalScroll.animateScrollTo(target)
     }
 
-    private suspend fun scrollToMinute(minute: Int, animate: Boolean) {
-        val target = (minute * pixelsPerMinute).roundToInt().coerceIn(0, horizontalScroll.maxValue)
+    private suspend fun scrollToTime(time: Long, timeline: GuideTimeline, animate: Boolean) {
+        val target = ((time - timeline.start) / 60_000f * pixelsPerMinute).roundToInt().coerceIn(0, horizontalScroll.maxValue)
         if (animate) horizontalScroll.animateScrollTo(target) else horizontalScroll.scrollTo(target)
     }
 }
@@ -272,7 +229,13 @@ fun rememberEpgGuideState(): EpgGuideState {
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-fun EpgGuideScreen(data: GuideDataSource, tick: Long, state: EpgGuideState, modifier: Modifier = Modifier) {
+fun EpgGuideScreen(
+    data: GuideDataSource,
+    tick: Long,
+    state: EpgGuideState,
+    onProgrammeClick: (Channel, Programme) -> Unit = { _, _ -> },
+    modifier: Modifier = Modifier
+) {
     BoxWithConstraints(modifier) {
         val layoutScale = min(
             maxWidth.value / REFERENCE_GUIDE_WIDTH,
@@ -288,23 +251,18 @@ fun EpgGuideScreen(data: GuideDataSource, tick: Long, state: EpgGuideState, modi
         val channels = data.channels()
         val density = LocalDensity.current
         val minuteWidthPx = with(density) { metrics.minuteWidth.toPx() }
-        val dayWidth = metrics.minuteWidth * MINUTES_PER_DAY
-        val today = Instant.ofEpochMilli(tick).atZone(ZoneId.systemDefault()).toLocalDate()
-        val days = remember(today) { guideDays(tick) }
-        val (dayStart, dayEnd) = state.selectedDay.bounds()
+        val timeline = guideTimeline(tick, data.latestProgrammeEnd())
+        val timelineWidth = metrics.minuteWidth * timeline.minutes
         val scope = rememberCoroutineScope()
-        var initialScrollApplied by remember(state) { mutableStateOf(false) }
+        var initialScrollTimeline by remember(state) { mutableStateOf<GuideTimeline?>(null) }
 
         state.pixelsPerMinute = minuteWidthPx
-        LaunchedEffect(channels.map { it.id }) { state.initialise(data, channels) }
-        LaunchedEffect(today) {
-            if (state.selectedDay !in days) state.changeDay(today, data, channels)
-        }
-        LaunchedEffect(state.horizontalScroll.maxValue) {
-            if (initialScrollApplied || state.horizontalScroll.maxValue == 0) return@LaunchedEffect
+        LaunchedEffect(channels.map { it.id }, timeline) { state.initialise(data, channels, timeline) }
+        LaunchedEffect(state.horizontalScroll.maxValue, timeline) {
+            if (initialScrollTimeline == timeline || state.horizontalScroll.maxValue == 0) return@LaunchedEffect
             withFrameNanos { }
-            state.scrollToInitialTime()
-            initialScrollApplied = true
+            state.scrollToInitialTime(timeline, tick)
+            initialScrollTimeline = timeline
         }
 
         Card(
@@ -314,14 +272,8 @@ fun EpgGuideScreen(data: GuideDataSource, tick: Long, state: EpgGuideState, modi
             colors = CardDefaults.cardColors(containerColor = GuidePanel)
         ) {
             Column(Modifier.fillMaxSize()) {
-                GuideDateHeader(
-                    language = data.language,
-                    days = days,
-                    state = state,
-                    scale = layoutScale,
-                    onSelect = { day -> scope.launch { state.changeDay(day, data, channels) } }
-                )
-                TimelineHeader(state, dayWidth, tick, metrics)
+                GuideTitle(data.language, layoutScale)
+                TimelineHeader(data.language, state, timeline, timelineWidth, tick, metrics)
                 Box(
                     modifier = Modifier.weight(1f).fillMaxWidth()
                         .onPointerEvent(PointerEventType.Scroll) { event ->
@@ -343,10 +295,10 @@ fun EpgGuideScreen(data: GuideDataSource, tick: Long, state: EpgGuideState, modi
                     } else {
                         LazyColumn(state = state.verticalList, modifier = Modifier.fillMaxSize()) {
                             itemsIndexed(channels, key = { _, channel -> channel.id }) { _, channel ->
-                                GuideChannelRow(data, channel, dayStart, dayEnd, state, dayWidth, metrics)
+                                GuideChannelRow(data, channel, timeline, state, timelineWidth, metrics, onProgrammeClick)
                             }
                         }
-                        CurrentTimeBodyLine(tick, state.selectedDay, state, metrics)
+                        CurrentTimeBodyLine(tick, timeline, state, metrics)
                     }
                 }
             }
@@ -355,118 +307,22 @@ fun EpgGuideScreen(data: GuideDataSource, tick: Long, state: EpgGuideState, modi
 }
 
 @Composable
-private fun GuideDateHeader(
-    language: AppLanguage,
-    days: List<LocalDate>,
-    state: EpgGuideState,
-    scale: Float,
-    onSelect: (LocalDate) -> Unit
-) {
-    val selectedIndex = days.indexOf(state.selectedDay).coerceAtLeast(0)
-    Column(
-        modifier = Modifier.fillMaxWidth().background(
-            WukkiBrushes.appBackground()
-        )
-    ) {
-        Text(
-            tr(language, "epg.guide.title"),
-            color = WukkiColors.textPrimary,
-            fontSize = (28f * scale).sp,
-            fontWeight = FontWeight.Black,
-            modifier = Modifier.padding(start = 28.dp * scale, top = 25.dp * scale, bottom = 17.dp * scale)
-        )
-        Row(
-            modifier = Modifier.fillMaxWidth().height(96.dp * scale).padding(horizontal = 18.dp * scale),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            GuideDayArrow(
-                symbol = "‹",
-                enabled = selectedIndex > 0,
-                scale = scale,
-                onClick = { days.getOrNull(selectedIndex - 1)?.let(onSelect) }
-            )
-            Row(
-                modifier = Modifier.weight(1f).fillMaxHeight(),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                days.forEachIndexed { index, day ->
-                    GuideDayTab(
-                        language = language,
-                        day = day,
-                        index = index,
-                        selected = day == state.selectedDay,
-                        scale = scale,
-                        onClick = { onSelect(day) }
-                    )
-                }
-            }
-            GuideDayArrow(
-                symbol = "›",
-                enabled = selectedIndex < days.lastIndex,
-                scale = scale,
-                onClick = { days.getOrNull(selectedIndex + 1)?.let(onSelect) }
-            )
-        }
-        Spacer(Modifier.height(20.dp * scale))
-    }
-}
-
-@Composable
-private fun GuideDayTab(
-    language: AppLanguage,
-    day: LocalDate,
-    index: Int,
-    selected: Boolean,
-    scale: Float,
-    onClick: () -> Unit
-) {
-    val background = if (selected) {
-        Modifier.background(
-            WukkiBrushes.selectedSurface()
-        )
-    } else {
-        Modifier.background(WukkiColors.transparent)
-    }
-    Column(
-        modifier = Modifier.width(184.dp * scale).fillMaxHeight()
-            .clip(RoundedCornerShape(10.dp * scale)).then(background)
-            .clickable(onClick = onClick).padding(vertical = 15.dp * scale),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(
-            day.dayLabel(language, index),
-            color = WukkiColors.textPrimary,
-            fontSize = (20f * scale).sp,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
-            maxLines = 1
-        )
-        Spacer(Modifier.height(5.dp * scale))
-        Text(day.dateLabel(language), color = GuideMuted, fontSize = (14f * scale).sp, maxLines = 1)
-    }
-}
-
-@Composable
-private fun GuideDayArrow(symbol: String, enabled: Boolean, scale: Float, onClick: () -> Unit) {
-    Box(
-        modifier = Modifier.width(52.dp * scale).fillMaxHeight()
-            .clickable(enabled = enabled, onClick = onClick),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            symbol,
-            color = if (enabled) WukkiColors.textPrimary else GuideMuted.copy(alpha = .28f),
-            fontSize = (42f * scale).sp,
-            fontWeight = FontWeight.Light
-        )
-    }
+private fun GuideTitle(language: AppLanguage, scale: Float) {
+    Text(
+        tr(language, "epg.guide.title"),
+        color = WukkiColors.textPrimary,
+        fontSize = (28f * scale).sp,
+        fontWeight = FontWeight.Black,
+        modifier = Modifier.padding(start = 28.dp * scale, top = 25.dp * scale, bottom = 17.dp * scale)
+    )
 }
 
 @Composable
 private fun TimelineHeader(
+    language: AppLanguage,
     state: EpgGuideState,
-    dayWidth: androidx.compose.ui.unit.Dp,
+    timeline: GuideTimeline,
+    timelineWidth: androidx.compose.ui.unit.Dp,
     tick: Long,
     metrics: GuideLayoutMetrics
 ) {
@@ -485,26 +341,35 @@ private fun TimelineHeader(
                 .onSizeChanged { state.viewportWidthPx = it.width }
                 .horizontalScroll(state.horizontalScroll)
         ) {
-            Box(Modifier.requiredWidth(dayWidth).fillMaxHeight()) {
-                repeat(49) { index ->
-                    val minute = index * HALF_HOUR_MINUTES
-                    Box(Modifier.offset(x = metrics.minuteWidth * minute).width(1.dp).fillMaxHeight().background(GuideBorder))
-                    if (index < 48) {
-                        Text(
-                            "%02d:%02d".format(minute / 60, minute % 60),
-                            color = GuideMuted,
-                            fontSize = (15f * metrics.scale).sp,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.offset(
-                                x = metrics.minuteWidth * minute - 40.dp * metrics.scale,
-                                y = 29.dp * metrics.scale
-                            ).width(80.dp * metrics.scale)
-                        )
-                    }
-                }
-                CurrentTimeHeaderIndicator(tick, state.selectedDay, metrics)
+            Box(Modifier.requiredWidth(timelineWidth).fillMaxHeight()) {
+                TimelineTicks(language, timeline, metrics)
+                CurrentTimeHeaderIndicator(tick, timeline, metrics)
             }
         }
+    }
+}
+
+@Composable
+private fun TimelineTicks(language: AppLanguage, timeline: GuideTimeline, metrics: GuideLayoutMetrics) {
+    repeat(timeline.halfHourTickCount) { index ->
+        val timestamp = timeline.start + index * HALF_HOUR_MINUTES * 60_000L
+        val instant = Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault())
+        val offset = metrics.minuteWidth * (index * HALF_HOUR_MINUTES)
+        val isDayStart = instant.hour == 0 && instant.minute == 0
+        Box(
+            Modifier.offset(x = offset).width(if (isDayStart) 2.dp * metrics.scale else 1.dp)
+                .fillMaxHeight().background(if (isDayStart) WukkiColors.focus else GuideBorder)
+        )
+        Text(
+            if (isDayStart) instant.toLocalDate().dateLabel(language) else formatTime(timestamp),
+            color = if (isDayStart) WukkiColors.textSecondary else GuideMuted,
+            fontSize = (if (isDayStart) 13f else 15f * metrics.scale).sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.offset(
+                x = offset - 48.dp * metrics.scale,
+                y = if (isDayStart) 6.dp * metrics.scale else 34.dp * metrics.scale
+            ).width(96.dp * metrics.scale)
+        )
     }
 }
 
@@ -512,13 +377,13 @@ private fun TimelineHeader(
 private fun GuideChannelRow(
     data: GuideDataSource,
     channel: Channel,
-    dayStart: Long,
-    dayEnd: Long,
+    timeline: GuideTimeline,
     state: EpgGuideState,
-    dayWidth: androidx.compose.ui.unit.Dp,
-    metrics: GuideLayoutMetrics
+    timelineWidth: androidx.compose.ui.unit.Dp,
+    metrics: GuideLayoutMetrics,
+    onProgrammeClick: (Channel, Programme) -> Unit
 ) {
-    val programmes = data.programmesFor(channel, dayStart, dayEnd)
+    val programmes = data.programmesFor(channel, timeline.start, timeline.end)
     val rowFocused = state.focusedChannelId == channel.id
     Row(Modifier.fillMaxWidth().height(metrics.rowHeight).background(WukkiColors.backgroundRaised)) {
         Row(
@@ -547,17 +412,17 @@ private fun GuideChannelRow(
             Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(0.dp))
                 .horizontalScroll(state.horizontalScroll, enabled = false)
         ) {
-            Box(Modifier.requiredWidth(dayWidth).fillMaxHeight()) {
-                repeat(49) { index ->
+            Box(Modifier.requiredWidth(timelineWidth).fillMaxHeight()) {
+                repeat(timeline.halfHourTickCount) { index ->
                     Box(
                         Modifier.offset(x = metrics.minuteWidth * index * HALF_HOUR_MINUTES)
                             .width(1.dp).fillMaxHeight().background(GuideBorder.copy(alpha = .7f))
                     )
                 }
                 programmes.forEach { programme ->
-                    val clippedStart = max(programme.start, dayStart)
-                    val clippedEnd = min(programme.end, dayEnd)
-                    val startMinute = (clippedStart - dayStart) / 60_000f
+                    val clippedStart = max(programme.start, timeline.start)
+                    val clippedEnd = min(programme.end, timeline.end)
+                    val startMinute = (clippedStart - timeline.start) / 60_000f
                     val durationMinutes = ((clippedEnd - clippedStart) / 60_000f).coerceAtLeast(0.16f)
                     ProgrammeCell(
                         programme = programme,
@@ -567,7 +432,10 @@ private fun GuideChannelRow(
                         modifier = Modifier.offset(x = metrics.minuteWidth * startMinute)
                             .width(metrics.minuteWidth * durationMinutes)
                             .fillMaxHeight(),
-                        onClick = { state.selectProgramme(channel, programme) }
+                        onClick = {
+                            state.selectProgramme(channel, programme)
+                            onProgrammeClick(channel, programme)
+                        }
                     )
                 }
             }
@@ -622,9 +490,9 @@ private fun ProgrammeCell(
 }
 
 @Composable
-private fun CurrentTimeHeaderIndicator(now: Long, day: LocalDate, metrics: GuideLayoutMetrics) {
-    if (day != now.localDate()) return
-    val minute = now.minuteOfDay()
+private fun CurrentTimeHeaderIndicator(now: Long, timeline: GuideTimeline, metrics: GuideLayoutMetrics) {
+    if (now !in timeline.start until timeline.end) return
+    val minute = timeline.minutesFromStart(now)
     val bubbleWidth = 88.dp * metrics.scale
     val bubbleHeight = 43.dp * metrics.scale
     val pointerHeight = 10.dp * metrics.scale
@@ -658,14 +526,14 @@ private fun CurrentTimeHeaderIndicator(now: Long, day: LocalDate, metrics: Guide
 @Composable
 private fun CurrentTimeBodyLine(
     now: Long,
-    day: LocalDate,
+    timeline: GuideTimeline,
     state: EpgGuideState,
     metrics: GuideLayoutMetrics
 ) {
-    if (day != now.localDate()) return
+    if (now !in timeline.start until timeline.end) return
     val density = LocalDensity.current
     val channelWidthPx = with(density) { metrics.channelColumnWidth.toPx() }
-    val x = channelWidthPx + now.minuteOfDay() * state.pixelsPerMinute - state.horizontalScroll.value
+    val x = channelWidthPx + timeline.minutesFromStart(now) * state.pixelsPerMinute - state.horizontalScroll.value
     Canvas(Modifier.fillMaxSize()) {
         if (x in channelWidthPx..size.width) {
             drawLine(
@@ -679,33 +547,25 @@ private fun CurrentTimeBodyLine(
 }
 
 private fun Programme.key(): String = "$channelId|$start|$end"
-private fun Programme.middleMinute(day: LocalDate): Int {
-    val middle = ((start + end) / 2).coerceIn(day.bounds().first, day.bounds().second - 1)
-    return Instant.ofEpochMilli(middle).atZone(ZoneId.systemDefault()).let { it.hour * 60 + it.minute }
-}
-private fun List<Programme>.indexOfClosest(minute: Int, day: LocalDate): Int {
-    val timestamp = day.timestampAtMinute(minute)
-    return indices.minByOrNull { abs(this[it].start - timestamp) } ?: 0
-}
-private fun LocalDate.bounds(): Pair<Long, Long> {
+private fun Programme.middleTime(): Long = (start + (end - start) / 2).coerceAtLeast(start)
+private fun List<Programme>.indexOfClosest(time: Long): Int =
+    indices.minByOrNull { abs(this[it].start - time) } ?: 0
+
+internal fun guideTimeline(now: Long, latestProgrammeEnd: Long?): GuideTimeline {
     val zone = ZoneId.systemDefault()
-    return atStartOfDay(zone).toInstant().toEpochMilli() to plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+    val today = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
+    val start = today.atStartOfDay(zone).toInstant().toEpochMilli()
+    val lastProgrammeDay = latestProgrammeEnd?.takeIf { it > start }?.let { end ->
+        Instant.ofEpochMilli(end - 1).atZone(zone).toLocalDate()
+    }
+    val end = (lastProgrammeDay ?: today).coerceAtLeast(today).plusDays(1)
+        .atStartOfDay(zone).toInstant().toEpochMilli()
+    return GuideTimeline(start, end)
 }
-private fun LocalDate.timestampAtMinute(minute: Int): Long = atStartOfDay(ZoneId.systemDefault()).plusMinutes(minute.toLong()).toInstant().toEpochMilli()
-internal fun guideDays(now: Long): List<LocalDate> {
-    val today = now.localDate()
-    return List(3) { today.plusDays(it.toLong()) }
-}
-private fun Long.localDate(): LocalDate = Instant.ofEpochMilli(this).atZone(ZoneId.systemDefault()).toLocalDate()
-private fun Long.minuteOfDay(): Float = Instant.ofEpochMilli(this).atZone(ZoneId.systemDefault()).let {
-    it.hour * 60f + it.minute + it.second / 60f
-}
-private fun currentMinuteOfDay(): Int = java.time.ZonedDateTime.now().let { it.hour * 60 + it.minute }
-private fun LocalDate.dayLabel(language: AppLanguage, index: Int): String = if (index == 0) {
-    tr(language, "epg.today")
-} else {
-    format(DateTimeFormatter.ofPattern(tr(language, "date.guide.weekday.pattern"), Localizer.locale(language)))
-}
+
+private val GuideTimeline.minutes: Float get() = (end - start) / 60_000f
+private val GuideTimeline.halfHourTickCount: Int get() = (minutes / HALF_HOUR_MINUTES).toInt() + 1
+private fun GuideTimeline.minutesFromStart(timestamp: Long): Float = (timestamp - start) / 60_000f
 
 private fun LocalDate.dateLabel(language: AppLanguage): String = format(
     DateTimeFormatter.ofPattern(

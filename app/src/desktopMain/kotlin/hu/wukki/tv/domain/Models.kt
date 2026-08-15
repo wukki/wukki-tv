@@ -4,7 +4,7 @@ import java.io.Serializable
 
 enum class PlaylistSource { URL, FILE }
 enum class AppLanguage { HUNGARIAN, ENGLISH }
-enum class RefreshInterval(val hours: Int) { MANUAL(0), SIX_HOURS(6), DAILY(24) }
+enum class RefreshInterval(val hours: Int) { MANUAL(0), SIX_HOURS(6), TWELVE_HOURS(12), DAILY(24) }
 enum class BufferProfile { LOW_LATENCY, BALANCED, STABLE }
 enum class AspectRatioMode { AUTO, RATIO_16_9, RATIO_4_3, RATIO_21_9, FILL_CROP }
 
