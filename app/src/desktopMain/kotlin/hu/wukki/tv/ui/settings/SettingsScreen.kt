@@ -377,9 +377,20 @@ private fun DisplaySettings(model: WukkiModel, remoteOptionIndex: Int) {
             }
         }
     }
-    SettingsToggle(model, "settings.display.programme", model.settings.display.showChannelProgramme, remoteOptionIndex == 1) { model.updateDisplay { settings -> settings.copy(showChannelProgramme = it) } }
-    SettingsToggle(model, "settings.display.mini.guide", model.settings.display.showMiniGuide, remoteOptionIndex == 2) { model.updateDisplay { settings -> settings.copy(showMiniGuide = it) } }
-    SettingsToggle(model, "settings.display.logos", model.settings.display.showLogos, remoteOptionIndex == 3) { model.updateDisplay { settings -> settings.copy(showLogos = it) } }
+    SettingsOptionRow(model, "settings.display.channel.list", selected = remoteOptionIndex == 1) {
+        Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+            ChannelListDisplayMode.entries.forEach { mode ->
+                FilterChip(
+                    selected = (model.settings.display.channelListMode ?: ChannelListDisplayMode.NORMAL) == mode,
+                    onClick = { model.updateDisplay { it.copy(channelListMode = mode) } },
+                    label = { Text(mode.label(model)) }
+                )
+            }
+        }
+    }
+    SettingsToggle(model, "settings.display.programme", model.settings.display.showChannelProgramme, remoteOptionIndex == 2) { model.updateDisplay { settings -> settings.copy(showChannelProgramme = it) } }
+    SettingsToggle(model, "settings.display.mini.guide", model.settings.display.showMiniGuide, remoteOptionIndex == 3) { model.updateDisplay { settings -> settings.copy(showMiniGuide = it) } }
+    SettingsToggle(model, "settings.display.logos", model.settings.display.showLogos, remoteOptionIndex == 4) { model.updateDisplay { settings -> settings.copy(showLogos = it) } }
     }
 }
 
@@ -517,3 +528,8 @@ private fun BufferProfile.label(model: WukkiModel): String = tr(model.settings.l
     BufferProfile.LOW_LATENCY -> "buffer.low.latency"; BufferProfile.BALANCED -> "buffer.balanced"; BufferProfile.STABLE -> "buffer.stable"
 })
 private fun AspectRatioMode.label(model: WukkiModel): String = when (this) { AspectRatioMode.AUTO -> tr(model.settings.language, "aspect.auto"); AspectRatioMode.RATIO_16_9 -> "16:9"; AspectRatioMode.RATIO_4_3 -> "4:3"; AspectRatioMode.RATIO_21_9 -> "21:9"; AspectRatioMode.FILL_CROP -> tr(model.settings.language, "aspect.fill") }
+private fun ChannelListDisplayMode.label(model: WukkiModel): String = tr(model.settings.language, when (this) {
+    ChannelListDisplayMode.COMPACT -> "settings.display.channel.list.compact"
+    ChannelListDisplayMode.NORMAL -> "settings.display.channel.list.normal"
+    ChannelListDisplayMode.DETAILED -> "settings.display.channel.list.detailed"
+})

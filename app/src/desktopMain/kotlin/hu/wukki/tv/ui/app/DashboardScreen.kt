@@ -422,7 +422,12 @@ private fun ChannelDirectory(
 ) {
     val channels = model.filteredChannels()
     val listState = rememberLazyListState()
-    val rowHeight = (88.dp * scale).coerceAtLeast(66.dp)
+    val listMode = model.settings.display.channelListMode ?: ChannelListDisplayMode.NORMAL
+    val rowHeight = when (listMode) {
+        ChannelListDisplayMode.COMPACT -> (64.dp * scale).coerceAtLeast(52.dp)
+        ChannelListDisplayMode.NORMAL -> (88.dp * scale).coerceAtLeast(66.dp)
+        ChannelListDisplayMode.DETAILED -> (120.dp * scale).coerceAtLeast(92.dp)
+    }
 
     LaunchedEffect(remoteListIndex, channels.map { it.id }) {
         val target = remoteListIndex.coerceIn(0, (channels.size - 1).coerceAtLeast(0))
@@ -442,60 +447,127 @@ private fun ChannelDirectory(
         } else {
             LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
                 itemsIndexed(channels, key = { _, channel -> channel.id }) { index, channel ->
-                val selected = channel.id == model.selectedChannelId
-                val remoteSelected = index == remoteListIndex
-                val shape = RoundedCornerShape(6.dp * scale)
-                Row(
-                    modifier = Modifier.fillMaxWidth().height(rowHeight).clip(shape)
-                        .background(if (selected) WukkiColors.surfaceSelected else WukkiColors.navigationBackground)
-                        .border(if (remoteSelected && listFocused) 2.dp else 1.dp, if (remoteSelected && listFocused) WukkiColors.focus else DashboardBorder.copy(alpha = .58f), shape)
-                        .clickable { model.selectChannel(channel.id) },
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier.width(54.dp * scale).fillMaxHeight()
-                            .background(if (selected) WukkiColors.backgroundRaised else WukkiColors.transparent),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            channel.tvgChno?.toString() ?: (index + 1).toString(),
-                            color = WukkiColors.textPrimary,
-                            fontSize = (22f * scale).sp,
-                            fontWeight = FontWeight.Light
-                        )
-                    }
-                    Spacer(Modifier.width(10.dp * scale))
-                    DashboardLogo(model, channel, Modifier.size(44.dp * scale))
-                    Spacer(Modifier.width(13.dp * scale))
-                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
-                        Text(
-                            channel.name,
-                            color = WukkiColors.textPrimary,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = (18f * scale).sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        if (model.settings.display.showChannelProgramme) {
-                            Spacer(Modifier.height(3.dp * scale))
-                            Text(
-                                model.currentProgram(channel, tick)?.displayTitle(model.settings.language) ?: tr(model.settings.language, "epg.none"),
-                                color = DashboardMuted,
-                                fontSize = (13f * scale).sp,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-                    ChannelSignalIcon(scale)
-                    Spacer(Modifier.width(12.dp * scale))
-                    ChannelFavoriteIcon(channel.favorite, remoteSelected && favoriteFocused, scale) { model.toggleFavorite(channel.id) }
-                    Spacer(Modifier.width(12.dp * scale))
+                    ChannelListRow(
+                        model = model,
+                        channel = channel,
+                        position = index + 1,
+                        tick = tick,
+                        mode = listMode,
+                        height = rowHeight,
+                        scale = scale,
+                        selected = channel.id == model.selectedChannelId,
+                        remoteSelected = index == remoteListIndex,
+                        listFocused = listFocused,
+                        favoriteFocused = favoriteFocused
+                    )
                 }
             }
         }
-        }
     }
+}
+
+@Composable
+private fun ChannelListRow(
+    model: WukkiModel,
+    channel: Channel,
+    position: Int,
+    tick: Long,
+    mode: ChannelListDisplayMode,
+    height: androidx.compose.ui.unit.Dp,
+    scale: Float,
+    selected: Boolean,
+    remoteSelected: Boolean,
+    listFocused: Boolean,
+    favoriteFocused: Boolean
+) {
+    val shape = RoundedCornerShape(6.dp * scale)
+    val current = model.currentProgram(channel, tick)
+    val next = current?.let { model.nextProgram(channel, it) }
+    val compact = mode == ChannelListDisplayMode.COMPACT
+    val detailed = mode == ChannelListDisplayMode.DETAILED
+    val logoSize = when (mode) {
+        ChannelListDisplayMode.COMPACT -> 32.dp * scale
+        ChannelListDisplayMode.NORMAL -> 44.dp * scale
+        ChannelListDisplayMode.DETAILED -> 56.dp * scale
+    }
+    Row(
+        modifier = Modifier.fillMaxWidth().height(height).clip(shape)
+            .background(if (selected) WukkiColors.surfaceSelected else WukkiColors.navigationBackground)
+            .border(if (remoteSelected && listFocused) 2.dp else 1.dp, if (remoteSelected && listFocused) WukkiColors.focus else DashboardBorder.copy(alpha = .58f), shape)
+            .clickable { model.selectChannel(channel.id) },
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier.width(if (compact) 44.dp * scale else 54.dp * scale).fillMaxHeight()
+                .background(if (selected) WukkiColors.backgroundRaised else WukkiColors.transparent),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                channel.tvgChno?.toString() ?: position.toString(),
+                color = WukkiColors.textPrimary,
+                fontSize = ((if (compact) 18f else 22f) * scale).sp,
+                fontWeight = FontWeight.Light
+            )
+        }
+        Spacer(Modifier.width(if (compact) 8.dp * scale else 10.dp * scale))
+        DashboardLogo(model, channel, Modifier.size(logoSize))
+        Spacer(Modifier.width(if (compact) 10.dp * scale else 13.dp * scale))
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
+            Text(
+                channel.name,
+                color = WukkiColors.textPrimary,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = ((if (compact) 16f else 18f) * scale).sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            when {
+                detailed -> DetailedChannelProgrammes(model, current, next, scale)
+                model.settings.display.showChannelProgramme && !compact -> {
+                    Spacer(Modifier.height(3.dp * scale))
+                    Text(
+                        current?.displayTitle(model.settings.language) ?: tr(model.settings.language, "epg.none"),
+                        color = DashboardMuted,
+                        fontSize = (13f * scale).sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+        if (!compact) {
+            ChannelSignalIcon(scale)
+            Spacer(Modifier.width(12.dp * scale))
+        }
+        ChannelFavoriteIcon(channel.favorite, remoteSelected && favoriteFocused, if (compact) scale * .85f else scale) { model.toggleFavorite(channel.id) }
+        Spacer(Modifier.width(if (compact) 8.dp * scale else 12.dp * scale))
+    }
+}
+
+@Composable
+private fun DetailedChannelProgrammes(
+    model: WukkiModel,
+    current: Programme?,
+    next: Programme?,
+    scale: Float
+) {
+    Spacer(Modifier.height(3.dp * scale))
+    Text(
+        current?.let { "${formatTime(it.start)}–${formatTime(it.end)}  ${it.displayTitle(model.settings.language)}" }
+            ?: tr(model.settings.language, "epg.none"),
+        color = DashboardMuted,
+        fontSize = (13f * scale).sp,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis
+    )
+    Text(
+        next?.let { "${tr(model.settings.language, "epg.next")}: ${formatTime(it.start)}  ${it.displayTitle(model.settings.language)}" }
+            ?: tr(model.settings.language, "epg.none"),
+        color = WukkiColors.textSecondary,
+        fontSize = (12f * scale).sp,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis
+    )
 }
 
 @Composable

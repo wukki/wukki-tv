@@ -7,6 +7,7 @@ enum class AppLanguage { HUNGARIAN, ENGLISH }
 enum class RefreshInterval(val hours: Int) { MANUAL(0), SIX_HOURS(6), TWELVE_HOURS(12), DAILY(24) }
 enum class BufferProfile { LOW_LATENCY, BALANCED, STABLE }
 enum class AspectRatioMode { AUTO, RATIO_16_9, RATIO_4_3, RATIO_21_9, FILL_CROP }
+enum class ChannelListDisplayMode { COMPACT, NORMAL, DETAILED }
 
 data class PlaybackSettings(
     val volume: Int = 100,
@@ -27,6 +28,8 @@ data class PlaybackSettings(
 
 data class DisplaySettings(
     val uiScale: Float = 1f,
+    /** Nullable only for compatibility with state written before channel-list modes existed. */
+    val channelListMode: ChannelListDisplayMode? = ChannelListDisplayMode.NORMAL,
     val showChannelProgramme: Boolean = true,
     val showMiniGuide: Boolean = true,
     val showLogos: Boolean = true
@@ -113,7 +116,8 @@ data class AppState(
         // Java serialization supplies null for fields that did not exist in older state files.
         // Normalising here preserves the intended, enabled-by-default autoplay behaviour.
         val migratedSettings = loadedSettings.copy(
-            playback = loadedSettings.playback.copy(autoPlayOnLaunch = loadedSettings.playback.autoPlayOnLaunch ?: true)
+            playback = loadedSettings.playback.copy(autoPlayOnLaunch = loadedSettings.playback.autoPlayOnLaunch ?: true),
+            display = loadedSettings.display.copy(channelListMode = loadedSettings.display.channelListMode ?: ChannelListDisplayMode.NORMAL)
         )
         val migratedSources = epgSources ?: epgUrl.takeIf { it.isNotBlank() }?.let {
             listOf(EpgSource(id = "legacy-epg", name = "EPG", url = it, lastUpdatedAt = null))

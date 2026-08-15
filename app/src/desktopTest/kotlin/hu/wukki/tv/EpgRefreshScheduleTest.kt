@@ -39,4 +39,11 @@ class EpgRefreshScheduleTest {
     fun `manual mode never schedules a refresh`() {
         assertEquals(Long.MAX_VALUE, nextEpgRefreshDelayMillis(emptyList(), RefreshInterval.MANUAL, now))
     }
+
+    @Test
+    fun `missing channel list mode normalizes to normal`() {
+        val state = AppState(settings = AppSettings(display = DisplaySettings(channelListMode = null))).normalized()
+
+        assertEquals(ChannelListDisplayMode.NORMAL, state.settings?.display?.channelListMode)
+    }
 }

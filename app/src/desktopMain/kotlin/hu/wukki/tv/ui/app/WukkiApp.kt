@@ -342,13 +342,19 @@ fun WukkiApp() {
                         if (settingsSection == SettingsSection.DISPLAY) {
                             when (event.key) {
                                 Key.DirectionUp, Key.PageUp -> settingsOptionIndex = (settingsOptionIndex - 1).coerceAtLeast(0)
-                                Key.DirectionDown, Key.PageDown -> settingsOptionIndex = (settingsOptionIndex + 1).coerceAtMost(3)
+                                Key.DirectionDown, Key.PageDown -> settingsOptionIndex = (settingsOptionIndex + 1).coerceAtMost(4)
                                 Key.DirectionLeft, Key.DirectionRight -> {
                                     if (settingsOptionIndex == 0) {
                                         val values = listOf(.9f, 1f, 1.15f)
                                         val current = values.indexOf(model.settings.display.uiScale).coerceAtLeast(0)
                                         val delta = if (event.key == Key.DirectionLeft) -1 else 1
                                         model.updateDisplay { it.copy(uiScale = values[(current + delta).floorMod(values.size)]) }
+                                    } else if (settingsOptionIndex == 1) {
+                                        val current = (model.settings.display.channelListMode ?: ChannelListDisplayMode.NORMAL).ordinal
+                                        val delta = if (event.key == Key.DirectionLeft) -1 else 1
+                                        model.updateDisplay { display ->
+                                            display.copy(channelListMode = ChannelListDisplayMode.entries[(current + delta).floorMod(ChannelListDisplayMode.entries.size)])
+                                        }
                                     } else toggleDisplayOption(model, settingsOptionIndex)
                                 }
                                 else -> if (event.key.isConfirmKey()) {
@@ -356,6 +362,11 @@ fun WukkiApp() {
                                         val values = listOf(.9f, 1f, 1.15f)
                                         val current = values.indexOf(model.settings.display.uiScale).coerceAtLeast(0)
                                         model.updateDisplay { it.copy(uiScale = values[(current + 1).floorMod(values.size)]) }
+                                    } else if (settingsOptionIndex == 1) {
+                                        val current = (model.settings.display.channelListMode ?: ChannelListDisplayMode.NORMAL).ordinal
+                                        model.updateDisplay { display ->
+                                            display.copy(channelListMode = ChannelListDisplayMode.entries[(current + 1).floorMod(ChannelListDisplayMode.entries.size)])
+                                        }
                                     } else toggleDisplayOption(model, settingsOptionIndex)
                                 } else return@onPreviewKeyEvent false
                             }
@@ -472,9 +483,9 @@ private fun Int.floorMod(modulus: Int): Int = ((this % modulus) + modulus) % mod
 
 private fun toggleDisplayOption(model: WukkiModel, optionIndex: Int) = model.updateDisplay { display ->
     when (optionIndex) {
-        1 -> display.copy(showChannelProgramme = !display.showChannelProgramme)
-        2 -> display.copy(showMiniGuide = !display.showMiniGuide)
-        3 -> display.copy(showLogos = !display.showLogos)
+        2 -> display.copy(showChannelProgramme = !display.showChannelProgramme)
+        3 -> display.copy(showMiniGuide = !display.showMiniGuide)
+        4 -> display.copy(showLogos = !display.showLogos)
         else -> display
     }
 }
