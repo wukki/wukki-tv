@@ -6,6 +6,7 @@ import hu.wukki.tv.ui.guide.*
 import hu.wukki.tv.ui.live.LiveTvScreen
 import hu.wukki.tv.ui.live.LiveTvUiState
 import hu.wukki.tv.ui.navigation.NavigationEntryUiState
+import hu.wukki.tv.ui.navigation.ChannelRemoteFocus
 import hu.wukki.tv.ui.navigation.SideNavigation
 import hu.wukki.tv.ui.navigation.SideNavigationUiState
 import hu.wukki.tv.ui.settings.*
@@ -71,7 +72,12 @@ private val DashboardMuted = WukkiColors.textMuted
 private val DashboardBorder = WukkiColors.border
 private val FocusPurple = WukkiColors.primary
 
-private fun navigationState(model: WukkiModel, activeSection: DashboardSection, tick: Long): SideNavigationUiState {
+private fun navigationState(
+    model: WukkiModel,
+    activeSection: DashboardSection,
+    focusedSection: DashboardSection?,
+    tick: Long
+): SideNavigationUiState {
     val language = model.settings.language
     val date = Instant.ofEpochMilli(tick).atZone(ZoneId.systemDefault()).toLocalDate()
     val locale = Localizer.locale(language)
@@ -83,6 +89,7 @@ private fun navigationState(model: WukkiModel, activeSection: DashboardSection, 
             NavigationEntryUiState(DashboardSection.SETTINGS, tr(language, "nav.settings"))
         ),
         activeSection = activeSection,
+        focusedSection = focusedSection,
         timeLabel = formatTime(tick),
         dateLabel = date.format(DateTimeFormatter.ofPattern(tr(language, "date.sidebar.pattern"), locale))
     )
@@ -98,7 +105,16 @@ fun DashboardScreen(
     guideState: EpgGuideState,
     onSectionChange: (DashboardSection) -> Unit,
     settingsSection: SettingsSection?,
-    onSettingsSectionChange: (SettingsSection?) -> Unit
+    onSettingsSectionChange: (SettingsSection?) -> Unit,
+    mainNavigationFocused: Boolean,
+    mainNavigationSection: DashboardSection,
+    channelRemoteFocus: ChannelRemoteFocus,
+    channelFilterIndex: Int,
+    channelListIndex: Int,
+    settingsCategoryIndex: Int,
+    settingsOptionIndex: Int,
+    guideProgrammeDetailsVisible: Boolean,
+    onDismissGuideProgrammeDetails: () -> Unit
 ) {
     BoxWithConstraints(
         modifier = Modifier.fillMaxSize().background(WukkiBrushes.appBackground())
@@ -109,7 +125,7 @@ fun DashboardScreen(
 
         Row(modifier = Modifier.fillMaxSize()) {
             SideNavigation(
-                state = navigationState(model, activeSection, tick),
+                state = navigationState(model, activeSection, mainNavigationSection.takeIf { mainNavigationFocused }, tick),
                 onSelect = onSectionChange,
                 scale = referenceScale,
                 modifier = Modifier.width(navigationWidth).fillMaxHeight()
@@ -137,7 +153,10 @@ fun DashboardScreen(
                     tick = tick,
                     modifier = Modifier.weight(1f).fillMaxHeight().padding(contentPadding),
                     playbackController = playbackController,
-                    scale = referenceScale.coerceAtMost(1f)
+                    scale = referenceScale.coerceAtMost(1f),
+                    remoteFocus = channelRemoteFocus,
+                    remoteFilterIndex = channelFilterIndex,
+                    remoteListIndex = channelListIndex
                 )
 
                 DashboardSection.SETTINGS -> SettingsScreen(
@@ -145,6 +164,9 @@ fun DashboardScreen(
                     scope = scope,
                     selectedSection = settingsSection,
                     onSectionChange = onSettingsSectionChange,
+                    remoteCategoryIndex = settingsCategoryIndex,
+                    remoteNavigationActive = !mainNavigationFocused,
+                    remoteOptionIndex = settingsOptionIndex,
                     modifier = Modifier.weight(1f).fillMaxHeight().padding(contentPadding)
                 )
             }
@@ -156,6 +178,9 @@ fun DashboardScreen(
             model.error?.let { DashboardMessage(tr(model.settings.language, "app.error.prefix", it.text(model.settings.language)), WukkiColors.error, WukkiColors.errorContainer) }
             model.status?.let { DashboardMessage(it.text(model.settings.language), WukkiColors.success, WukkiColors.successContainer) }
         }
+        if (guideProgrammeDetailsVisible) {
+            GuideProgrammeDetails(model, guideState, onDismissGuideProgrammeDetails)
+        }
     }
 }
 
@@ -165,7 +190,10 @@ private fun ChannelScreen(
     tick: Long,
     modifier: Modifier,
     playbackController: PlaybackController,
-    scale: Float
+    scale: Float,
+    remoteFocus: ChannelRemoteFocus,
+    remoteFilterIndex: Int,
+    remoteListIndex: Int
 ) {
     var searchOpen by remember { mutableStateOf(false) }
     val screenFocusRequester = remember { FocusRequester() }
@@ -173,6 +201,14 @@ private fun ChannelScreen(
 
     LaunchedEffect(searchOpen) {
         if (searchOpen) searchFocusRequester.requestFocus() else screenFocusRequester.requestFocus()
+    }
+    LaunchedEffect(remoteFocus) {
+        if (remoteFocus == ChannelRemoteFocus.SEARCH) {
+            searchOpen = true
+        } else if (searchOpen) {
+            model.query = ""
+            searchOpen = false
+        }
     }
     DisposableEffect(Unit) {
         onDispose { model.query = "" }
@@ -187,6 +223,8 @@ private fun ChannelScreen(
             searchOpen = searchOpen,
             scale = scale,
             searchFocusRequester = searchFocusRequester,
+            remoteFocus = remoteFocus,
+            remoteFilterIndex = remoteFilterIndex,
             onOpenSearch = { searchOpen = true },
             onCloseSearch = {
                 model.query = ""
@@ -197,7 +235,15 @@ private fun ChannelScreen(
             modifier = Modifier.fillMaxWidth().weight(1f),
             horizontalArrangement = Arrangement.spacedBy(20.dp * scale)
         ) {
-            ChannelDirectory(model, tick, scale, modifier = Modifier.weight(.62f).fillMaxHeight())
+            ChannelDirectory(
+                model,
+                tick,
+                scale,
+                remoteFocus == ChannelRemoteFocus.LIST,
+                remoteFocus == ChannelRemoteFocus.FAVORITE,
+                remoteListIndex,
+                modifier = Modifier.weight(.62f).fillMaxHeight()
+            )
             ProgrammeInformation(
                 model = model,
                 tick = tick,
@@ -216,6 +262,8 @@ private fun ChannelHeader(
     searchOpen: Boolean,
     scale: Float,
     searchFocusRequester: FocusRequester,
+    remoteFocus: ChannelRemoteFocus,
+    remoteFilterIndex: Int,
     onOpenSearch: () -> Unit,
     onCloseSearch: () -> Unit
 ) {
@@ -272,6 +320,7 @@ private fun ChannelHeader(
                     ChannelFilterTab(
                         label = tr(model.settings.language, "channels.all"),
                         selected = model.category == null && !model.onlyFavorites,
+                        focused = remoteFocus == ChannelRemoteFocus.FILTERS && remoteFilterIndex == 0,
                         scale = scale,
                         onClick = {
                             model.category = null
@@ -281,16 +330,18 @@ private fun ChannelHeader(
                     ChannelFilterTab(
                         label = tr(model.settings.language, "channels.favorites"),
                         selected = model.onlyFavorites,
+                        focused = remoteFocus == ChannelRemoteFocus.FILTERS && remoteFilterIndex == 1,
                         scale = scale,
                         onClick = {
                             model.category = null
                             model.onlyFavorites = true
                         }
                     )
-                    model.categories().forEach { category ->
+                    model.categories().forEachIndexed { index, category ->
                         ChannelFilterTab(
                         label = if (category == OTHER_CATEGORY_ID) tr(model.settings.language, "channels.other") else category,
                             selected = model.category == category && !model.onlyFavorites,
+                            focused = remoteFocus == ChannelRemoteFocus.FILTERS && remoteFilterIndex == index + 2,
                             scale = scale,
                             onClick = {
                                 model.onlyFavorites = false
@@ -299,14 +350,14 @@ private fun ChannelHeader(
                         )
                     }
                 }
-                ChannelHeaderIcon(close = false, scale = scale, onClick = onOpenSearch)
+                ChannelHeaderIcon(close = false, focused = remoteFocus == ChannelRemoteFocus.SEARCH, scale = scale, onClick = onOpenSearch)
             }
         }
     }
 }
 
 @Composable
-private fun ChannelFilterTab(label: String, selected: Boolean, scale: Float, onClick: () -> Unit) {
+private fun ChannelFilterTab(label: String, selected: Boolean, focused: Boolean, scale: Float, onClick: () -> Unit) {
     val background = if (selected) {
         Modifier.background(WukkiBrushes.selectedSurface())
     } else {
@@ -314,6 +365,7 @@ private fun ChannelFilterTab(label: String, selected: Boolean, scale: Float, onC
     }
     Box(
         modifier = Modifier.fillMaxHeight().clip(RoundedCornerShape(9.dp * scale)).then(background)
+            .border(if (focused) 2.dp else 0.dp, if (focused) FocusPurple else WukkiColors.transparent, RoundedCornerShape(9.dp * scale))
             .clickable(onClick = onClick).padding(horizontal = 16.dp * scale),
         contentAlignment = Alignment.Center
     ) {
@@ -328,10 +380,10 @@ private fun ChannelFilterTab(label: String, selected: Boolean, scale: Float, onC
 }
 
 @Composable
-private fun ChannelHeaderIcon(close: Boolean, scale: Float, onClick: () -> Unit) {
+private fun ChannelHeaderIcon(close: Boolean, focused: Boolean = false, scale: Float, onClick: () -> Unit) {
     Box(
         modifier = Modifier.size(46.dp * scale).clip(RoundedCornerShape(9.dp * scale))
-            .background(WukkiColors.backgroundRaised).border(1.dp, DashboardBorder, RoundedCornerShape(9.dp * scale))
+            .background(WukkiColors.backgroundRaised).border(if (focused) 2.dp else 1.dp, if (focused) FocusPurple else DashboardBorder, RoundedCornerShape(9.dp * scale))
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
@@ -345,14 +397,22 @@ private fun ChannelHeaderIcon(close: Boolean, scale: Float, onClick: () -> Unit)
 }
 
 @Composable
-private fun ChannelDirectory(model: WukkiModel, tick: Long, scale: Float, modifier: Modifier) {
+private fun ChannelDirectory(
+    model: WukkiModel,
+    tick: Long,
+    scale: Float,
+    listFocused: Boolean,
+    favoriteFocused: Boolean,
+    remoteListIndex: Int,
+    modifier: Modifier
+) {
     val channels = model.filteredChannels()
     val listState = rememberLazyListState()
     val rowHeight = (88.dp * scale).coerceAtLeast(66.dp)
 
-    LaunchedEffect(model.selectedChannelId, channels.map { it.id }) {
-        val selectedIndex = channels.indexOfFirst { it.id == model.selectedChannelId }
-        if (selectedIndex >= 0) listState.animateScrollToItem(selectedIndex)
+    LaunchedEffect(remoteListIndex, channels.map { it.id }) {
+        val target = remoteListIndex.coerceIn(0, (channels.size - 1).coerceAtLeast(0))
+        if (channels.isNotEmpty()) listState.animateScrollToItem(target)
     }
 
     Box(
@@ -369,11 +429,12 @@ private fun ChannelDirectory(model: WukkiModel, tick: Long, scale: Float, modifi
             LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
                 itemsIndexed(channels, key = { _, channel -> channel.id }) { index, channel ->
                 val selected = channel.id == model.selectedChannelId
+                val remoteSelected = index == remoteListIndex
                 val shape = RoundedCornerShape(6.dp * scale)
                 Row(
                     modifier = Modifier.fillMaxWidth().height(rowHeight).clip(shape)
                         .background(if (selected) WukkiColors.surfaceSelected else WukkiColors.navigationBackground)
-                        .border(if (selected) 2.dp else 1.dp, if (selected) WukkiColors.focus else DashboardBorder.copy(alpha = .58f), shape)
+                        .border(if (remoteSelected && listFocused) 2.dp else 1.dp, if (remoteSelected && listFocused) WukkiColors.focus else DashboardBorder.copy(alpha = .58f), shape)
                         .clickable { model.selectChannel(channel.id) },
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -414,7 +475,7 @@ private fun ChannelDirectory(model: WukkiModel, tick: Long, scale: Float, modifi
                     }
                     ChannelSignalIcon(scale)
                     Spacer(Modifier.width(12.dp * scale))
-                    ChannelFavoriteIcon(channel.favorite, scale) { model.toggleFavorite(channel.id) }
+                    ChannelFavoriteIcon(channel.favorite, remoteSelected && favoriteFocused, scale) { model.toggleFavorite(channel.id) }
                     Spacer(Modifier.width(12.dp * scale))
                 }
             }
@@ -429,9 +490,11 @@ private fun ChannelSignalIcon(scale: Float) {
 }
 
 @Composable
-private fun ChannelFavoriteIcon(favorite: Boolean, scale: Float, onClick: () -> Unit) {
+private fun ChannelFavoriteIcon(favorite: Boolean, focused: Boolean, scale: Float, onClick: () -> Unit) {
     Box(
-        modifier = Modifier.size(38.dp * scale).clickable(onClick = onClick),
+        modifier = Modifier.size(38.dp * scale).clip(RoundedCornerShape(6.dp * scale))
+            .border(if (focused) 2.dp else 0.dp, if (focused) FocusPurple else WukkiColors.transparent, RoundedCornerShape(6.dp * scale))
+            .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Icon(
@@ -566,6 +629,37 @@ private fun DashboardMessage(message: String, color: Color, background: Color) {
             .padding(horizontal = 12.dp, vertical = 7.dp),
         maxLines = 1,
         overflow = TextOverflow.Ellipsis
+    )
+}
+
+@Composable
+private fun GuideProgrammeDetails(model: WukkiModel, state: EpgGuideState, onDismiss: () -> Unit) {
+    val language = model.settings.language
+    val focused = state.focusedProgramme(model.guideDataSource()) ?: run {
+        LaunchedEffect(Unit) { onDismiss() }
+        return
+    }
+    val (channel, programme) = focused
+    val next = model.programmesFor(channel, programme.end, programme.end + 24 * 60 * 60 * 1000L).firstOrNull()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = WukkiColors.surfaceOverlay,
+        titleContentColor = WukkiColors.textPrimary,
+        textContentColor = WukkiColors.textSecondary,
+        title = { Text(programme.displayTitle(language), fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(channel.name, color = WukkiColors.textPrimary, fontWeight = FontWeight.SemiBold)
+                Text("${formatTime(programme.start)} – ${formatTime(programme.end)}")
+                Text(programme.description?.takeIf { it.isNotBlank() } ?: tr(language, "epg.no.description"))
+                next?.let {
+                    Text("${tr(language, "epg.next")}: ${it.displayTitle(language)} · ${formatTime(it.start)}", color = WukkiColors.textMuted)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(tr(language, "action.close")) }
+        }
     )
 }
 

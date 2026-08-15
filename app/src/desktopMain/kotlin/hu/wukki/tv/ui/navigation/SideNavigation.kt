@@ -1,6 +1,7 @@
 package hu.wukki.tv.ui.navigation
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -28,6 +29,7 @@ data class NavigationEntryUiState(val section: DashboardSection, val label: Stri
 data class SideNavigationUiState(
     val entries: List<NavigationEntryUiState>,
     val activeSection: DashboardSection,
+    val focusedSection: DashboardSection? = null,
     val timeLabel: String,
     val dateLabel: String
 )
@@ -59,12 +61,14 @@ fun SideNavigation(
         Spacer(Modifier.height(83.dp * scale))
         state.entries.forEach { entry ->
             val selected = entry.section == state.activeSection
+            val focused = entry.section == state.focusedSection
             Row(
                 modifier = Modifier.fillMaxWidth().height((76.dp * scale).coerceIn(54.dp, 94.dp))
                     .background(
                         if (selected) WukkiBrushes.navigationSelected()
                         else Brush.horizontalGradient(listOf(WukkiColors.transparent, WukkiColors.transparent))
                     )
+                    .border(if (focused) 2.dp else 0.dp, if (focused) WukkiColors.focus else WukkiColors.transparent)
                     .clickable { onSelect(entry.section) }.padding(start = 40.dp * scale, end = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {

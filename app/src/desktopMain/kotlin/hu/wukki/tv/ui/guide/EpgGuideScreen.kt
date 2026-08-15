@@ -130,6 +130,17 @@ class EpgGuideState internal constructor(
         focusedProgrammeKey = null
     }
 
+    /** The programme currently targeted by D-pad navigation, if the row has EPG data. */
+    fun focusedProgramme(data: GuideDataSource): Pair<Channel, Programme>? {
+        val channel = data.channels().firstOrNull { it.id == focusedChannelId } ?: return null
+        val (dayStart, dayEnd) = selectedDay.bounds()
+        val programmes = data.programmesFor(channel, dayStart, dayEnd)
+        val programme = programmes.firstOrNull { it.key() == focusedProgrammeKey }
+            ?: programmes.minByOrNull { abs(it.start - selectedDay.timestampAtMinute(focusMinuteOfDay)) }
+            ?: return null
+        return channel to programme
+    }
+
     suspend fun initialise(data: GuideDataSource, channels: List<Channel>) {
         if (channels.isEmpty()) return
         val channelIndex = channels.indexOfFirst { it.id == focusedChannelId }
