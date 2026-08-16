@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,10 +17,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
@@ -79,7 +79,6 @@ import hu.wukki.tv.ui.components.displayTitle
 import hu.wukki.tv.ui.components.formatTime
 import hu.wukki.tv.ui.components.tr
 import hu.wukki.tv.ui.navigation.ChannelRemoteFocus
-import hu.wukki.tv.ui.navigation.isBackKey
 
 private val panelBorder = WukkiColors.border
 private val muted = WukkiColors.textMuted
@@ -158,29 +157,81 @@ private fun ChannelHeader(
         Text(tr(state.language, "channels.title"), color = WukkiColors.textPrimary, fontSize = (28f * scale).sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(15.dp * scale))
         if (searchOpen) {
-            Row(Modifier.fillMaxWidth().height(50.dp * scale), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp * scale)) {
+            Row(Modifier.fillMaxWidth().height(56.dp * scale), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp * scale)) {
                 OutlinedTextField(
                     value = state.query, onValueChange = callbacks.onQueryChange, singleLine = true,
                     placeholder = { Text(tr(state.language, "channels.search"), color = muted) },
                     textStyle = LocalTextStyle.current.copy(color = WukkiColors.textPrimary, fontSize = (15f * scale).sp),
                     colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = panelBorder, focusedTextColor = WukkiColors.textPrimary, unfocusedTextColor = WukkiColors.textPrimary, cursorColor = accent),
-                    modifier = Modifier.weight(1f).fillMaxHeight().focusRequester(searchFocusRequester).onPreviewKeyEvent {
-                        if (it.type == KeyEventType.KeyDown && it.key.isBackKey()) { onCloseSearch(); true } else false
+                    modifier = Modifier.widthIn(min = 0.dp).weight(1f).fillMaxHeight().focusRequester(searchFocusRequester).onPreviewKeyEvent {
+                        if (it.type == KeyEventType.KeyDown && it.key == Key.Escape) { onCloseSearch(); true } else false
                     }
                 )
                 ChannelHeaderIcon(true, false, scale, onCloseSearch)
             }
         } else {
             Row(Modifier.fillMaxWidth().height(50.dp * scale), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp * scale)) {
-                Row(Modifier.weight(1f).fillMaxHeight().horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp * scale)) {
-                    ChannelFilterTab(tr(state.language, "channels.all"), state.selectedCategory == null && !state.onlyFavorites, remoteFocus == ChannelRemoteFocus.FILTERS && remoteFilterIndex == 0, scale, callbacks.onSelectAll)
-                    ChannelFilterTab(tr(state.language, "channels.favorites"), state.onlyFavorites, remoteFocus == ChannelRemoteFocus.FILTERS && remoteFilterIndex == 1, scale, callbacks.onSelectFavorites)
-                    state.categories.forEachIndexed { index, category ->
-                        ChannelFilterTab(if (category == OTHER_CATEGORY_ID) tr(state.language, "channels.other") else category, state.selectedCategory == category && !state.onlyFavorites, remoteFocus == ChannelRemoteFocus.FILTERS && remoteFilterIndex == index + 2, scale) { callbacks.onSelectCategory(category) }
-                    }
-                }
+                ChannelFilters(
+                    state = state,
+                    callbacks = callbacks,
+                    remoteFocus = remoteFocus,
+                    remoteFilterIndex = remoteFilterIndex,
+                    scale = scale,
+                    modifier = Modifier.weight(1f).fillMaxHeight()
+                )
                 ChannelHeaderIcon(false, remoteFocus == ChannelRemoteFocus.SEARCH, scale, onOpenSearch)
             }
+        }
+    }
+}
+
+@Composable
+private fun ChannelFilters(
+    state: ChannelBrowserUiState,
+    callbacks: ChannelBrowserCallbacks,
+    remoteFocus: ChannelRemoteFocus,
+    remoteFilterIndex: Int,
+    scale: Float,
+    modifier: Modifier
+) {
+    val listState = rememberLazyListState()
+    val filterCount = state.categories.size + 2
+    LaunchedEffect(remoteFocus, remoteFilterIndex, filterCount) {
+        if (remoteFocus == ChannelRemoteFocus.FILTERS && remoteFilterIndex in 0 until filterCount) {
+            listState.animateScrollToItem(remoteFilterIndex)
+        }
+    }
+    LazyRow(
+        state = listState,
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp * scale)
+    ) {
+        item(key = "all") {
+            ChannelFilterTab(
+                tr(state.language, "channels.all"),
+                state.selectedCategory == null && !state.onlyFavorites,
+                remoteFocus == ChannelRemoteFocus.FILTERS && remoteFilterIndex == 0,
+                scale,
+                callbacks.onSelectAll
+            )
+        }
+        item(key = "favorites") {
+            ChannelFilterTab(
+                tr(state.language, "channels.favorites"),
+                state.onlyFavorites,
+                remoteFocus == ChannelRemoteFocus.FILTERS && remoteFilterIndex == 1,
+                scale,
+                callbacks.onSelectFavorites
+            )
+        }
+        itemsIndexed(state.categories, key = { _, category -> category }) { index, category ->
+            ChannelFilterTab(
+                if (category == OTHER_CATEGORY_ID) tr(state.language, "channels.other") else category,
+                state.selectedCategory == category && !state.onlyFavorites,
+                remoteFocus == ChannelRemoteFocus.FILTERS && remoteFilterIndex == index + 2,
+                scale
+            ) { callbacks.onSelectCategory(category) }
         }
     }
 }

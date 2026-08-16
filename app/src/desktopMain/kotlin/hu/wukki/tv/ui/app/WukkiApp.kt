@@ -286,6 +286,19 @@ fun WukkiApp() {
                         }
                         return@onPreviewKeyEvent false
                     }
+                    if (activeSection == DashboardSection.CHANNELS && channelRemoteFocus == ChannelRemoteFocus.SEARCH) {
+                        if (event.key == Key.Escape) {
+                            model.query = ""
+                            channelSearchOpen = false
+                            channelRemoteFocus = ChannelRemoteFocus.LIST
+                            return@onPreviewKeyEvent true
+                        }
+                        if (event.key == Key.Backspace) {
+                            // Let the focused text field consume Backspace character-by-character.
+                            // For an empty value this is intentionally a no-op, not global Back navigation.
+                            return@onPreviewKeyEvent false
+                        }
+                    }
                     if (event.key.isBackKey()) {
                         when {
                             guideProgrammeDetailsVisible -> guideProgrammeDetailsVisible = false
@@ -419,20 +432,35 @@ fun WukkiApp() {
                                 } else return@onPreviewKeyEvent false
                             }
                             ChannelRemoteFocus.SEARCH -> when (event.key) {
-                                Key.DirectionLeft -> channelRemoteFocus = ChannelRemoteFocus.FILTERS
-                                Key.DirectionDown, Key.DirectionRight -> channelRemoteFocus = ChannelRemoteFocus.LIST
+                                Key.DirectionLeft, Key.DirectionRight, Key.DirectionDown -> {
+                                    if (model.query.isEmpty()) {
+                                        channelRemoteFocus = if (event.key == Key.DirectionLeft) {
+                                            ChannelRemoteFocus.FILTERS
+                                        } else {
+                                            ChannelRemoteFocus.LIST
+                                        }
+                                    } else {
+                                        return@onPreviewKeyEvent false
+                                    }
+                                }
                                 else -> return@onPreviewKeyEvent false
                             }
                             ChannelRemoteFocus.LIST -> when (event.key) {
                                 Key.DirectionLeft -> focusZone = TvFocusZone.MAIN_NAVIGATION
                                 Key.DirectionRight -> channelRemoteFocus = ChannelRemoteFocus.FAVORITE
-                                Key.DirectionUp, Key.PageUp -> channelListIndex = (channelListIndex - 1).coerceAtLeast(0)
+                                Key.DirectionUp, Key.PageUp -> {
+                                    if (channelListIndex == 0) channelRemoteFocus = ChannelRemoteFocus.FILTERS
+                                    else channelListIndex--
+                                }
                                 Key.DirectionDown, Key.PageDown -> channelListIndex = (channelListIndex + 1).coerceAtMost((model.filteredChannels().size - 1).coerceAtLeast(0))
                                 else -> if (event.key.isConfirmKey()) model.filteredChannels().getOrNull(channelListIndex)?.let { model.selectChannel(it.id) } else return@onPreviewKeyEvent false
                             }
                             ChannelRemoteFocus.FAVORITE -> when (event.key) {
                                 Key.DirectionLeft -> channelRemoteFocus = ChannelRemoteFocus.LIST
-                                Key.DirectionUp, Key.PageUp -> channelListIndex = (channelListIndex - 1).coerceAtLeast(0)
+                                Key.DirectionUp, Key.PageUp -> {
+                                    if (channelListIndex == 0) channelRemoteFocus = ChannelRemoteFocus.FILTERS
+                                    else channelListIndex--
+                                }
                                 Key.DirectionDown, Key.PageDown -> channelListIndex = (channelListIndex + 1).coerceAtMost((model.filteredChannels().size - 1).coerceAtLeast(0))
                                 else -> if (event.key.isConfirmKey()) model.filteredChannels().getOrNull(channelListIndex)?.let { model.toggleFavorite(it.id) } else return@onPreviewKeyEvent false
                             }
