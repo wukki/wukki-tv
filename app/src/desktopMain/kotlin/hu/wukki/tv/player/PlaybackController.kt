@@ -11,7 +11,6 @@ import hu.wukki.tv.ui.components.WukkiOverlayColors
 import uk.co.caprica.vlcj.factory.discovery.NativeDiscovery
 import uk.co.caprica.vlcj.player.base.MediaPlayer
 import uk.co.caprica.vlcj.player.base.MediaPlayerEventAdapter
-import uk.co.caprica.vlcj.player.component.callback.CallbackImagePainter
 import uk.co.caprica.vlcj.player.component.CallbackMediaPlayerComponent
 import java.awt.Color
 import java.awt.AlphaComposite
@@ -21,12 +20,10 @@ import java.awt.Font
 import java.awt.Graphics2D
 import java.awt.RenderingHints
 import java.awt.image.BufferedImage
-import java.io.File
 import java.net.URI
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import javax.swing.JComponent
 import javax.swing.SwingUtilities
 import javax.imageio.ImageIO
 import java.util.concurrent.ConcurrentHashMap
@@ -543,60 +540,6 @@ private fun clippedText(graphics: Graphics2D, text: String, maxWidth: Int): Stri
 private val OverlayTimeFormatter = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())
 private fun overlayTime(timestamp: Long): String = OverlayTimeFormatter.format(Instant.ofEpochMilli(timestamp))
 
-/** Draws callback video frames without distortion and crops symmetrically when requested. */
-private class AspectRatioImagePainter(private val mode: AspectRatioMode) : CallbackImagePainter {
-    override fun prepare(graphics: Graphics2D, component: JComponent) {
-        graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR)
-        graphics.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY)
-    }
-
-    override fun paint(graphics: Graphics2D, component: JComponent, image: BufferedImage?) {
-        val surfaceWidth = component.width
-        val surfaceHeight = component.height
-        if (surfaceWidth <= 0 || surfaceHeight <= 0) return
-        graphics.color = component.background ?: Color.BLACK
-        graphics.fillRect(0, 0, surfaceWidth, surfaceHeight)
-        image ?: return
-
-        val target = targetBounds(surfaceWidth, surfaceHeight)
-        val scale = if (mode == AspectRatioMode.AUTO) {
-            min(target.width / image.width.toDouble(), target.height / image.height.toDouble())
-        } else {
-            max(target.width / image.width.toDouble(), target.height / image.height.toDouble())
-        }
-        val drawnWidth = image.width * scale
-        val drawnHeight = image.height * scale
-        val x = target.x + (target.width - drawnWidth) / 2
-        val y = target.y + (target.height - drawnHeight) / 2
-        val previousClip = graphics.clip
-        graphics.clipRect(target.x.toInt(), target.y.toInt(), target.width.toInt(), target.height.toInt())
-        graphics.drawImage(image, x.toInt(), y.toInt(), drawnWidth.toInt(), drawnHeight.toInt(), null)
-        graphics.clip = previousClip
-    }
-
-    private fun targetBounds(width: Int, height: Int): DrawBounds {
-        val ratio = mode.targetRatio ?: return DrawBounds(0.0, 0.0, width.toDouble(), height.toDouble())
-        val surfaceRatio = width.toDouble() / height
-        return if (surfaceRatio > ratio) {
-            val targetWidth = height * ratio
-            DrawBounds((width - targetWidth) / 2, 0.0, targetWidth, height.toDouble())
-        } else {
-            val targetHeight = width / ratio
-            DrawBounds(0.0, (height - targetHeight) / 2, width.toDouble(), targetHeight)
-        }
-    }
-}
-
-private data class DrawBounds(val x: Double, val y: Double, val width: Double, val height: Double)
-
-private val AspectRatioMode.targetRatio: Double?
-    get() = when (this) {
-        AspectRatioMode.AUTO, AspectRatioMode.FILL_CROP -> null
-        AspectRatioMode.RATIO_16_9 -> 16.0 / 9.0
-        AspectRatioMode.RATIO_4_3 -> 4.0 / 3.0
-        AspectRatioMode.RATIO_21_9 -> 21.0 / 9.0
-    }
-
 @Composable
 fun EmbeddedVlcPlayer(controller: PlaybackController, modifier: Modifier = Modifier) {
     controller.component?.let { component ->
@@ -610,75 +553,6 @@ fun EmbeddedVlcPlayer(controller: PlaybackController, modifier: Modifier = Modif
             modifier = modifier
         )
     }
-}
-
-private data class VlcRuntime(val home: File, val pluginDirectory: File?) {
-    val factoryArguments: Array<String>
-        get() = buildList {
-            add("--no-video-title-show")
-            add("--quiet")
-        }.toTypedArray()
-}
-
-/** Finds a packaged runtime first, then a developer's local VLC installation. */
-private object VlcRuntimeResolver {
-    fun find(): VlcRuntime? {
-        val configured = sequenceOf(
-            System.getProperty("wukki.vlc.home"),
-            System.getenv("WUKKI_VLC_HOME"),
-            File(System.getProperty("user.dir"), "runtime/vlc").absolutePath
-        ).filterNotNull().map(::File)
-
-        val packaged = sequenceOf(
-            configured,
-            packagedCandidates().asSequence(),
-            systemCandidates().asSequence()
-        ).flatten().firstOrNull(::isRuntime)
-            ?: return null
-
-        configureNativePath(packaged)
-        return VlcRuntime(packaged, pluginDirectory(packaged))
-    }
-
-    private fun packagedCandidates(): List<File> {
-        val codeSource = runCatching {
-            File(PlaybackController::class.java.protectionDomain.codeSource.location.toURI())
-        }.getOrNull()
-        return buildList {
-            codeSource?.parentFile?.let { libDirectory ->
-                add(File(libDirectory, "resources/runtime/vlc"))
-                add(File(libDirectory, "../resources/runtime/vlc"))
-                add(File(libDirectory, "../runtime/vlc"))
-            }
-            add(File(System.getProperty("user.dir"), "app/resources/runtime/vlc"))
-        }
-    }
-
-    private fun systemCandidates(): List<File> = when {
-        System.getProperty("os.name").startsWith("Mac", ignoreCase = true) -> listOf(File("/Applications/VLC.app/Contents/MacOS"))
-        System.getProperty("os.name").startsWith("Windows", ignoreCase = true) -> listOfNotNull(
-            System.getenv("ProgramFiles")?.let { File(it, "VideoLAN/VLC") },
-            System.getenv("ProgramFiles(x86)")?.let { File(it, "VideoLAN/VLC") }
-        )
-        else -> listOf(File("/usr/lib/x86_64-linux-gnu"), File("/usr/lib64"), File("/usr/lib"))
-    }
-
-    private fun isRuntime(home: File): Boolean = libraryCandidates(home).any(File::isFile)
-
-    private fun configureNativePath(home: File) {
-        val libraryDirectory = libraryCandidates(home).firstOrNull(File::isFile)?.parentFile ?: home
-        val existing = System.getProperty("jna.library.path").orEmpty()
-        System.setProperty("jna.library.path", listOf(libraryDirectory.absolutePath, existing).filter(String::isNotBlank).joinToString(File.pathSeparator))
-    }
-
-    private fun libraryCandidates(home: File): List<File> = when {
-        System.getProperty("os.name").startsWith("Mac", ignoreCase = true) -> listOf(File(home, "lib/libvlc.dylib"), File(home, "libvlc.dylib"))
-        System.getProperty("os.name").startsWith("Windows", ignoreCase = true) -> listOf(File(home, "libvlc.dll"))
-        else -> listOf(File(home, "libvlc.so"), File(home, "lib/libvlc.so"))
-    }
-
-    private fun pluginDirectory(home: File): File? = listOf(File(home, "plugins"), File(home, "lib/vlc/plugins"), File(home, "lib/vlc/plugins"))
-        .firstOrNull(File::isDirectory)
 }
 
 internal fun BufferProfile.vlcOption(): String = when (this) {

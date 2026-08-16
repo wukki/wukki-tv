@@ -6,6 +6,7 @@ import hu.wukki.tv.ui.settings.*
 import hu.wukki.tv.ui.components.displayTitle
 import hu.wukki.tv.ui.components.tr
 import hu.wukki.tv.ui.navigation.ChannelRemoteFocus
+import hu.wukki.tv.ui.navigation.DashboardSection
 import hu.wukki.tv.ui.navigation.TvFocusZone
 import hu.wukki.tv.ui.navigation.isBackKey
 import hu.wukki.tv.ui.navigation.isConfirmKey

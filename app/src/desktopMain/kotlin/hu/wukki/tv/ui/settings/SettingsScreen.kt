@@ -526,10 +526,6 @@ private fun LegalDocumentDialog(model: WukkiModel, document: LegalDocument, onDi
 }
 
 @Composable
-private fun SettingsRow(model: WukkiModel, titleKey: String, content: @Composable () -> Unit) =
-    SettingsOptionRow(model = model, titleKey = titleKey, control = content)
-
-@Composable
 private fun SettingsToggle(model: WukkiModel, titleKey: String, checked: Boolean, selected: Boolean = false, onCheckedChange: (Boolean) -> Unit) {
     SettingsOptionRow(model, titleKey, selected = selected) {
         Switch(

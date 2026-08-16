@@ -1,4 +1,4 @@
-package hu.wukki.tv.ui.components
+package hu.wukki.tv.ui.app
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,6 +13,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun FloatingMessage(message: String, color: Color, background: Color) {
-    Text(message, color = color, modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(7.dp)).background(background).padding(horizontal = 12.dp, vertical = 7.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+fun AppFeedback(message: String, color: Color, background: Color) {
+    Text(
+        message,
+        color = color,
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(7.dp)).background(background)
+            .padding(horizontal = 12.dp, vertical = 7.dp),
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis
+    )
 }
