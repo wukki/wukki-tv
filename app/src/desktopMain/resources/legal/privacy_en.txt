@@ -1,0 +1,11 @@
+WUKKI TV – PRIVACY POLICY
+
+Wukki TV connects directly to the selected M3U playlist, XMLTV guide, and the stream or image providers referenced by them. Those providers' own privacy policies may apply to your connection.
+
+The app stores playlist configuration, EPG mappings, favourites, display preferences, and a per-installation random device identifier only on your computer. The identifier is not a hardware or network identifier.
+
+Wukki TV does not send usage statistics, analytics, or locally stored settings to its own server. It does not provide IPTV content and does not manage user accounts.
+
+When an external stream, EPG, or programme-artwork URL from a playlist is opened, the relevant provider may receive information about your network connection. The user is responsible for using such sources and for the lawful access to their content.
+
+Locally stored app data can be removed by deleting the Wukki TV data directory.

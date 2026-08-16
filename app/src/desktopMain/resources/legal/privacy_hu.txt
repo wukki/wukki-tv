@@ -1,0 +1,11 @@
+WUKKI TV – ADATVÉDELMI TÁJÉKOZTATÓ
+
+A Wukki TV a kiválasztott M3U playlist, XMLTV műsorújság és az azokban hivatkozott stream- vagy képszolgáltatók felé közvetlenül kapcsolódik. Ezeknek a szolgáltatóknak a saját adatvédelmi szabályzata érvényes lehet a kapcsolatodra.
+
+Az alkalmazás a playlist-konfigurációt, EPG-hozzárendeléseket, kedvenceket, megjelenítési beállításokat és egy telepítésenkénti véletlen eszközazonosítót kizárólag helyben, a számítógépeden tárolja. Az azonosító nem hardver- vagy hálózati azonosító.
+
+A Wukki TV nem küld használati statisztikát, analitikai adatot vagy a helyben tárolt beállításokat saját szerverre. Nem szolgáltat IPTV-tartalmat, és nem kezel felhasználói fiókot.
+
+A playlistből érkező külső stream-, EPG- és műsorkép-URL-ek megnyitásakor a megfelelő szolgáltató megismerheti a hálózati kapcsolatod adatait. Az ilyen források használatáért és a tartalomhoz való hozzáférés jogszerűségéért a felhasználó felel.
+
+A helyben tárolt alkalmazásadatok a Wukki TV adatkönyvtárának törlésével eltávolíthatók.

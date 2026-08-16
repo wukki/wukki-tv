@@ -1,0 +1,7 @@
+VLC / libVLC LICENCÉRTESÍTÉS
+
+A csomagolt Wukki TV desktop alkalmazás tartalmazhat VLC 3.0.23 Vetinari futtatókörnyezeti fájlokat, amelyeket a VideoLAN hivatalos terjesztési szolgáltatásából tölt le: https://www.videolan.org/vlc/
+
+A VLC szerzői jogának tulajdonosai a VideoLAN közreműködői. A VLC a GNU General Public License 2-es vagy újabb verziója alatt kerül terjesztésre. Az egyes futtatókörnyezeti könyvtárak és pluginek a GNU Lesser General Public License vagy más licencek alatt is elérhetők lehetnek. A kapcsolódó forráskódok és licencszövegek a VideoLAN projektben találhatók: https://code.videolan.org/videolan/vlc
+
+Ez az értesítés minden, VLC futtatókörnyezetet beágyazó alkalmazáscsomag része. A kiadási folyamatnak meg kell tartania a VLC archívum eredeti licencfájljait is.

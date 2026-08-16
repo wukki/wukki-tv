@@ -32,7 +32,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.awt.FileDialog
 import java.io.File
 import kotlin.math.PI
@@ -46,7 +48,6 @@ private val SettingsMuted = WukkiColors.textMuted
 private val SettingsAccent = WukkiColors.primary
 private const val SETTINGS_REFERENCE_WIDTH = 1116f
 private const val SETTINGS_REFERENCE_HEIGHT = 892f
-private const val WUKKI_VERSION = "1.0.0"
 private enum class PlaybackOption { AUTOPLAY, VOLUME, BUFFER, ASPECT_RATIO, RECONNECT, RETRIES }
 
 @Composable
@@ -451,11 +452,77 @@ private fun ParentalSettings(model: WukkiModel) {
 
 @Composable
 private fun AboutSettings(model: WukkiModel) {
+    var deviceInfo by remember { mutableStateOf<DeviceInfo?>(null) }
+    var legalDocument by remember { mutableStateOf<LegalDocument?>(null) }
+    LaunchedEffect(Unit) {
+        deviceInfo = withContext(Dispatchers.IO) { DeviceInfoProvider.collect() }
+    }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         SettingsOptionRow(model, "settings.about", "settings.about.licenses") { Text("Wukki TV", color = WukkiColors.textPrimary, fontWeight = FontWeight.SemiBold) }
-        SettingsOptionRow(model, "settings.about.version") { Text(WUKKI_VERSION, color = WukkiColors.textPrimary, fontWeight = FontWeight.SemiBold) }
+        SettingsOptionRow(model, "settings.about.version") { Text(WukkiBuildInfo.VERSION, color = WukkiColors.textPrimary, fontWeight = FontWeight.SemiBold) }
+        SettingsOptionRow(model, "settings.about.build") { Text(WukkiBuildInfo.BUILD, color = WukkiColors.textPrimary, fontWeight = FontWeight.SemiBold) }
         SettingsOptionRow(model, "settings.about.engine") { Text("VLC / libVLC", color = WukkiColors.textPrimary, fontWeight = FontWeight.SemiBold) }
+        SettingsOptionRow(model, "settings.about.platform") { Text(deviceInfo?.platform ?: tr(model.settings.language, "settings.about.loading"), color = WukkiColors.textPrimary, fontWeight = FontWeight.SemiBold) }
+        SettingsOptionRow(model, "settings.about.os") { Text(deviceInfo?.osVersion ?: tr(model.settings.language, "settings.about.loading"), color = WukkiColors.textPrimary, fontWeight = FontWeight.SemiBold) }
+        SettingsOptionRow(model, "settings.about.device.id") { Text(deviceInfo?.installationId ?: tr(model.settings.language, "settings.about.loading"), color = WukkiColors.textPrimary, fontWeight = FontWeight.SemiBold) }
+        SettingsOptionRow(model, "settings.about.storage") {
+            Text(
+                deviceInfo?.let { info -> tr(model.settings.language, "settings.about.storage.value", formatByteSize(info.appDataBytes), formatByteSize(info.availableStorageBytes)) }
+                    ?: tr(model.settings.language, "settings.about.loading"),
+                color = WukkiColors.textPrimary,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+        SettingsOptionRow(model, "settings.about.privacy", onSelect = { legalDocument = LegalDocument.PRIVACY }) {
+            Text(tr(model.settings.language, "action.open"), color = WukkiColors.textPrimary, fontWeight = FontWeight.SemiBold)
+        }
+        SettingsOptionRow(model, "settings.about.licenses.title", onSelect = { legalDocument = LegalDocument.LICENSES }) {
+            Text(tr(model.settings.language, "action.open"), color = WukkiColors.textPrimary, fontWeight = FontWeight.SemiBold)
+        }
     }
+    legalDocument?.let { document ->
+        LegalDocumentDialog(model, document) { legalDocument = null }
+    }
+}
+
+private enum class LegalDocument(val resourceStem: String, val titleKey: String) {
+    PRIVACY("privacy", "settings.about.privacy"),
+    LICENSES("vlc_notice", "settings.about.licenses.title")
+}
+
+@Composable
+private fun LegalDocumentDialog(model: WukkiModel, document: LegalDocument, onDismiss: () -> Unit) {
+    val language = model.settings.language
+    val text = remember(document, language) {
+        val languageSuffix = if (language == AppLanguage.HUNGARIAN) "hu" else "en"
+        LegalDocument::class.java.classLoader
+            .getResourceAsStream("legal/${document.resourceStem}_$languageSuffix.txt")
+            ?.bufferedReader(Charsets.UTF_8)
+            ?.use { it.readText() }
+            ?: tr(language, "settings.about.document.unavailable")
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = WukkiColors.surfaceOverlay,
+        titleContentColor = WukkiColors.textPrimary,
+        textContentColor = WukkiColors.textSecondary,
+        title = { Text(tr(language, document.titleKey), fontWeight = FontWeight.Bold) },
+        text = {
+            Text(
+                text = text,
+                modifier = Modifier.heightIn(max = 430.dp).verticalScroll(rememberScrollState()),
+                color = WukkiColors.textSecondary,
+                fontSize = 13.sp,
+                lineHeight = 20.sp
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.buttonColors(containerColor = WukkiColors.primary, contentColor = WukkiColors.textPrimary)
+            ) { Text(tr(language, "action.close")) }
+        }
+    )
 }
 
 @Composable
