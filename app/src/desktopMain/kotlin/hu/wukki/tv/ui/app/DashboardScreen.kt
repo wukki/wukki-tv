@@ -645,19 +645,24 @@ private fun ProgrammeInformation(
                 verticalArrangement = Arrangement.spacedBy(7.dp * scale)
             ) {
                 Text(channel.name, color = WukkiColors.textPrimary, fontSize = (24f * scale).sp, fontWeight = FontWeight.Bold)
-                Text(
-                    programme?.displayTitle(model.settings.language) ?: tr(model.settings.language, "epg.none"),
-                    color = WukkiColors.textPrimary,
-                    fontSize = (17f * scale).sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    programme?.let { "${formatTime(it.start)} – ${formatTime(it.end)}" } ?: tr(model.settings.language, "epg.none.description"),
-                    color = DashboardMuted,
-                    fontSize = (13f * scale).sp
-                )
+                if (programme?.imageUrl != null && model.settings.display.showProgrammeImages != false) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp * scale),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp * scale)) {
+                            ProgrammeTitleAndTime(model, programme, scale)
+                        }
+                        ProgrammeArtwork(
+                            programme = programme,
+                            language = model.settings.language,
+                            modifier = Modifier.width(128.dp * scale).aspectRatio(16f / 9f)
+                        )
+                    }
+                } else {
+                    ProgrammeTitleAndTime(model, programme, scale)
+                }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -704,6 +709,23 @@ private fun ProgrammeInformation(
             }
         }
     }
+}
+
+@Composable
+private fun ProgrammeTitleAndTime(model: WukkiModel, programme: Programme?, scale: Float) {
+    Text(
+        programme?.displayTitle(model.settings.language) ?: tr(model.settings.language, "epg.none"),
+        color = WukkiColors.textPrimary,
+        fontSize = (17f * scale).sp,
+        fontWeight = FontWeight.SemiBold,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis
+    )
+    Text(
+        programme?.let { "${formatTime(it.start)} – ${formatTime(it.end)}" } ?: tr(model.settings.language, "epg.none.description"),
+        color = DashboardMuted,
+        fontSize = (13f * scale).sp
+    )
 }
 
 @Composable
@@ -788,6 +810,13 @@ private fun GuideProgrammeDetails(
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(channel.name, color = WukkiColors.textPrimary, fontWeight = FontWeight.SemiBold)
                 Text("${formatTime(programme.start)} – ${formatTime(programme.end)}")
+                if (programme.imageUrl != null && model.settings.display.showProgrammeImages != false) {
+                    ProgrammeArtwork(
+                        programme = programme,
+                        language = language,
+                        modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f)
+                    )
+                }
                 Text(programme.description?.takeIf { it.isNotBlank() } ?: tr(language, "epg.no.description"))
                 next?.let {
                     Text("${tr(language, "epg.next")}: ${it.displayTitle(language)} · ${formatTime(it.start)}", color = WukkiColors.textMuted)

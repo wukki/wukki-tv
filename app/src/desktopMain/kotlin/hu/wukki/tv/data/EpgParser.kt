@@ -21,11 +21,29 @@ object EpgParser {
             val end = parseTime(element.getAttribute("stop")) ?: return@mapNotNull null
             val channelId = element.getAttribute("channel").trim()
             if (channelId.isBlank() || end <= start) return@mapNotNull null
-            Programme(channelId, element.textOf("title"), start, end, element.textOf("desc").ifBlank { null })
+            Programme(
+                channelId = channelId,
+                title = element.textOf("title"),
+                start = start,
+                end = end,
+                description = element.textOf("desc").ifBlank { null },
+                imageUrl = element.imageUrl()
+            )
         }.sortedBy { it.start }
     }
 
     private fun Element.textOf(tag: String): String = getElementsByTagName(tag).item(0)?.textContent?.trim().orEmpty()
+
+    /** XMLTV uses `<icon src>`; `image` is accepted as a provider-specific fallback. */
+    private fun Element.imageUrl(): String? = sequenceOf("icon", "image")
+        .mapNotNull { tag ->
+            val image = getElementsByTagName(tag).item(0) as? Element ?: return@mapNotNull null
+            image.getAttribute("src").ifBlank { image.textContent.orEmpty() }
+                .trim()
+                .replace("&amp;", "&")
+                .takeIf { it.startsWith("https://", ignoreCase = true) || it.startsWith("http://", ignoreCase = true) }
+        }
+        .firstOrNull()
 
     private fun parseTime(raw: String): Long? = try {
         val base = raw.trim().take(14)

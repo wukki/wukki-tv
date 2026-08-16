@@ -363,7 +363,7 @@ fun WukkiApp() {
                         if (settingsSection == SettingsSection.DISPLAY) {
                             when (event.key) {
                                 Key.DirectionUp, Key.PageUp -> settingsOptionIndex = (settingsOptionIndex - 1).coerceAtLeast(0)
-                                Key.DirectionDown, Key.PageDown -> settingsOptionIndex = (settingsOptionIndex + 1).coerceAtMost(4)
+                                Key.DirectionDown, Key.PageDown -> settingsOptionIndex = (settingsOptionIndex + 1).coerceAtMost(5)
                                 Key.DirectionLeft, Key.DirectionRight -> {
                                     if (settingsOptionIndex == 0) {
                                         val values = listOf(.9f, 1f, 1.15f)
@@ -517,6 +517,7 @@ private fun toggleDisplayOption(model: WukkiModel, optionIndex: Int) = model.upd
         2 -> display.copy(showChannelProgramme = !display.showChannelProgramme)
         3 -> display.copy(showMiniGuide = !display.showMiniGuide)
         4 -> display.copy(showLogos = !display.showLogos)
+        5 -> display.copy(showProgrammeImages = !(display.showProgrammeImages != false))
         else -> display
     }
 }

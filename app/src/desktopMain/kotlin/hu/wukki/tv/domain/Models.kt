@@ -32,8 +32,16 @@ data class DisplaySettings(
     val channelListMode: ChannelListDisplayMode? = ChannelListDisplayMode.NORMAL,
     val showChannelProgramme: Boolean = true,
     val showMiniGuide: Boolean = true,
-    val showLogos: Boolean = true
-) : Serializable
+    val showLogos: Boolean = true,
+    /** Nullable only for compatibility with state written before programme-image support. */
+    val showProgrammeImages: Boolean? = true
+) : Serializable {
+    companion object {
+        /** Retains compatibility with DisplaySettings instances written before programme-image support. */
+        @JvmField
+        val serialVersionUID: Long = -4713068168860025348L
+    }
+}
 
 data class AppSettings(
     val language: AppLanguage = AppLanguage.HUNGARIAN,
@@ -87,7 +95,9 @@ data class Programme(
     val title: String,
     val start: Long,
     val end: Long,
-    val description: String? = null
+    val description: String? = null,
+    /** Optional artwork URL supplied by XMLTV's programme icon metadata. */
+    val imageUrl: String? = null
 ) : Serializable {
     companion object {
         @JvmField
@@ -117,7 +127,10 @@ data class AppState(
         // Normalising here preserves the intended, enabled-by-default autoplay behaviour.
         val migratedSettings = loadedSettings.copy(
             playback = loadedSettings.playback.copy(autoPlayOnLaunch = loadedSettings.playback.autoPlayOnLaunch ?: true),
-            display = loadedSettings.display.copy(channelListMode = loadedSettings.display.channelListMode ?: ChannelListDisplayMode.NORMAL)
+            display = loadedSettings.display.copy(
+                channelListMode = loadedSettings.display.channelListMode ?: ChannelListDisplayMode.NORMAL,
+                showProgrammeImages = loadedSettings.display.showProgrammeImages ?: true
+            )
         )
         val migratedSources = epgSources ?: epgUrl.takeIf { it.isNotBlank() }?.let {
             listOf(EpgSource(id = "legacy-epg", name = "EPG", url = it, lastUpdatedAt = null))

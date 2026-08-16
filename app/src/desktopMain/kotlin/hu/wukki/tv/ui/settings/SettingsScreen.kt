@@ -391,6 +391,7 @@ private fun DisplaySettings(model: WukkiModel, remoteOptionIndex: Int) {
     SettingsToggle(model, "settings.display.programme", model.settings.display.showChannelProgramme, remoteOptionIndex == 2) { model.updateDisplay { settings -> settings.copy(showChannelProgramme = it) } }
     SettingsToggle(model, "settings.display.mini.guide", model.settings.display.showMiniGuide, remoteOptionIndex == 3) { model.updateDisplay { settings -> settings.copy(showMiniGuide = it) } }
     SettingsToggle(model, "settings.display.logos", model.settings.display.showLogos, remoteOptionIndex == 4) { model.updateDisplay { settings -> settings.copy(showLogos = it) } }
+    SettingsToggle(model, "settings.display.programme.images", model.settings.display.showProgrammeImages != false, remoteOptionIndex == 5) { model.updateDisplay { settings -> settings.copy(showProgrammeImages = it) } }
     }
 }
 
@@ -525,7 +526,7 @@ private fun RefreshInterval.label(model: WukkiModel, useHourlyLabels: Boolean = 
     RefreshInterval.DAILY -> if (useHourlyLabels) "refresh.twentyfour.hours" else "refresh.daily"
 })
 private fun BufferProfile.label(model: WukkiModel): String = tr(model.settings.language, when (this) {
-    BufferProfile.LOW_LATENCY -> "buffer.low.latency"; BufferProfile.BALANCED -> "buffer.balanced"; BufferProfile.STABLE -> "buffer.stable"
+    BufferProfile.LOW_LATENCY -> "buffer.small"; BufferProfile.BALANCED -> "buffer.medium"; BufferProfile.STABLE -> "buffer.large"
 })
 private fun AspectRatioMode.label(model: WukkiModel): String = when (this) { AspectRatioMode.AUTO -> tr(model.settings.language, "aspect.auto"); AspectRatioMode.RATIO_16_9 -> "16:9"; AspectRatioMode.RATIO_4_3 -> "4:3"; AspectRatioMode.RATIO_21_9 -> "21:9"; AspectRatioMode.FILL_CROP -> tr(model.settings.language, "aspect.fill") }
 private fun ChannelListDisplayMode.label(model: WukkiModel): String = tr(model.settings.language, when (this) {
