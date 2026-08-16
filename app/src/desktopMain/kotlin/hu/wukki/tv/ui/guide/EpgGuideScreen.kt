@@ -111,6 +111,9 @@ class EpgGuideState internal constructor(
         private set
     var pixelsPerMinute: Float = 6f
     var viewportWidthPx: Int = 0
+    private var initialisedChannelIds by mutableStateOf<List<String>>(emptyList())
+    private var initialisedTimelineStart by mutableStateOf<Long?>(null)
+    private var initiallyScrolledTimelineStart by mutableStateOf<Long?>(null)
 
     fun selectProgramme(channel: Channel, programme: Programme) {
         focusedChannelId = channel.id
@@ -135,6 +138,10 @@ class EpgGuideState internal constructor(
 
     suspend fun initialise(data: GuideDataSource, channels: List<Channel>, timeline: GuideTimeline) {
         if (channels.isEmpty()) return
+        val channelIds = channels.map { it.id }
+        val shouldRestoreVerticalPosition = initialisedChannelIds != channelIds ||
+            initialisedTimelineStart != timeline.start ||
+            focusedChannelId !in channelIds
         val channelIndex = channels.indexOfFirst { it.id == focusedChannelId }
             .takeIf { it >= 0 }
             ?: channels.indexOfFirst { it.id == data.selectedChannelId }.takeIf { it >= 0 }
@@ -142,7 +149,17 @@ class EpgGuideState internal constructor(
         val channel = channels[channelIndex]
         focusedChannelId = channel.id
         chooseProgrammeAt(data, channel, focusTime, timeline)
-        verticalList.scrollToItem(channelIndex)
+        if (shouldRestoreVerticalPosition) verticalList.scrollToItem(channelIndex)
+        initialisedChannelIds = channelIds
+        initialisedTimelineStart = timeline.start
+    }
+
+    /** The initial "now" position is applied once per timeline start, never on screen re-entry. */
+    fun needsInitialTimelineScroll(timeline: GuideTimeline): Boolean =
+        initiallyScrolledTimelineStart != timeline.start
+
+    fun markInitialTimelineScrollApplied(timeline: GuideTimeline) {
+        initiallyScrolledTimelineStart = timeline.start
     }
 
     fun handleKey(key: Key, data: GuideDataSource, scope: CoroutineScope, timeline: GuideTimeline): Boolean {
@@ -254,15 +271,13 @@ fun EpgGuideScreen(
         val timeline = guideTimeline(tick, data.latestProgrammeEnd())
         val timelineWidth = metrics.minuteWidth * timeline.minutes
         val scope = rememberCoroutineScope()
-        var initialScrollTimeline by remember(state) { mutableStateOf<GuideTimeline?>(null) }
-
         state.pixelsPerMinute = minuteWidthPx
         LaunchedEffect(channels.map { it.id }, timeline) { state.initialise(data, channels, timeline) }
         LaunchedEffect(state.horizontalScroll.maxValue, timeline) {
-            if (initialScrollTimeline == timeline || state.horizontalScroll.maxValue == 0) return@LaunchedEffect
+            if (!state.needsInitialTimelineScroll(timeline) || state.horizontalScroll.maxValue == 0) return@LaunchedEffect
             withFrameNanos { }
             state.scrollToInitialTime(timeline, tick)
-            initialScrollTimeline = timeline
+            state.markInitialTimelineScrollApplied(timeline)
         }
 
         Card(

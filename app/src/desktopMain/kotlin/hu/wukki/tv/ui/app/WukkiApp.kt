@@ -9,6 +9,8 @@ import hu.wukki.tv.ui.navigation.ChannelRemoteFocus
 import hu.wukki.tv.ui.navigation.TvFocusZone
 import hu.wukki.tv.ui.navigation.isBackKey
 import hu.wukki.tv.ui.navigation.isConfirmKey
+import hu.wukki.tv.ui.navigation.activeChannelIndex
+import hu.wukki.tv.ui.navigation.restoredChannelIndex
 
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Column
@@ -51,6 +53,9 @@ fun WukkiApp() {
     var channelRemoteFocus by remember { mutableStateOf(ChannelRemoteFocus.LIST) }
     var channelFilterIndex by remember { mutableIntStateOf(0) }
     var channelListIndex by remember { mutableIntStateOf(0) }
+    var channelFocusedId by remember { mutableStateOf<String?>(null) }
+    var channelSearchOpen by remember { mutableStateOf(false) }
+    var channelListOpenRequest by remember { mutableIntStateOf(if (activeSection == DashboardSection.CHANNELS) 1 else 0) }
     var settingsCategoryIndex by remember { mutableIntStateOf(0) }
     var settingsOptionIndex by remember { mutableIntStateOf(0) }
     var guideProgrammeDetailsVisible by remember { mutableStateOf(false) }
@@ -65,11 +70,30 @@ fun WukkiApp() {
     val mainSections = DashboardSection.entries
 
     fun activateSection(section: DashboardSection) {
-        if (section == DashboardSection.SETTINGS) settingsSection = null
+        if (section == DashboardSection.CHANNELS && activeSection != DashboardSection.CHANNELS) {
+            val visibleChannels = model.filteredChannels()
+            channelListIndex = activeChannelIndex(visibleChannels.map { it.id }, model.selectedChannelId)
+            channelFocusedId = visibleChannels.getOrNull(channelListIndex)?.id
+            channelRemoteFocus = ChannelRemoteFocus.LIST
+            channelListOpenRequest++
+        }
         activeSection = section
         mainNavigationIndex = mainSections.indexOf(section).coerceAtLeast(0)
         focusZone = TvFocusZone.CONTENT
-        if (section == DashboardSection.CHANNELS) channelRemoteFocus = ChannelRemoteFocus.LIST
+    }
+
+    val visibleChannelIds = model.filteredChannels().map { it.id }
+    LaunchedEffect(visibleChannelIds, model.selectedChannelId) {
+        channelListIndex = restoredChannelIndex(
+            channelIds = visibleChannelIds,
+            savedChannelId = channelFocusedId,
+            selectedChannelId = model.selectedChannelId,
+            fallbackIndex = channelListIndex
+        )
+        channelFocusedId = visibleChannelIds.getOrNull(channelListIndex)
+    }
+    LaunchedEffect(channelListIndex, visibleChannelIds) {
+        channelFocusedId = visibleChannelIds.getOrNull(channelListIndex)
     }
 
     fun openGuideProgrammeChannel(channelId: String) {
@@ -146,9 +170,9 @@ fun WukkiApp() {
             programmeOverlayVisible = false
         }
     }
-    LaunchedEffect(channelNumberInput) {
+    LaunchedEffect(channelNumberInput, activeSection) {
         val pendingNumber = channelNumberInput
-        if (pendingNumber.isNotEmpty()) {
+        if (activeSection == DashboardSection.LIVE && pendingNumber.isNotEmpty()) {
             delay(3_000)
             if (channelNumberInput == pendingNumber) {
                 val selected = model.selectChannelByNumber(pendingNumber)
@@ -156,9 +180,6 @@ fun WukkiApp() {
                 if (selected) overlayRequest++
             }
         }
-    }
-    LaunchedEffect(activeSection) {
-        if (activeSection != DashboardSection.LIVE) channelNumberInput = ""
     }
     LaunchedEffect(model.settings.playlistRefresh) {
         val hours = model.settings.playlistRefresh.hours
@@ -466,6 +487,16 @@ fun WukkiApp() {
                 channelRemoteFocus = channelRemoteFocus,
                 channelFilterIndex = channelFilterIndex,
                 channelListIndex = channelListIndex,
+                channelListOpenRequest = channelListOpenRequest,
+                channelSearchOpen = channelSearchOpen,
+                onChannelSearchOpenChange = { open ->
+                    channelSearchOpen = open
+                    if (open) {
+                        channelRemoteFocus = ChannelRemoteFocus.SEARCH
+                    } else if (channelRemoteFocus == ChannelRemoteFocus.SEARCH) {
+                        channelRemoteFocus = ChannelRemoteFocus.LIST
+                    }
+                },
                 settingsCategoryIndex = settingsCategoryIndex,
                 settingsOptionIndex = settingsOptionIndex,
                 guideProgrammeDetailsVisible = guideProgrammeDetailsVisible,

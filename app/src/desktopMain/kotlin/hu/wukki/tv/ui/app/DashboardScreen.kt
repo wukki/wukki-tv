@@ -37,9 +37,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -56,6 +58,8 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -113,6 +117,9 @@ fun DashboardScreen(
     channelRemoteFocus: ChannelRemoteFocus,
     channelFilterIndex: Int,
     channelListIndex: Int,
+    channelListOpenRequest: Int,
+    channelSearchOpen: Boolean,
+    onChannelSearchOpenChange: (Boolean) -> Unit,
     settingsCategoryIndex: Int,
     settingsOptionIndex: Int,
     guideProgrammeDetailsVisible: Boolean,
@@ -163,7 +170,10 @@ fun DashboardScreen(
                     scale = referenceScale.coerceAtMost(1f),
                     remoteFocus = channelRemoteFocus,
                     remoteFilterIndex = channelFilterIndex,
-                    remoteListIndex = channelListIndex
+                    remoteListIndex = channelListIndex,
+                    listOpenRequest = channelListOpenRequest,
+                    searchOpen = channelSearchOpen,
+                    onSearchOpenChange = onChannelSearchOpenChange
                 )
 
                 DashboardSection.SETTINGS -> SettingsScreen(
@@ -207,9 +217,11 @@ private fun ChannelScreen(
     scale: Float,
     remoteFocus: ChannelRemoteFocus,
     remoteFilterIndex: Int,
-    remoteListIndex: Int
+    remoteListIndex: Int,
+    listOpenRequest: Int,
+    searchOpen: Boolean,
+    onSearchOpenChange: (Boolean) -> Unit
 ) {
-    var searchOpen by remember { mutableStateOf(false) }
     val screenFocusRequester = remember { FocusRequester() }
     val searchFocusRequester = remember { FocusRequester() }
 
@@ -218,10 +230,10 @@ private fun ChannelScreen(
     }
     LaunchedEffect(remoteFocus) {
         if (remoteFocus == ChannelRemoteFocus.SEARCH) {
-            searchOpen = true
+            onSearchOpenChange(true)
         } else if (searchOpen) {
             model.query = ""
-            searchOpen = false
+            onSearchOpenChange(false)
         }
     }
     DisposableEffect(Unit) {
@@ -239,10 +251,10 @@ private fun ChannelScreen(
             searchFocusRequester = searchFocusRequester,
             remoteFocus = remoteFocus,
             remoteFilterIndex = remoteFilterIndex,
-            onOpenSearch = { searchOpen = true },
+            onOpenSearch = { onSearchOpenChange(true) },
             onCloseSearch = {
                 model.query = ""
-                searchOpen = false
+                onSearchOpenChange(false)
             }
         )
         Row(
@@ -256,6 +268,7 @@ private fun ChannelScreen(
                 remoteFocus == ChannelRemoteFocus.LIST,
                 remoteFocus == ChannelRemoteFocus.FAVORITE,
                 remoteListIndex,
+                listOpenRequest,
                 modifier = Modifier.weight(.62f).fillMaxHeight()
             )
             ProgrammeInformation(
@@ -418,10 +431,14 @@ private fun ChannelDirectory(
     listFocused: Boolean,
     favoriteFocused: Boolean,
     remoteListIndex: Int,
+    listOpenRequest: Int,
     modifier: Modifier
 ) {
     val channels = model.filteredChannels()
     val listState = rememberLazyListState()
+    val density = LocalDensity.current
+    var viewportHeightPx by remember { mutableIntStateOf(0) }
+    var centredOpenRequest by remember { mutableIntStateOf(Int.MIN_VALUE) }
     val listMode = model.settings.display.channelListMode ?: ChannelListDisplayMode.NORMAL
     val rowHeight = when (listMode) {
         ChannelListDisplayMode.COMPACT -> (64.dp * scale).coerceAtLeast(52.dp)
@@ -429,13 +446,24 @@ private fun ChannelDirectory(
         ChannelListDisplayMode.DETAILED -> (120.dp * scale).coerceAtLeast(92.dp)
     }
 
-    LaunchedEffect(remoteListIndex, channels.map { it.id }) {
+    LaunchedEffect(remoteListIndex, channels.map { it.id }, listOpenRequest, viewportHeightPx) {
         val target = remoteListIndex.coerceIn(0, (channels.size - 1).coerceAtLeast(0))
-        if (channels.isNotEmpty()) listState.animateScrollToItem(target)
+        if (channels.isEmpty()) return@LaunchedEffect
+        if (centredOpenRequest != listOpenRequest) {
+            if (viewportHeightPx <= 0) return@LaunchedEffect
+            withFrameNanos { }
+            val rowHeightPx = with(density) { rowHeight.roundToPx() }
+            val centerOffset = -((viewportHeightPx - rowHeightPx).coerceAtLeast(0) / 2)
+            listState.animateScrollToItem(target, centerOffset)
+            centredOpenRequest = listOpenRequest
+        } else {
+            listState.animateScrollToItem(target)
+        }
     }
 
     Box(
-        modifier = modifier.clip(RoundedCornerShape(8.dp * scale)).background(WukkiColors.surfaceOverlay)
+        modifier = modifier.onSizeChanged { viewportHeightPx = it.height }
+            .clip(RoundedCornerShape(8.dp * scale)).background(WukkiColors.surfaceOverlay)
             .border(1.dp, DashboardBorder, RoundedCornerShape(8.dp * scale))
     ) {
         if (channels.isEmpty()) {
