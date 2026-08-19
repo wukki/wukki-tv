@@ -19,7 +19,7 @@ import java.awt.Dimension
 
 fun main() = application {
     val windowState = rememberWindowState(size = DpSize(1470.dp, 920.dp), placement = WindowPlacement.Maximized)
-    Window(onCloseRequest = ::exitApplication, title = "Wukki TV", state = windowState) {
+    Window(onCloseRequest = ::exitApplication, title = "WukkiTV", state = windowState) {
         LaunchedEffect(Unit) { window.minimumSize = Dimension(1024, 640) }
         MaterialTheme(colorScheme = WukkiColorScheme) {
             Surface(modifier = Modifier.fillMaxSize(), color = WukkiColors.background, contentColor = WukkiColors.textPrimary) {

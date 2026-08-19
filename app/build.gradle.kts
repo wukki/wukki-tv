@@ -96,6 +96,9 @@ compose.desktop {
             )
             packageName = "Wukki TV"
             packageVersion = wukkiVersion.get()
+            macOS { iconFile.set(rootProject.file("packaging/icons/wukki-tv.icns")) }
+            windows { iconFile.set(rootProject.file("packaging/icons/wukki-tv.ico")) }
+            linux { iconFile.set(rootProject.file("packaging/icons/wukki-tv.png")) }
             appResourcesRootDir.set(generatedAppResources)
         }
     }
