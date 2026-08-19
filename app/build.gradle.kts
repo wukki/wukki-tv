@@ -53,9 +53,50 @@ val prepareVlcRuntime by tasks.registering(Sync::class) {
     }
     inputs.property("vlcRuntimePath", vlcRuntimePath.orElse(""))
     vlcRuntimePath.orNull?.let { runtimePath ->
-        from(file(runtimePath)) { into("common/runtime/vlc") }
+        from(file(runtimePath)) {
+            // Gradle/jpackage changes copied file timestamps, which invalidates VLC's binary
+            // plugin cache. libVLC scans the bundled plugins at startup instead.
+            exclude("plugins/plugins.dat")
+            into("common/runtime/vlc")
+        }
     }
     into(generatedAppResources)
+}
+
+/**
+ * VLC.app's executable supplies its own @rpath entries. libVLC is instead loaded by the JVM in
+ * the packaged Wukki app, so those entries are not available to decoder plugins. Give the copied
+ * libraries a loader-relative search path before Compose bundles and signs the app. Plugins are
+ * deliberately left untouched because VLC validates their timestamps through plugins.dat.
+ */
+val patchMacVlcRuntime by tasks.registering {
+    group = "distribution"
+    description = "Adds loader-relative VLC library paths to the packaged macOS runtime."
+    dependsOn(prepareVlcRuntime)
+    onlyIf {
+        System.getProperty("os.name").startsWith("Mac", ignoreCase = true) && vlcRuntimePath.isPresent
+    }
+    inputs.dir(generatedAppResources)
+    doLast {
+        val runtime = generatedAppResources.get().dir("common/runtime/vlc").asFile
+
+        fun runCommand(vararg arguments: String): String {
+            val process = ProcessBuilder(*arguments)
+                .redirectErrorStream(true)
+                .start()
+            val output = process.inputStream.bufferedReader().use { it.readText() }
+            check(process.waitFor() == 0) { "Command failed: ${arguments.joinToString(" ")}\\n$output" }
+            return output
+        }
+
+        fun addRpath(binary: File, rpath: String) {
+            if (runCommand("otool", "-l", binary.absolutePath).contains("path $rpath (")) return
+            runCommand("install_name_tool", "-add_rpath", rpath, binary.absolutePath)
+        }
+
+        runtime.resolve("lib").listFiles { file -> file.extension == "dylib" }
+            ?.forEach { addRpath(it, "@loader_path") }
+    }
 }
 
 kotlin {
@@ -89,6 +130,9 @@ compose.desktop {
     application {
         mainClass = "hu.wukki.tv.MainKt"
         nativeDistributions {
+            // vlcj's direct-render callback allocates video buffers through sun.misc.Unsafe.
+            // This module is not part of Compose Desktop's default jlink image.
+            modules("jdk.unsupported")
             targetFormats(
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Dmg,
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi,
@@ -104,8 +148,12 @@ compose.desktop {
     }
 }
 
-tasks.matching { it.name == "prepareAppResources" || it.name.startsWith("package") }.configureEach {
-    dependsOn(prepareVlcRuntime)
+tasks.matching { it.name == "prepareAppResources" }.configureEach {
+    dependsOn(patchMacVlcRuntime)
+}
+
+tasks.matching { it.name.startsWith("package") }.configureEach {
+    dependsOn(patchMacVlcRuntime)
 }
 
 tasks.matching { it.name == "compileKotlinDesktop" }.configureEach {

@@ -93,7 +93,8 @@ class PlaybackController(initialLanguage: AppLanguage = AppLanguage.HUNGARIAN) {
     var successfullyPlayedChannelId by mutableStateOf<String?>(null)
         private set
 
-    private val runtime = VlcRuntimeResolver.find()
+    private val runtimeResolution = VlcRuntimeResolver.resolve()
+    private val runtime = runtimeResolution.runtime
     /**
      * Callback rendering avoids the macOS native-window requirement of VLC's embedded vout.
      * It is also reliable when Compose re-parents the Swing component between screens.
@@ -195,7 +196,11 @@ class PlaybackController(initialLanguage: AppLanguage = AppLanguage.HUNGARIAN) {
 
     private fun createComponent(): OverlayCallbackMediaPlayerComponent? = try {
         if (runtime == null && !NativeDiscovery().discover()) {
-            updateState(PlaybackState.ERROR, tr(currentLanguage, "playback.runtime.missing"))
+            val messageKey = when (runtimeResolution.issue) {
+                VlcRuntimeIssue.VIDEO_PLUGIN_MISSING -> "playback.runtime.video.plugin.missing"
+                VlcRuntimeIssue.MISSING -> "playback.runtime.missing"
+            }
+            updateState(PlaybackState.ERROR, tr(currentLanguage, messageKey))
             null
         } else {
             OverlayCallbackMediaPlayerComponent(*runtime?.factoryArguments.orEmpty())
