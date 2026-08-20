@@ -3,8 +3,6 @@ package hu.wukki.tv.ui.live
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -20,7 +18,7 @@ data class LiveTvUiState(val hasChannel: Boolean, val emptyMessage: String)
 @Composable
 fun LiveTvScreen(state: LiveTvUiState, scale: Float, video: @Composable () -> Unit, modifier: Modifier = Modifier) {
     Box(
-        modifier = modifier.padding(top = (38.dp * scale).coerceAtLeast(20.dp), end = (36.dp * scale).coerceAtLeast(18.dp), bottom = (120.dp * scale).coerceAtLeast(54.dp))
+        modifier = modifier
             .clip(RoundedCornerShape((8.dp * scale).coerceAtLeast(5.dp))).background(WukkiColors.video)
             .border(1.dp, WukkiColors.border, RoundedCornerShape((8.dp * scale).coerceAtLeast(5.dp)))
     ) {
