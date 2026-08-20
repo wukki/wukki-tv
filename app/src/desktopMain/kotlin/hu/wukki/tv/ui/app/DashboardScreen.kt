@@ -119,7 +119,7 @@ fun DashboardScreen(
 ) {
     BoxWithConstraints(Modifier.fillMaxSize().background(WukkiBrushes.appBackground())) {
         val scale = minOf(maxWidth.value / 1470f, maxHeight.value / 920f).coerceIn(.70f, 1.45f)
-        val navigationWidth = (326.dp * scale).coerceIn(220.dp, 430.dp)
+        val navigationWidth = (256.dp * scale).coerceIn(220.dp, 430.dp)
         val padding = (14.dp * scale).coerceIn(8.dp, 20.dp)
         Row(Modifier.fillMaxSize()) {
             SideNavigation(
