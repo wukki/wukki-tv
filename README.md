@@ -4,13 +4,13 @@ A Wukki TV egy Kotlin Multiplatform / Compose Desktop alapú IPTV-kliensteszt. M
 
 ## Funkciók
 
-- Több M3U playlist importja URL-ről vagy helyi fájlból; külön manuális, 6 órás vagy napi frissítés
+- Rögzített, hivatalos Wukki TV playlist: `https://raw.githubusercontent.com/wukki/wukki-tv/refs/heads/main/wukki-tv.m3u`; manuális, 6 órás vagy napi frissítéssel
 - Automatikus playlist-normalizálás: `tvg-chno` szerinti rendezés, csatornalogók, kategóriák, kedvencek és keresés
 - Beágyazott HLS lejátszás: indításkor az utoljára nézett, ennek hiányában az első csatorna automatikusan elindul
 - Csatornaváltás `PageUp` / `PageDown`, nyilak, számbillentyűk és csatornalista segítségével
 - Újracsatlakozás, hangerő, pufferprofil és képarány beállítása (`Automatikus`, `16:9`, `4:3`, `21:9`, `Kitöltés`)
-- Több XMLTV-forrás, automatikus `url-tvg` / `x-tvg-url` / `tvg-url` felismerés és csatorna–EPG párosítás
-- Csatornahelyes „most megy” és következő műsor, háromnapos, időarányos, kétirányban navigálható műsorújság
+- Az M3U fejlécéből automatikusan felismert, rögzített XMLTV-forrás (`url-tvg` / `x-tvg-url` / `tvg-url`) és csatorna–EPG párosítás
+- Csatornahelyes „most megy” és következő műsor, az EPG-lefedettséghez igazodó, időarányos, kétirányban navigálható műsorújság
 - Magyar és angol felület; a beállítások és az alkalmazásállapot helyben, a `~/.wukki-tv/state.bin` fájlban tárolódnak
 
 ## Indítás fejlesztőként

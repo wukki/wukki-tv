@@ -8,15 +8,11 @@ import hu.wukki.tv.ui.components.WukkiColors
 
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForwardIos
 import androidx.compose.material.icons.outlined.ArrowDropDown
-import androidx.compose.material.icons.outlined.ArrowDownward
-import androidx.compose.material.icons.outlined.ArrowUpward
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.*
@@ -35,8 +31,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.awt.FileDialog
-import java.io.File
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -186,8 +180,8 @@ private fun SettingsDetail(
 ) {
     SettingsCard(modifier) {
         when (selectedSection) {
-            SettingsSection.EPG -> EpgSettings(model, scope)
-            SettingsSection.PLAYLISTS -> PlaylistSettings(model, scope)
+            SettingsSection.EPG -> EpgSettings(model, scope, remoteOptionIndex)
+            SettingsSection.PLAYLISTS -> PlaylistSettings(model, scope, remoteOptionIndex)
             else -> Column(
                 modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())
             ) {
@@ -325,10 +319,9 @@ private fun PlaybackStepper(value: Int, onDecrease: () -> Unit, onIncrease: () -
 }
 
 @Composable
-private fun androidx.compose.foundation.layout.ColumnScope.EpgSettings(model: WukkiModel, scope: CoroutineScope) {
-    var name by remember { mutableStateOf("") }
-    var url by remember { mutableStateOf("") }
-    SettingsOptionRow(model, "settings.epg.refresh") {
+private fun EpgSettings(model: WukkiModel, scope: CoroutineScope, remoteOptionIndex: Int) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    SettingsOptionRow(model, "settings.epg.refresh", selected = remoteOptionIndex == 0) {
         RefreshSelector(
             model,
             model.settings.epgRefresh,
@@ -337,37 +330,17 @@ private fun androidx.compose.foundation.layout.ColumnScope.EpgSettings(model: Wu
             onSelect = model::setEpgRefresh
         )
     }
-    Spacer(Modifier.height(8.dp))
-    SettingsOptionRow(model, "settings.epg.sources") {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text(tr(model.settings.language, "settings.name")) }, singleLine = true, modifier = Modifier.weight(.3f))
-            OutlinedTextField(value = url, onValueChange = { url = it }, label = { Text(tr(model.settings.language, "settings.epg.url")) }, singleLine = true, modifier = Modifier.weight(.55f))
-            Button(onClick = { if (url.isNotBlank()) scope.launch { model.addEpgSource(name, url); name = ""; url = "" } }) { Text(tr(model.settings.language, "settings.add")) }
-        }
-    }
-    Spacer(Modifier.height(8.dp))
-    if (model.epgSources.isEmpty()) Text(tr(model.settings.language, "settings.no.sources"), color = SettingsMuted)
-    LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth()) {
-        items(model.epgSources, key = { it.id }) { source ->
-            Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp)).background(WukkiColors.backgroundRaised).border(1.dp, WukkiColors.border, RoundedCornerShape(6.dp)).padding(10.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedTextField(value = source.name, onValueChange = { model.renameEpgSource(source.id, it) }, singleLine = true, modifier = Modifier.weight(1f))
-                    Switch(checked = source.enabled, onCheckedChange = { model.setEpgSourceEnabled(source.id, it) }, modifier = Modifier.padding(start = 8.dp))
-                    TextButton(onClick = { model.moveEpgSource(source.id, -1) }) { Icon(Icons.Outlined.ArrowUpward, contentDescription = null) }
-                    TextButton(onClick = { model.moveEpgSource(source.id, 1) }) { Icon(Icons.Outlined.ArrowDownward, contentDescription = null) }
-                }
-                Text(source.url, color = SettingsMuted, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(source.lastUpdatedAt?.let { "${tr(model.settings.language, "settings.updated")}: ${formatTime(it)}" } ?: tr(model.settings.language, "settings.not.updated"), color = SettingsMuted, fontSize = 11.sp, modifier = Modifier.weight(1f))
-                    TextButton(onClick = { scope.launch { model.refreshEpgSource(source.id) } }) { Text(tr(model.settings.language, "settings.refresh")) }
-                    TextButton(onClick = { model.removeEpgSource(source.id) }) { Text(tr(model.settings.language, "settings.delete"), color = WukkiColors.error) }
-                }
-            }
-            Spacer(Modifier.height(6.dp))
-        }
+    FixedSourceCard(
+        model = model,
+        titleKey = "settings.epg.source",
+        sourceName = model.officialEpgSource?.name ?: tr(model.settings.language, "settings.no.sources"),
+        location = model.officialEpgSource?.url,
+        updatedAt = model.officialEpgSource?.lastUpdatedAt,
+        selected = remoteOptionIndex == 1,
+        onRefresh = { scope.launch { model.refreshOfficialEpg() } }
+    )
     }
 }
-
 @Composable
 private fun DisplaySettings(model: WukkiModel, remoteOptionIndex: Int) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -397,9 +370,9 @@ private fun DisplaySettings(model: WukkiModel, remoteOptionIndex: Int) {
 }
 
 @Composable
-private fun androidx.compose.foundation.layout.ColumnScope.PlaylistSettings(model: WukkiModel, scope: CoroutineScope) {
-    var url by remember { mutableStateOf("") }
-    SettingsOptionRow(model, "settings.playlist.refresh") {
+private fun PlaylistSettings(model: WukkiModel, scope: CoroutineScope, remoteOptionIndex: Int) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    SettingsOptionRow(model, "settings.playlist.refresh", selected = remoteOptionIndex == 0) {
         RefreshSelector(
             model,
             model.settings.playlistRefresh,
@@ -407,31 +380,52 @@ private fun androidx.compose.foundation.layout.ColumnScope.PlaylistSettings(mode
             onSelect = model::setPlaylistRefresh
         )
     }
-    Spacer(Modifier.height(8.dp))
-    SettingsOptionRow(model, "settings.playlists") {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            OutlinedTextField(value = url, onValueChange = { url = it }, label = { Text(tr(model.settings.language, "settings.playlist.url")) }, singleLine = true, modifier = Modifier.weight(1f))
-            Button(onClick = { if (url.isNotBlank()) scope.launch { model.addPlaylistFromUrl(url); url = "" } }) { Text(tr(model.settings.language, "settings.add")) }
-            Button(onClick = { choosePlaylistFile(model.settings.language)?.let { scope.launch { model.addPlaylistFromFile(it) } } }) { Text(tr(model.settings.language, "settings.file")) }
-        }
-    }
-    Spacer(Modifier.height(8.dp))
-    LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth()) {
-        items(model.state.playlists, key = { it.id }) { playlist ->
-            Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp)).background(WukkiColors.backgroundRaised).border(1.dp, WukkiColors.border, RoundedCornerShape(6.dp)).padding(10.dp)) {
-                OutlinedTextField(value = playlist.name, onValueChange = { model.renamePlaylist(playlist.id, it) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                Text(playlist.location, color = SettingsMuted, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(tr(model.settings.language, "settings.channels.count", model.state.channels.count { it.playlistId == playlist.id }), color = SettingsMuted, fontSize = 11.sp, modifier = Modifier.weight(1f))
-                    TextButton(onClick = { model.selectedPlaylistId = playlist.id; scope.launch { model.refreshSelected() } }) { Text(tr(model.settings.language, "settings.refresh")) }
-                    TextButton(onClick = { model.selectedPlaylistId = playlist.id; model.removeSelectedPlaylist() }) { Text(tr(model.settings.language, "settings.delete"), color = WukkiColors.error) }
-                }
-            }
-            Spacer(Modifier.height(6.dp))
-        }
+    FixedSourceCard(
+        model = model,
+        titleKey = "settings.playlist.source",
+        sourceName = model.officialPlaylist.name,
+        location = model.officialPlaylist.location,
+        updatedAt = model.officialPlaylist.updatedAt,
+        footer = tr(model.settings.language, "settings.channels.count", model.state.channels.size),
+        selected = remoteOptionIndex == 1,
+        onRefresh = { scope.launch { model.refreshOfficialPlaylist() } }
+    )
     }
 }
 
+@Composable
+private fun FixedSourceCard(
+    model: WukkiModel,
+    titleKey: String,
+    sourceName: String,
+    location: String?,
+    updatedAt: Long?,
+    selected: Boolean,
+    onRefresh: () -> Unit,
+    footer: String? = null
+) {
+    val shape = RoundedCornerShape(6.dp)
+    Column(
+        modifier = Modifier.fillMaxWidth()
+            .clip(shape)
+            .background(if (selected) WukkiColors.surfaceSelected else WukkiColors.backgroundRaised)
+            .border(1.dp, if (selected) SettingsAccent else WukkiColors.border, shape)
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(5.dp)
+    ) {
+        Text(tr(model.settings.language, titleKey), color = WukkiColors.textSecondary, fontSize = 11.sp)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(sourceName, color = WukkiColors.textPrimary, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            TextButton(onClick = onRefresh) { Text(tr(model.settings.language, "settings.refresh")) }
+        }
+        location?.let { Text(it, color = SettingsMuted, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+        Text(
+            footer ?: updatedAt?.let { "${tr(model.settings.language, "settings.updated")}: ${formatTime(it)}" } ?: tr(model.settings.language, "settings.not.updated"),
+            color = SettingsMuted,
+            fontSize = 11.sp
+        )
+    }
+}
 @Composable
 private fun LanguageSettings(model: WukkiModel, remoteOptionIndex: Int) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -565,12 +559,6 @@ private fun SettingsCard(modifier: Modifier, content: @Composable androidx.compo
     Card(modifier = modifier, shape = RoundedCornerShape(12.dp), border = BorderStroke(1.dp, WukkiColors.border), colors = CardDefaults.cardColors(containerColor = SettingsPanel)) {
         Column(modifier = Modifier.fillMaxSize().padding(18.dp), content = content)
     }
-}
-
-private fun choosePlaylistFile(language: AppLanguage): File? {
-    val dialog = FileDialog(null as java.awt.Frame?, tr(language, "file.playlist.title"), FileDialog.LOAD)
-    dialog.isVisible = true
-    return dialog.file?.let { File(dialog.directory, it) }
 }
 
 private fun SettingsSection.title(model: WukkiModel): String = tr(model.settings.language, when (this) {

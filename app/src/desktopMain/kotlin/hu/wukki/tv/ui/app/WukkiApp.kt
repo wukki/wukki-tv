@@ -37,6 +37,7 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.platform.LocalDensity
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlin.math.ceil
 
 @Composable
@@ -63,6 +64,7 @@ fun WukkiApp() {
     var guideProgrammeDialogState by remember { mutableStateOf(GuideProgrammeDialogState()) }
     var automaticLaunchPending by remember { mutableStateOf(autoPlayOnLaunch) }
     var observedAutoPlaySetting by remember { mutableStateOf(autoPlayOnLaunch) }
+    var officialSourceReady by remember { mutableStateOf(false) }
     var overlayRequest by remember { mutableIntStateOf(0) }
     var programmeOverlayVisible by remember { mutableStateOf(false) }
     var channelNumberInput by remember { mutableStateOf("") }
@@ -125,7 +127,8 @@ fun WukkiApp() {
 
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
-        if (autoPlayOnLaunch) model.requestPlayback()
+        model.refreshOfficialPlaylist(showFeedback = false)
+        officialSourceReady = true
         while (true) {
             delay(30_000)
             tick = System.currentTimeMillis()
@@ -146,8 +149,19 @@ fun WukkiApp() {
         }
     }
     LaunchedEffect(autoPlayOnLaunch) {
-        if (!observedAutoPlaySetting && autoPlayOnLaunch) model.requestPlayback()
+        if (!observedAutoPlaySetting && autoPlayOnLaunch) {
+            if (officialSourceReady) model.requestPlayback() else automaticLaunchPending = true
+        }
         observedAutoPlaySetting = autoPlayOnLaunch
+    }
+    LaunchedEffect(officialSourceReady) {
+        if (!officialSourceReady) return@LaunchedEffect
+        if (autoPlayOnLaunch && model.selectedChannel() != null) {
+            model.requestPlayback()
+        } else if (autoPlayOnLaunch) {
+            automaticLaunchPending = false
+            activeSection = DashboardSection.CHANNELS
+        }
     }
     LaunchedEffect(playbackController.successfullyPlayedChannelId) {
         playbackController.successfullyPlayedChannelId?.let { channelId ->
@@ -187,7 +201,7 @@ fun WukkiApp() {
         if (hours > 0) {
             while (true) {
                 delay(hours * 60L * 60L * 1000L)
-                model.refreshAllPlaylists(scope)
+                model.refreshOfficialPlaylist(showFeedback = false)
             }
         }
     }
@@ -403,6 +417,35 @@ fun WukkiApp() {
                                             display.copy(channelListMode = ChannelListDisplayMode.entries[(current + 1).floorMod(ChannelListDisplayMode.entries.size)])
                                         }
                                     } else toggleDisplayOption(model, settingsOptionIndex)
+                                } else return@onPreviewKeyEvent false
+                            }
+                            return@onPreviewKeyEvent true
+                        }
+                        if (settingsSection == SettingsSection.EPG || settingsSection == SettingsSection.PLAYLISTS) {
+                            val isEpg = settingsSection == SettingsSection.EPG
+                            val intervals = if (isEpg) {
+                                RefreshInterval.entries.toList()
+                            } else {
+                                listOf(RefreshInterval.MANUAL, RefreshInterval.SIX_HOURS, RefreshInterval.DAILY)
+                            }
+                            fun cycleRefresh(delta: Int) {
+                                val current = if (isEpg) model.settings.epgRefresh else model.settings.playlistRefresh
+                                val next = intervals[(intervals.indexOf(current).coerceAtLeast(0) + delta).floorMod(intervals.size)]
+                                if (isEpg) model.setEpgRefresh(next) else model.setPlaylistRefresh(next)
+                            }
+                            when (event.key) {
+                                Key.DirectionUp, Key.PageUp -> settingsOptionIndex = (settingsOptionIndex - 1).coerceAtLeast(0)
+                                Key.DirectionDown, Key.PageDown -> settingsOptionIndex = (settingsOptionIndex + 1).coerceAtMost(1)
+                                Key.DirectionLeft -> if (settingsOptionIndex == 0) cycleRefresh(-1)
+                                Key.DirectionRight -> if (settingsOptionIndex == 0) cycleRefresh(1)
+                                else -> if (event.key.isConfirmKey()) {
+                                    if (settingsOptionIndex == 0) {
+                                        cycleRefresh(1)
+                                    } else if (isEpg) {
+                                        scope.launch { model.refreshOfficialEpg() }
+                                    } else {
+                                        scope.launch { model.refreshOfficialPlaylist() }
+                                    }
                                 } else return@onPreviewKeyEvent false
                             }
                             return@onPreviewKeyEvent true
