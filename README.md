@@ -1,15 +1,15 @@
-# Wukki TV desktop MVP
+# Wukki TV
 
-A Wukki TV egy Kotlin Multiplatform / Compose Desktop alapú IPTV-kliensteszt. M3U playlist-eket, XMLTV műsorújságot és alkalmazáson belüli, libVLC-alapú HLS lejátszást biztosít macOS-en, Windowson és Linuxon.
+A Wukki TV egy Kotlin Multiplatform / Compose Desktop alapú IPTV alkalmazás. A hivatalos Wukki csatornalistát, XMLTV műsorújságot és alkalmazáson belüli, libVLC-alapú HLS lejátszást biztosít macOS-en, Windowson és Linuxon.
 
 ## Funkciók
 
-- Rögzített, hivatalos Wukki TV playlist: `https://raw.githubusercontent.com/wukki/wukki-tv/refs/heads/main/wukki-tv.m3u`; manuális, 6 órás vagy napi frissítéssel
+- Rögzített, hivatalos Wukki TV playlist: [`wukki-tv.m3u`](https://raw.githubusercontent.com/wukki/wukki-tv/refs/heads/main/wukki-tv.m3u); manuális, 6 órás vagy napi frissítéssel
 - Automatikus playlist-normalizálás: `tvg-chno` szerinti rendezés, csatornalogók, kategóriák, kedvencek és keresés
 - Beágyazott HLS lejátszás: indításkor az utoljára nézett, ennek hiányában az első csatorna automatikusan elindul
 - Csatornaváltás `PageUp` / `PageDown`, nyilak, számbillentyűk és csatornalista segítségével
 - Újracsatlakozás, hangerő, pufferprofil és képarány beállítása (`Automatikus`, `16:9`, `4:3`, `21:9`, `Kitöltés`)
-- Az M3U fejlécéből automatikusan felismert, rögzített XMLTV-forrás (`url-tvg` / `x-tvg-url` / `tvg-url`) és csatorna–EPG párosítás
+- Az M3U fejlécéből automatikusan felismert, rögzített XMLTV-forrás (`url-tvg` / `x-tvg-url` / `tvg-url`) és csatorna–EPG párosítás; egyéni playlist- és EPG-források nem használhatók
 - Csatornahelyes „most megy” és következő műsor, az EPG-lefedettséghez igazodó, időarányos, kétirányban navigálható műsorújság
 - Magyar és angol felület; a beállítások és az alkalmazásállapot helyben, a `~/.wukki-tv/state.bin` fájlban tárolódnak
 
@@ -41,6 +41,10 @@ Natív telepítő készíthető DMG, MSI vagy DEB formátumban. A kiadásba szá
 ```sh
 WUKKI_VLC_RUNTIME="/elérési/út/vlc-runtime" ./gradlew :app:packageDistributionForCurrentOS
 ```
+
+A GitHub Actions `Package desktop applications` workflow kézzel, illetve `v*` formátumú tag pusholásakor készít macOS, Windows és Linux telepítőket. A workflow a VLC runtime-ot is a telepítőbe csomagolja, ezért a kiadott alkalmazásokhoz nem szükséges külön VLC telepítés.
+
+> A macOS DMG jelenleg nincs Apple Developer tanúsítvánnyal aláírva vagy notarizálva. Első indításkor Finderben jobb klikk → **Megnyitás** szükséges lehet.
 
 ## Korlátok
 
