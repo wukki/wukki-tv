@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -346,7 +348,10 @@ private fun ProgrammeInformation(
         else {
             Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(WukkiColors.video)) { videoPreview() }
             HorizontalDivider(color = panelBorder)
-            Column(Modifier.fillMaxWidth().weight(1f).padding(18.dp * scale), verticalArrangement = Arrangement.spacedBy(7.dp * scale)) {
+            Column(
+                Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()).padding(18.dp * scale),
+                verticalArrangement = Arrangement.spacedBy(7.dp * scale)
+            ) {
                 Text(preview.channel.name, color = WukkiColors.textPrimary, fontSize = (24f * scale).sp, fontWeight = FontWeight.Bold)
                 if (preview.currentProgramme?.imageUrl != null && showProgrammeImages) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp * scale), verticalAlignment = Alignment.CenterVertically) {
@@ -360,8 +365,12 @@ private fun ProgrammeInformation(
                     Text(formatTime(preview.now), color = muted, fontSize = (12f * scale).sp)
                 }
                 Spacer(Modifier.height(8.dp * scale))
-                if (showMiniGuide) Text(preview.currentProgramme?.description?.takeIf { it.isNotBlank() } ?: tr(language, "epg.no.description"), color = WukkiColors.textSecondary, fontSize = (13f * scale).sp, maxLines = 5, overflow = TextOverflow.Ellipsis)
-                Spacer(Modifier.weight(1f))
+                if (showMiniGuide) Text(
+                    preview.currentProgramme?.description?.takeIf { it.isNotBlank() } ?: tr(language, "epg.no.description"),
+                    color = WukkiColors.textSecondary,
+                    fontSize = (13f * scale).sp
+                )
+                Spacer(Modifier.height(8.dp * scale))
                 OutlinedButton(onClick = { callbacks.onToggleFavorite(preview.channel.id) }, modifier = Modifier.fillMaxWidth().height(48.dp * scale), shape = RoundedCornerShape(8.dp * scale), border = BorderStroke(1.dp, panelBorder), colors = ButtonDefaults.outlinedButtonColors(contentColor = WukkiColors.textPrimary)) {
                     Text(if (preview.channel.favorite) "♥ ${tr(language, "favourite.current")}" else "♡ ${tr(language, "favourite.add")}", fontSize = (14f * scale).sp)
                 }

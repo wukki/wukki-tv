@@ -1,9 +1,12 @@
 package hu.wukki.tv.ui.guide
 
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -12,6 +15,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -32,6 +36,7 @@ import hu.wukki.tv.ui.components.formatTime
 import hu.wukki.tv.ui.components.tr
 import hu.wukki.tv.ui.navigation.isBackKey
 import hu.wukki.tv.ui.navigation.isConfirmKey
+import kotlinx.coroutines.launch
 
 data class GuideProgrammeDetailsUiState(
     val language: AppLanguage,
@@ -50,6 +55,8 @@ fun GuideProgrammeDetails(
     onRemoteEvent: (GuideProgrammeDialogEvent) -> Unit
 ) {
     val dialogFocusRequester = remember { FocusRequester() }
+    val detailsScrollState = rememberScrollState()
+    val scope = rememberCoroutineScope()
     LaunchedEffect(Unit) { dialogFocusRequester.requestFocus() }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -62,14 +69,31 @@ fun GuideProgrammeDetails(
                 event.key.isConfirmKey() -> GuideProgrammeDialogEvent.CONFIRM
                 else -> null
             }
-            dialogEvent?.let(onRemoteEvent) != null
+            when {
+                dialogEvent != null -> {
+                    onRemoteEvent(dialogEvent)
+                    true
+                }
+                event.key == Key.DirectionUp || event.key == Key.PageUp -> {
+                    scope.launch { detailsScrollState.animateScrollTo((detailsScrollState.value - 220).coerceAtLeast(0)) }
+                    true
+                }
+                event.key == Key.DirectionDown || event.key == Key.PageDown -> {
+                    scope.launch { detailsScrollState.animateScrollTo((detailsScrollState.value + 220).coerceAtMost(detailsScrollState.maxValue)) }
+                    true
+                }
+                else -> false
+            }
         },
         containerColor = WukkiColors.surfaceOverlay,
         titleContentColor = WukkiColors.textPrimary,
         textContentColor = WukkiColors.textSecondary,
         title = { Text(state.programme.displayTitle(state.language), fontWeight = FontWeight.Bold) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(
+                modifier = Modifier.fillMaxWidth().heightIn(max = 360.dp).verticalScroll(detailsScrollState),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
                 Text(state.channel.name, color = WukkiColors.textPrimary, fontWeight = FontWeight.SemiBold)
                 Text("${formatTime(state.programme.start)} – ${formatTime(state.programme.end)}")
                 if (state.programme.imageUrl != null && state.showProgrammeImages) {
