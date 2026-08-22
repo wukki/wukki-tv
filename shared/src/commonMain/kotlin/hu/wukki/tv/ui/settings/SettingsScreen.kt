@@ -4,7 +4,6 @@ import hu.wukki.tv.*
 import hu.wukki.tv.ui.components.formatTime
 import hu.wukki.tv.ui.components.Localizer
 import hu.wukki.tv.ui.components.tr
-import hu.wukki.tv.ui.components.WukkiBrushes
 import hu.wukki.tv.ui.components.WukkiColors
 
 import androidx.compose.foundation.*
@@ -27,10 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -39,9 +35,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlin.math.PI
-import kotlin.math.cos
-import kotlin.math.sin
 
 enum class SettingsSection { PLAYBACK, EPG, DISPLAY, PARENTAL, PLAYLISTS, LANGUAGE, ABOUT }
 private val SettingsPanel = WukkiColors.surfaceOverlay
