@@ -1,0 +1,42 @@
+package hu.wukki.tv
+
+/** Common persistence boundary. Each platform owns its physical storage implementation. */
+interface AppStateStore {
+    fun load(): AppState
+    fun save(state: AppState)
+}
+
+/** Keeps the legacy desktop binary reader source-compatible without exposing `java.io` to common code. */
+expect interface Persistable
+
+/** Synchronous boundary used inside the model's background dispatcher. */
+fun interface RemoteTextLoader {
+    fun load(url: String): String
+}
+
+data class DeviceInfo(
+    val platform: String,
+    val osVersion: String,
+    val installationId: String,
+    val appDataBytes: Long,
+    val availableStorageBytes: Long
+)
+
+expect object PlatformAppServices {
+    val stateStore: AppStateStore
+    val remoteTextLoader: RemoteTextLoader
+}
+
+expect object DeviceInfoProvider {
+    fun collect(): DeviceInfo
+}
+
+fun formatByteSize(bytes: Long): String {
+    val safe = bytes.coerceAtLeast(0L)
+    val units = listOf("B", "KB", "MB", "GB", "TB")
+    var value = safe.toDouble()
+    var unit = 0
+    while (value >= 1024 && unit < units.lastIndex) { value /= 1024; unit++ }
+    val rendered = if (unit == 0) safe.toString() else ((value * 10).toInt() / 10.0).toString()
+    return "$rendered ${units[unit]}"
+}

@@ -19,13 +19,13 @@ jobs:
         include:
           - name: macOS
             os: macos-14
-            package_task: :app:packageDmg
+            package_task: :desktopApp:packageDmg
           - name: Windows
             os: windows-2022
-            package_task: :app:packageMsi
+            package_task: :desktopApp:packageMsi
           - name: Linux
             os: ubuntu-22.04
-            package_task: :app:packageDeb
+            package_task: :desktopApp:packageDeb
 
     steps:
       - uses: actions/checkout@v4
@@ -40,8 +40,8 @@ jobs:
         run: |
           curl --fail --location --output vlc.dmg https://get.videolan.org/vlc/3.0.23/macosx/vlc-3.0.23-universal.dmg
           hdiutil attach vlc.dmg -nobrowse -mountpoint /Volumes/WukkiVLC
-          mkdir -p app/build/vlc-runtime
-          cp -R /Volumes/WukkiVLC/VLC.app/Contents/MacOS/. app/build/vlc-runtime/
+          mkdir -p desktopApp/build/vlc-runtime
+          cp -R /Volumes/WukkiVLC/VLC.app/Contents/MacOS/. desktopApp/build/vlc-runtime/
           hdiutil detach /Volumes/WukkiVLC
 
       - name: Download VLC runtime (Windows)
@@ -50,8 +50,8 @@ jobs:
         run: |
           Invoke-WebRequest https://get.videolan.org/vlc/3.0.23/win64/vlc-3.0.23-win64.zip -OutFile vlc.zip
           Expand-Archive vlc.zip -DestinationPath extracted-vlc
-          New-Item -ItemType Directory -Force -Path app/build/vlc-runtime | Out-Null
-          Copy-Item extracted-vlc/vlc-3.0.23/* app/build/vlc-runtime -Recurse -Force
+          New-Item -ItemType Directory -Force -Path desktopApp/build/vlc-runtime | Out-Null
+          Copy-Item extracted-vlc/vlc-3.0.23/* desktopApp/build/vlc-runtime -Recurse -Force
 
       - name: Prepare VLC runtime (Linux)
         if: runner.os == 'Linux'
@@ -59,18 +59,18 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes vlc
-          mkdir -p app/build/vlc-runtime/plugins
-          cp /usr/lib/x86_64-linux-gnu/libvlc.so* app/build/vlc-runtime/
-          cp /usr/lib/x86_64-linux-gnu/libvlccore.so* app/build/vlc-runtime/
-          cp -R /usr/lib/x86_64-linux-gnu/vlc/plugins/. app/build/vlc-runtime/plugins/
+          mkdir -p desktopApp/build/vlc-runtime/plugins
+          cp /usr/lib/x86_64-linux-gnu/libvlc.so* desktopApp/build/vlc-runtime/
+          cp /usr/lib/x86_64-linux-gnu/libvlccore.so* desktopApp/build/vlc-runtime/
+          cp -R /usr/lib/x86_64-linux-gnu/vlc/plugins/. desktopApp/build/vlc-runtime/plugins/
 
       - name: Build installer
         env:
-          WUKKI_VLC_RUNTIME: ${{ github.workspace }}/app/build/vlc-runtime
+          WUKKI_VLC_RUNTIME: ${{ github.workspace }}/desktopApp/build/vlc-runtime
         run: ./gradlew ${{ matrix.package_task }} --no-daemon
 
       - name: Upload installer
         uses: actions/upload-artifact@v4
         with:
           name: wukki-tv-${{ matrix.name }}
-          path: app/build/compose/binaries/main/**
+          path: desktopApp/build/compose/binaries/main/**

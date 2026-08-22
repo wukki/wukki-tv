@@ -15,5 +15,6 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "wukki-tv"
-include(":app")
+include(":shared")
+include(":desktopApp")
 include(":androidApp")

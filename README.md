@@ -2,6 +2,12 @@
 
 A Wukki TV Kotlin Multiplatform / Compose alapú IPTV alkalmazás. A hivatalos Wukki csatornalistát, XMLTV műsorújságot és alkalmazáson belüli HLS lejátszást biztosít desktopon, Android TV-n és fekvő Android telefonon/tableten.
 
+## Projektfelépítés
+
+- `shared`: közös KMP modul — Compose UI, domain, playlist- és EPG-logika, lokalizáció és közös tesztek.
+- `desktopApp`: desktop belépési pont, libVLC lejátszó, helyi állapot, kijelző-ébrentartás és natív csomagolás.
+- `androidApp`: Android belépési pont, Media3 lejátszó, DataStore, WorkManager és Android TV integráció.
+
 ## Funkciók
 
 - Rögzített, hivatalos Wukki TV playlist: [`wukki-tv.m3u`](https://raw.githubusercontent.com/wukki/wukki-tv/refs/heads/main/wukki-tv.m3u); kézi, 6, 12 vagy 24 órás frissítéssel
@@ -24,7 +30,7 @@ Először töltsd le a Gradle wrappert, majd indítsd az alkalmazást:
 
 ```sh
 ./bootstrap-gradle.sh
-./gradlew :app:run
+./gradlew :desktopApp:run
 ```
 
 Az alkalmazáson belüli lejátszáshoz elérhető VLC/libVLC runtime szükséges. Fejlesztés közben a Wukki TV először az alábbi helyeken keresi:
@@ -36,7 +42,7 @@ Az alkalmazáson belüli lejátszáshoz elérhető VLC/libVLC runtime szüksége
 Példa egyedi VLC runtime-mal:
 
 ```sh
-WUKKI_VLC_HOME="/Applications/VLC.app/Contents/MacOS" ./gradlew :app:run
+WUKKI_VLC_HOME="/Applications/VLC.app/Contents/MacOS" ./gradlew :desktopApp:run
 ```
 
 ## Csomagolás
@@ -44,7 +50,7 @@ WUKKI_VLC_HOME="/Applications/VLC.app/Contents/MacOS" ./gradlew :app:run
 Natív telepítő készíthető DMG, MSI vagy DEB formátumban. A kiadásba szánt VLC runtime-ot a `WUKKI_VLC_RUNTIME` változóval lehet az alkalmazás erőforrásai közé másolni; a licencek a `LICENSES` könyvtárból kerülnek be.
 
 ```sh
-WUKKI_VLC_RUNTIME="/elérési/út/vlc-runtime" ./gradlew :app:packageDistributionForCurrentOS
+WUKKI_VLC_RUNTIME="/elérési/út/vlc-runtime" ./gradlew :desktopApp:packageDistributionForCurrentOS
 ```
 
 A GitHub Actions `Package desktop applications` workflow kézzel, illetve `v*` formátumú tag pusholásakor készít macOS, Windows és Linux telepítőket. A workflow a VLC runtime-ot is a telepítőbe csomagolja, ezért a kiadott alkalmazásokhoz nem szükséges külön VLC telepítés.
