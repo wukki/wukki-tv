@@ -81,6 +81,7 @@ val prepareAndroidSharedSources by tasks.registering(Sync::class) {
             "hu/wukki/tv/player/OverlayTheme.kt",
             "hu/wukki/tv/player/PlaybackController.kt",
             "hu/wukki/tv/player/VlcRuntimeResolver.kt",
+            "hu/wukki/tv/ScreenWakeController.kt",
             "hu/wukki/tv/ui/app/DesktopWukkiApp.kt"
         )
     }
@@ -170,6 +171,8 @@ kotlin {
                 // Coil's Ktor integration needs a JVM HTTP engine for remote tvg-logo URLs.
                 implementation("io.ktor:ktor-client-java:3.0.1")
                 implementation("uk.co.caprica:vlcj:4.8.3")
+                implementation("net.java.dev.jna:jna-jpms:5.14.0")
+                implementation("net.java.dev.jna:jna-platform-jpms:5.14.0")
             }
         }
         val desktopTest by getting {

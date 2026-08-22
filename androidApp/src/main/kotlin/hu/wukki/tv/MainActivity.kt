@@ -20,6 +20,8 @@ import hu.wukki.tv.ui.navigation.DashboardSection
 
 class MainActivity : ComponentActivity() {
     private var appBackAction: (() -> Boolean)? = null
+    private var playbackController: AndroidPlaybackController? = null
+    private var liveSectionActive = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -41,7 +43,7 @@ class MainActivity : ComponentActivity() {
         AndroidRefreshScheduler.sync(applicationContext, LocalStore.load().settings ?: AppSettings())
 
         setContent {
-            val player = remember { AndroidPlaybackController(applicationContext) }
+            val player = remember { AndroidPlaybackController(applicationContext).also { playbackController = it } }
             MaterialTheme(colorScheme = WukkiColorScheme) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
@@ -52,7 +54,10 @@ class MainActivity : ComponentActivity() {
                         playbackController = player,
                         videoHost = player::VideoSurface,
                         playbackEngineLabel = "Media3 / ExoPlayer",
-                        onActiveSectionChange = { section -> setKeepScreenOn(section == DashboardSection.LIVE) },
+                        onActiveSectionChange = { section ->
+                            liveSectionActive = section == DashboardSection.LIVE
+                            setKeepScreenOn(liveSectionActive)
+                        },
                         androidSettingsNavigation = true,
                         onPlatformBackActionChange = { action -> appBackAction = action }
                     )
@@ -64,6 +69,18 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         setKeepScreenOn(false)
         super.onDestroy()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        playbackController?.resumeAfterBackground()
+        setKeepScreenOn(liveSectionActive)
+    }
+
+    override fun onStop() {
+        playbackController?.pauseForBackground()
+        setKeepScreenOn(false)
+        super.onStop()
     }
 
     private fun setKeepScreenOn(enabled: Boolean) {

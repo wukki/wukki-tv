@@ -63,6 +63,7 @@ class AndroidPlaybackController(private val context: Context) : PlaybackEngine {
     private var currentLanguage = AppLanguage.HUNGARIAN
     private var reconnectAttempt = 0
     private var released = false
+    private var resumeAfterBackground = false
     private var reconnectRunnable: Runnable? = null
     private var bufferingRunnable: Runnable? = null
 
@@ -78,6 +79,7 @@ class AndroidPlaybackController(private val context: Context) : PlaybackEngine {
 
     override fun play(channel: Channel?, settings: PlaybackSettings, showLogos: Boolean, language: AppLanguage) {
         if (released || channel == null) return
+        resumeAfterBackground = false
         val sourceChanged = currentChannel?.streamUrl != channel.streamUrl
         val bufferChanged = currentSettings.bufferProfile != settings.bufferProfile
         currentChannel = channel
@@ -104,14 +106,41 @@ class AndroidPlaybackController(private val context: Context) : PlaybackEngine {
     }
 
     override fun stop() {
+        resumeAfterBackground = false
         cancelPendingCallbacks()
         player?.stop()
         updateState(PlaybackState.IDLE, null)
     }
 
+    /** Stops active playback while the activity is not visible, without losing its channel context. */
+    fun pauseForBackground() {
+        if (released) return
+        resumeAfterBackground = currentChannel != null && state in setOf(
+            PlaybackState.OPENING,
+            PlaybackState.BUFFERING,
+            PlaybackState.PLAYING,
+            PlaybackState.RECONNECTING
+        )
+        if (!resumeAfterBackground) return
+        cancelPendingCallbacks()
+        player?.stop()
+        updateState(PlaybackState.IDLE, null)
+    }
+
+    /** Restarts the previously active stream after the activity returns to the foreground. */
+    fun resumeAfterBackground() {
+        if (released || !resumeAfterBackground) return
+        resumeAfterBackground = false
+        if (player == null) createPlayer()
+        reconnectAttempt = 0
+        cancelPendingCallbacks()
+        startCurrentChannel()
+    }
+
     override fun release() {
         if (released) return
         released = true
+        resumeAfterBackground = false
         cancelPendingCallbacks()
         player?.release()
         player = null
