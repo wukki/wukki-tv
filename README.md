@@ -4,16 +4,19 @@ A Wukki TV Kotlin Multiplatform / Compose alapú IPTV alkalmazás. A hivatalos W
 
 ## Funkciók
 
-- Rögzített, hivatalos Wukki TV playlist: [`wukki-tv.m3u`](https://raw.githubusercontent.com/wukki/wukki-tv/refs/heads/main/wukki-tv.m3u); manuális, 6 órás vagy napi frissítéssel
+- Rögzített, hivatalos Wukki TV playlist: [`wukki-tv.m3u`](https://raw.githubusercontent.com/wukki/wukki-tv/refs/heads/main/wukki-tv.m3u); kézi, 6, 12 vagy 24 órás frissítéssel
 - Automatikus playlist-normalizálás: `tvg-chno` szerinti rendezés, csatornalogók, kategóriák, kedvencek és keresés
 - Beágyazott HLS lejátszás: indításkor az utoljára nézett, ennek hiányában az első csatorna automatikusan elindul
 - Csatornaváltás `PageUp` / `PageDown`, nyilak, számbillentyűk és csatornalista segítségével
 - Újracsatlakozás, hangerő, pufferprofil és képarány beállítása (`Automatikus`, `16:9`, `4:3`, `21:9`, `Kitöltés`)
 - Az M3U fejlécéből automatikusan felismert, rögzített XMLTV-forrás (`url-tvg` / `x-tvg-url` / `tvg-url`) és csatorna–EPG párosítás; egyéni playlist- és EPG-források nem használhatók
 - Csatornahelyes „most megy” és következő műsor, az EPG-lefedettséghez igazodó, időarányos, kétirányban navigálható műsorújság
-- Magyar és angol felület; a beállítások és az alkalmazásállapot helyben, a `~/.wukki-tv/state.bin` fájlban tárolódnak
-- Android 8+ támogatás Android TV launcherrel, D-pad navigációval és közvetlenül telepíthető APK-val
+- Magyar és angol felület; a beállítások és az alkalmazásállapot helyben tárolódik
+- Android 8+ támogatás Android TV launcherrel, D-pad- és érintéses navigációval, valamint közvetlenül telepíthető APK-val
 - Androidon Media3/ExoPlayer, desktopon libVLC gondoskodik a HLS lejátszásról
+- Android Élő adás nézetben a kijelző ébren marad; képernyőzárnál a stream megáll, feloldáskor folytatódik
+- Androidon rövid érintés megjeleníti vagy elrejti az információs panelt, felfelé/lefelé pöccintés pedig csatornát vált
+- A manuális frissítések rövid, automatikusan eltűnő visszajelzést adnak; siker esetén 3, hiba esetén 8 másodpercig
 
 ## Indítás fejlesztőként
 
@@ -79,6 +82,19 @@ adb install -r androidApp/build/outputs/apk/debug/androidApp-debug.apk
 ```
 
 Release APK saját aláírással készíthető. Másold az `androidApp/keystore.properties.example` fájlt `androidApp/keystore.properties` néven, töltsd ki a helyi keystore adataival, majd futtasd az `:androidApp:assembleRelease` feladatot. A keystore és a jelszavak nem kerülnek a repóba.
+
+### Android használat
+
+- A telefonos felület fekvő tájolásra készült.
+- Élő adás közben felfelé pöccintés a következő, lefelé pöccintés az előző csatornára vált. Egy rövid érintés az információs panelt kapcsolja.
+- Android TV-n a D-pad nyilai mozgatják a fókuszt, az OK/Enter aktivál, a Vissza a korábbi szintre lép.
+- A Beállításokban a kategória megnyitása külön, teljes tartalmú és görgethető oldalra visz. A felső visszanyíl vagy a rendszer Vissza gomb tér vissza a kategórialistához.
+- A Csatornák oldali műsorelőnézet és a Műsorújság részletpanelje is görgethető, ha a tartalom nem fér el.
+
+## Kijelző-ébrentartás
+
+- Androidon csak az **Élő adás** képernyő tartja ébren a kijelzőt. Más menüben ismét a rendszer saját időzítője érvényesül.
+- Desktopon az előtérben lévő, fókuszban levő Wukki TV ablak kéri a kijelző ébrentartását. Minimalizáláskor, fókuszvesztéskor vagy bezáráskor ezt azonnal feloldja.
 
 ## Korlátok
 
