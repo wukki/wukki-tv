@@ -39,25 +39,34 @@ fun SideNavigation(
     state: SideNavigationUiState,
     scale: Float,
     onSelect: (DashboardSection) -> Unit,
+    compact: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     Column(
         modifier = modifier.background(WukkiBrushes.navigationBackground())
     ) {
         Row(
-            modifier = Modifier.padding(start = 30.dp * scale, top = 40.dp * scale),
+            modifier = Modifier.fillMaxWidth().padding(
+                start = if (compact) 0.dp else 30.dp * scale,
+                top = if (compact) 22.dp else 40.dp * scale
+            ),
+            horizontalArrangement = if (compact) Arrangement.Center else Arrangement.Start,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            androidx.compose.material3.Text("Wukki", color = WukkiColors.textPrimary, fontWeight = FontWeight.Black, fontSize = (36 * scale).sp, letterSpacing = (-1.2).sp)
-            Spacer(Modifier.width(7.dp * scale))
-            androidx.compose.material3.Text(
-                "TV", color = WukkiColors.textPrimary, fontSize = (17 * scale).sp, fontWeight = FontWeight.Bold,
-                modifier = Modifier.clip(RoundedCornerShape(5.dp * scale))
-                    .background(WukkiBrushes.accent())
-                    .padding(horizontal = 7.dp * scale, vertical = 4.dp * scale)
-            )
+            if (compact) {
+                androidx.compose.material3.Text("W", color = WukkiColors.textPrimary, fontWeight = FontWeight.Black, fontSize = 26.sp)
+            } else {
+                androidx.compose.material3.Text("Wukki", color = WukkiColors.textPrimary, fontWeight = FontWeight.Black, fontSize = (36 * scale).sp, letterSpacing = (-1.2).sp)
+                Spacer(Modifier.width(7.dp * scale))
+                androidx.compose.material3.Text(
+                    "TV", color = WukkiColors.textPrimary, fontSize = (17 * scale).sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.clip(RoundedCornerShape(5.dp * scale))
+                        .background(WukkiBrushes.accent())
+                        .padding(horizontal = 7.dp * scale, vertical = 4.dp * scale)
+                )
+            }
         }
-        Spacer(Modifier.height(83.dp * scale))
+        Spacer(Modifier.height(if (compact) 30.dp else 83.dp * scale))
         state.entries.forEach { entry ->
             val selected = entry.section == state.activeSection
             val focused = entry.section == state.focusedSection
@@ -68,19 +77,27 @@ fun SideNavigation(
                         else Brush.horizontalGradient(listOf(WukkiColors.transparent, WukkiColors.transparent))
                     )
                     .border(if (focused) 2.dp else 0.dp, if (focused) WukkiColors.focus else WukkiColors.transparent)
-                    .clickable { onSelect(entry.section) }.padding(start = 40.dp * scale, end = 16.dp),
+                    .clickable { onSelect(entry.section) }.padding(
+                        start = if (compact) 0.dp else 40.dp * scale,
+                        end = if (compact) 0.dp else 16.dp
+                    ),
+                horizontalArrangement = if (compact) Arrangement.Center else Arrangement.Start,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 NavigationIcon(entry.section, if (selected) WukkiColors.textPrimary else WukkiColors.textSecondary, Modifier.size((29.dp * scale).coerceIn(22.dp, 38.dp)))
-                Spacer(Modifier.width(25.dp * scale))
-                androidx.compose.material3.Text(entry.label, color = if (selected) WukkiColors.textPrimary else WukkiColors.textSecondary, fontSize = (19 * scale).sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
+                if (!compact) {
+                    Spacer(Modifier.width(25.dp * scale))
+                    androidx.compose.material3.Text(entry.label, color = if (selected) WukkiColors.textPrimary else WukkiColors.textSecondary, fontSize = (19 * scale).sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
+                }
             }
         }
         Spacer(Modifier.weight(1f))
-        Column(modifier = Modifier.padding(start = 30.dp * scale, bottom = 70.dp * scale)) {
-            androidx.compose.material3.Text(state.timeLabel, color = WukkiColors.textPrimary, fontSize = (34 * scale).sp, fontWeight = FontWeight.Light)
-            Spacer(Modifier.height(5.dp * scale))
-            androidx.compose.material3.Text(state.dateLabel, color = WukkiColors.textMuted, fontSize = (15 * scale).sp)
+        if (!compact) {
+            Column(modifier = Modifier.padding(start = 30.dp * scale, bottom = 70.dp * scale)) {
+                androidx.compose.material3.Text(state.timeLabel, color = WukkiColors.textPrimary, fontSize = (34 * scale).sp, fontWeight = FontWeight.Light)
+                Spacer(Modifier.height(5.dp * scale))
+                androidx.compose.material3.Text(state.dateLabel, color = WukkiColors.textMuted, fontSize = (15 * scale).sp)
+            }
         }
     }
 }

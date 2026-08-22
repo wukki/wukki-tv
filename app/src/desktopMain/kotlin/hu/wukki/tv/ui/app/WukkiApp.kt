@@ -41,9 +41,15 @@ import kotlinx.coroutines.launch
 import kotlin.math.ceil
 
 @Composable
-fun WukkiApp() {
+fun WukkiApp(
+    playbackController: PlaybackEngine,
+    videoHost: @Composable (Modifier, LiveVideoGestures?) -> Unit,
+    playbackEngineLabel: String,
+    onActiveSectionChange: (DashboardSection) -> Unit = {},
+    androidSettingsNavigation: Boolean = false,
+    onPlatformBackActionChange: ((() -> Boolean)?) -> Unit = {}
+) {
     val model = remember { WukkiModel() }
-    val playbackController = remember { PlaybackController(model.settings.language) }
     val scope = rememberCoroutineScope()
     val focusRequester = remember { FocusRequester() }
     var tick by remember { mutableStateOf(System.currentTimeMillis()) }
@@ -80,6 +86,9 @@ fun WukkiApp() {
             channelRemoteFocus = ChannelRemoteFocus.LIST
             channelListOpenRequest++
         }
+        if (androidSettingsNavigation && section == DashboardSection.SETTINGS && activeSection != DashboardSection.SETTINGS) {
+            settingsSection = null
+        }
         activeSection = section
         mainNavigationIndex = mainSections.indexOf(section).coerceAtLeast(0)
         focusZone = TvFocusZone.CONTENT
@@ -105,6 +114,22 @@ fun WukkiApp() {
         activateSection(DashboardSection.LIVE)
         overlayRequest++
     }
+
+    fun switchLiveChannel(delta: Int) {
+        channelNumberInput = ""
+        model.moveChannel(delta)
+        overlayRequest++
+    }
+
+    fun toggleLiveProgrammeInfo() {
+        if (programmeOverlayVisible) programmeOverlayVisible = false else overlayRequest++
+    }
+
+    val liveVideoGestures = LiveVideoGestures(
+        onTap = ::toggleLiveProgrammeInfo,
+        onNextChannel = { switchLiveChannel(1) },
+        onPreviousChannel = { switchLiveChannel(-1) }
+    )
 
     fun showGuideProgrammeDetails() {
         if (guideState.focusedProgramme(model.guideDataSource(), guideTimeline(tick, model.guideLatestProgrammeEnd())) != null) {
@@ -133,6 +158,19 @@ fun WukkiApp() {
             delay(30_000)
             tick = System.currentTimeMillis()
         }
+    }
+    LaunchedEffect(activeSection) {
+        onActiveSectionChange(activeSection)
+    }
+    DisposableEffect(activeSection, settingsSection, onPlatformBackActionChange) {
+        onPlatformBackActionChange(
+            if (activeSection == DashboardSection.SETTINGS && settingsSection != null) {
+                { settingsSection = null; true }
+            } else {
+                null
+            }
+        )
+        onDispose { onPlatformBackActionChange(null) }
     }
     DisposableEffect(playbackController) {
         onDispose { playbackController.release() }
@@ -175,6 +213,16 @@ fun WukkiApp() {
             activeSection = DashboardSection.CHANNELS
             model.showRawError(playbackController.detail ?: tr(model.settings.language, "playback.error"))
         }
+    }
+    val feedbackToken = model.feedbackToken
+    LaunchedEffect(feedbackToken, model.feedbackKind) {
+        val timeout = when (model.feedbackKind) {
+            AppFeedbackKind.SUCCESS -> SUCCESS_FEEDBACK_TIMEOUT_MS
+            AppFeedbackKind.ERROR -> ERROR_FEEDBACK_TIMEOUT_MS
+            AppFeedbackKind.LOADING, null -> null
+        } ?: return@LaunchedEffect
+        delay(timeout)
+        model.dismissFeedback(feedbackToken)
     }
     LaunchedEffect(model.selectedChannelId, activeSection, overlayRequest) {
         if (activeSection == DashboardSection.LIVE && model.selectedChannel() != null) {
@@ -530,12 +578,10 @@ fun WukkiApp() {
                     }
                     when (event.key) {
                         Key.PageDown, Key.DirectionDown -> {
-                            channelNumberInput = ""
-                            model.moveChannel(1)
+                            switchLiveChannel(1)
                         }
                         Key.PageUp, Key.DirectionUp -> {
-                            channelNumberInput = ""
-                            model.moveChannel(-1)
+                            switchLiveChannel(-1)
                         }
                         else -> return@onPreviewKeyEvent false
                     }
@@ -544,7 +590,6 @@ fun WukkiApp() {
         ) {
             DashboardScreen(
                 model = model,
-                playbackController = playbackController,
                 scope = scope,
                 tick = tick,
                 activeSection = activeSection,
@@ -553,7 +598,13 @@ fun WukkiApp() {
                     activateSection(section)
                 },
                 settingsSection = settingsSection,
-                onSettingsSectionChange = { settingsSection = it },
+                onSettingsSectionChange = { section ->
+                    settingsSection = section
+                    if (section != null) {
+                        settingsCategoryIndex = SettingsSection.entries.indexOf(section).coerceAtLeast(0)
+                        settingsOptionIndex = 0
+                    }
+                },
                 mainNavigationFocused = focusZone == TvFocusZone.MAIN_NAVIGATION,
                 mainNavigationSection = mainSections[mainNavigationIndex],
                 channelRemoteFocus = channelRemoteFocus,
@@ -571,12 +622,18 @@ fun WukkiApp() {
                 },
                 settingsCategoryIndex = settingsCategoryIndex,
                 settingsOptionIndex = settingsOptionIndex,
+                androidSettingsNavigation = androidSettingsNavigation,
+                onSettingsCategoryFocus = { settingsCategoryIndex = it.coerceIn(0, SettingsSection.entries.lastIndex) },
+                onSettingsOptionFocus = { settingsOptionIndex = it.coerceAtLeast(0) },
                 guideProgrammeDetailsVisible = guideProgrammeDetailsVisible,
                 guideProgrammeDialogFocusedAction = guideProgrammeDialogState.focusedAction,
                 onShowGuideProgrammeDetails = ::showGuideProgrammeDetails,
                 onDismissGuideProgrammeDetails = { guideProgrammeDetailsVisible = false },
                 onOpenGuideProgrammeChannel = ::openGuideProgrammeChannel,
-                onGuideProgrammeDialogEvent = ::handleGuideProgrammeDialogEvent
+                onGuideProgrammeDialogEvent = ::handleGuideProgrammeDialogEvent,
+                videoHost = videoHost,
+                liveVideoGestures = liveVideoGestures,
+                playbackEngineLabel = playbackEngineLabel
             )
         }
     }
@@ -593,3 +650,6 @@ private fun toggleDisplayOption(model: WukkiModel, optionIndex: Int) = model.upd
         else -> display
     }
 }
+
+private const val SUCCESS_FEEDBACK_TIMEOUT_MS = 3_000L
+private const val ERROR_FEEDBACK_TIMEOUT_MS = 8_000L

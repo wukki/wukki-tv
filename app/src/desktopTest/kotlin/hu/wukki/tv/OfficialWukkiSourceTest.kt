@@ -4,6 +4,7 @@ import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -103,6 +104,42 @@ class OfficialWukkiSourceTest {
 
         assertFalse(model.refreshOfficialPlaylist(showFeedback = false))
         assertEquals(listOf(cached.id), model.state.channels.map { it.id })
+        assertEquals(AppFeedbackKind.ERROR, model.feedbackKind)
+        assertNotNull(model.error)
+        Unit
+    }
+
+    @Test
+    fun `automatic refresh stays silent after success`() = runBlocking {
+        val loader = RemoteTextLoader { url ->
+            when (url) {
+                OfficialWukkiSource.PLAYLIST_URL -> m3u("https://epg.example/guide.xml")
+                "https://epg.example/guide.xml" -> xml("rtl", "Híradó")
+                else -> error("Unexpected URL: $url")
+            }
+        }
+        val model = WukkiModel(AppState(), loader, stateSaver = {})
+
+        assertTrue(model.refreshOfficialPlaylist(showFeedback = false))
+        assertNull(model.status)
+        assertNull(model.error)
+        assertNull(model.feedbackKind)
+    }
+
+    @Test
+    fun `only the current feedback token can dismiss a message`() {
+        val model = WukkiModel(AppState(), RemoteTextLoader { error("unused") }, stateSaver = {})
+        model.showRawError("Első hiba")
+        val staleToken = model.feedbackToken
+        model.showRawError("Második hiba")
+
+        model.dismissFeedback(staleToken)
+
+        assertNotNull(model.error)
+        assertEquals(AppFeedbackKind.ERROR, model.feedbackKind)
+        model.dismissFeedback(model.feedbackToken)
+        assertNull(model.error)
+        assertNull(model.feedbackKind)
     }
 
     @Test

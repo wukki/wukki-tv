@@ -1,14 +1,16 @@
 package hu.wukki.tv
 
 import java.io.Serializable
+import kotlinx.serialization.Serializable as KotlinSerializable
 
-enum class PlaylistSource { URL, FILE }
-enum class AppLanguage { HUNGARIAN, ENGLISH }
-enum class RefreshInterval(val hours: Int) { MANUAL(0), SIX_HOURS(6), TWELVE_HOURS(12), DAILY(24) }
-enum class BufferProfile { LOW_LATENCY, BALANCED, STABLE }
-enum class AspectRatioMode { AUTO, RATIO_16_9, RATIO_4_3, RATIO_21_9, FILL_CROP }
-enum class ChannelListDisplayMode { COMPACT, NORMAL, DETAILED }
+@KotlinSerializable enum class PlaylistSource { URL, FILE }
+@KotlinSerializable enum class AppLanguage { HUNGARIAN, ENGLISH }
+@KotlinSerializable enum class RefreshInterval(val hours: Int) { MANUAL(0), SIX_HOURS(6), TWELVE_HOURS(12), DAILY(24) }
+@KotlinSerializable enum class BufferProfile { LOW_LATENCY, BALANCED, STABLE }
+@KotlinSerializable enum class AspectRatioMode { AUTO, RATIO_16_9, RATIO_4_3, RATIO_21_9, FILL_CROP }
+@KotlinSerializable enum class ChannelListDisplayMode { COMPACT, NORMAL, DETAILED }
 
+@KotlinSerializable
 data class PlaybackSettings(
     val volume: Int = 100,
     val bufferProfile: BufferProfile = BufferProfile.BALANCED,
@@ -26,6 +28,7 @@ data class PlaybackSettings(
     }
 }
 
+@KotlinSerializable
 data class DisplaySettings(
     val uiScale: Float = 1f,
     /** Nullable only for compatibility with state written before channel-list modes existed. */
@@ -43,6 +46,7 @@ data class DisplaySettings(
     }
 }
 
+@KotlinSerializable
 data class AppSettings(
     val language: AppLanguage = AppLanguage.HUNGARIAN,
     val playlistRefresh: RefreshInterval = RefreshInterval.MANUAL,
@@ -51,6 +55,7 @@ data class AppSettings(
     val display: DisplaySettings = DisplaySettings()
 ) : Serializable
 
+@KotlinSerializable
 data class EpgSource(
     val id: String,
     val name: String,
@@ -61,6 +66,7 @@ data class EpgSource(
     val managedByPlaylist: Boolean = false
 ) : Serializable
 
+@KotlinSerializable
 data class PlaylistDefinition(
     val id: String,
     val name: String,
@@ -69,6 +75,7 @@ data class PlaylistDefinition(
     val updatedAt: Long
 ) : Serializable
 
+@KotlinSerializable
 data class Channel(
     val id: String,
     val playlistId: String,
@@ -90,6 +97,7 @@ data class Channel(
     }
 }
 
+@KotlinSerializable
 data class Programme(
     val channelId: String,
     val title: String,
@@ -105,6 +113,7 @@ data class Programme(
     }
 }
 
+@KotlinSerializable
 data class AppState(
     val playlists: List<PlaylistDefinition> = emptyList(),
     val channels: List<Channel> = emptyList(),

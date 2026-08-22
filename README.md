@@ -1,6 +1,6 @@
 # Wukki TV
 
-A Wukki TV egy Kotlin Multiplatform / Compose Desktop alapú IPTV alkalmazás. A hivatalos Wukki csatornalistát, XMLTV műsorújságot és alkalmazáson belüli, libVLC-alapú HLS lejátszást biztosít macOS-en, Windowson és Linuxon.
+A Wukki TV Kotlin Multiplatform / Compose alapú IPTV alkalmazás. A hivatalos Wukki csatornalistát, XMLTV műsorújságot és alkalmazáson belüli HLS lejátszást biztosít desktopon, Android TV-n és fekvő Android telefonon/tableten.
 
 ## Funkciók
 
@@ -12,6 +12,8 @@ A Wukki TV egy Kotlin Multiplatform / Compose Desktop alapú IPTV alkalmazás. A
 - Az M3U fejlécéből automatikusan felismert, rögzített XMLTV-forrás (`url-tvg` / `x-tvg-url` / `tvg-url`) és csatorna–EPG párosítás; egyéni playlist- és EPG-források nem használhatók
 - Csatornahelyes „most megy” és következő műsor, az EPG-lefedettséghez igazodó, időarányos, kétirányban navigálható műsorújság
 - Magyar és angol felület; a beállítások és az alkalmazásállapot helyben, a `~/.wukki-tv/state.bin` fájlban tárolódnak
+- Android 8+ támogatás Android TV launcherrel, D-pad navigációval és közvetlenül telepíthető APK-val
+- Androidon Media3/ExoPlayer, desktopon libVLC gondoskodik a HLS lejátszásról
 
 ## Indítás fejlesztőként
 
@@ -45,6 +47,38 @@ WUKKI_VLC_RUNTIME="/elérési/út/vlc-runtime" ./gradlew :app:packageDistributio
 A GitHub Actions `Package desktop applications` workflow kézzel, illetve `v*` formátumú tag pusholásakor készít macOS, Windows és Linux telepítőket. A workflow a VLC runtime-ot is a telepítőbe csomagolja, ezért a kiadott alkalmazásokhoz nem szükséges külön VLC telepítés.
 
 > A macOS DMG jelenleg nincs Apple Developer tanúsítvánnyal aláírva vagy notarizálva. Első indításkor Finderben jobb klikk → **Megnyitás** szükséges lehet.
+
+## Android APK
+
+Az Android alkalmazás minimum Android 8.0-t (API 26) igényel, fekvő tájolásra optimalizált. Android TV-n a rendszer Leanback launcherében is megjelenik.
+
+Az első build előtt telepíts Android SDK Platform 36-ot és Build Tools 36-ot, majd állítsd be a helyi SDK útvonalát az egyik módon:
+
+```sh
+export ANDROID_HOME="$HOME/Library/Android/sdk"
+```
+
+vagy hozd létre a gitből kizárt `local.properties` fájlt:
+
+```properties
+sdk.dir=/Users/saját-felhasználó/Library/Android/sdk
+```
+
+Debug APK készítése:
+
+```sh
+./gradlew :androidApp:assembleDebug
+```
+
+Az APK a következő helyen készül el: `androidApp/build/outputs/apk/debug/androidApp-debug.apk`.
+
+Telepítés USB-n vagy Android Debug Bridge-en keresztül:
+
+```sh
+adb install -r androidApp/build/outputs/apk/debug/androidApp-debug.apk
+```
+
+Release APK saját aláírással készíthető. Másold az `androidApp/keystore.properties.example` fájlt `androidApp/keystore.properties` néven, töltsd ki a helyi keystore adataival, majd futtasd az `:androidApp:assembleRelease` feladatot. A keystore és a jelszavak nem kerülnek a repóba.
 
 ## Korlátok
 

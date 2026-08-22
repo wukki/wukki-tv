@@ -8,12 +8,15 @@ import java.util.Properties
 
 plugins {
     kotlin("multiplatform")
+    kotlin("plugin.serialization")
     id("org.jetbrains.compose")
     id("org.jetbrains.kotlin.plugin.compose")
+    id("com.android.kotlin.multiplatform.library")
 }
 
 val generatedAppResources = layout.buildDirectory.dir("generated/wukkiAppResources")
 val generatedBuildInfo = layout.buildDirectory.dir("generated/wukkiBuildInfo/desktopMain/kotlin")
+val generatedAndroidSharedKotlin = layout.buildDirectory.dir("generated/wukkiAndroidShared/kotlin")
 val vlcRuntimePath = providers.environmentVariable("WUKKI_VLC_RUNTIME")
 val wukkiVersion = providers.gradleProperty("wukkiVersion")
     .orElse(providers.environmentVariable("GITHUB_REF_NAME").map { it.removePrefix("v") })
@@ -64,6 +67,27 @@ val prepareVlcRuntime by tasks.registering(Sync::class) {
 }
 
 /**
+ * The desktop target predates the Android target and still owns the shared UI and domain source
+ * tree. Copy the platform-neutral subset for Android instead of compiling the desktop source
+ * directory directly: Kotlin source-set excludes are not reliably applied to an added directory.
+ */
+val prepareAndroidSharedSources by tasks.registering(Sync::class) {
+    from("src/desktopMain/kotlin") {
+        exclude(
+            "hu/wukki/tv/Main.kt",
+            "hu/wukki/tv/data/LocalStore.kt",
+            "hu/wukki/tv/data/DeviceInfoProvider.kt",
+            "hu/wukki/tv/player/AspectRatioImagePainter.kt",
+            "hu/wukki/tv/player/OverlayTheme.kt",
+            "hu/wukki/tv/player/PlaybackController.kt",
+            "hu/wukki/tv/player/VlcRuntimeResolver.kt",
+            "hu/wukki/tv/ui/app/DesktopWukkiApp.kt"
+        )
+    }
+    into(generatedAndroidSharedKotlin)
+}
+
+/**
  * VLC.app's executable supplies its own @rpath entries. libVLC is instead loaded by the JVM in
  * the packaged Wukki app, so those entries are not available to decoder plugins. Give the copied
  * libraries a loader-relative search path before Compose bundles and signs the app. Plugins are
@@ -101,8 +125,38 @@ val patchMacVlcRuntime by tasks.registering {
 
 kotlin {
     jvm("desktop")
+    androidLibrary {
+        namespace = "hu.wukki.tv.shared"
+        compileSdk = 36
+        minSdk = 26
+        androidResources { enable = true }
+    }
 
     sourceSets {
+        val androidMain by getting {
+            // The Compose features, models and IPTV logic are shared source. Platform entry
+            // points, local stores and video renderers are supplied from androidMain instead.
+            kotlin.srcDir(generatedAndroidSharedKotlin)
+            resources.srcDir("src/desktopMain/resources")
+            kotlin.srcDir(generatedBuildInfo)
+            dependencies {
+                implementation(compose.runtime)
+                implementation(compose.foundation)
+                implementation(compose.material3)
+                implementation(compose.materialIconsExtended)
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+                implementation("io.coil-kt.coil3:coil-compose:3.0.4")
+                implementation("io.coil-kt.coil3:coil-network-ktor3:3.0.4")
+                implementation("io.coil-kt.coil3:coil-svg:3.0.4")
+                implementation("io.ktor:ktor-client-okhttp:3.0.1")
+                implementation("androidx.datastore:datastore-preferences:1.2.1")
+                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0")
+                implementation("androidx.work:work-runtime-ktx:2.10.0")
+                implementation("androidx.media3:media3-exoplayer:1.10.1")
+                implementation("androidx.media3:media3-exoplayer-hls:1.10.1")
+                implementation("androidx.media3:media3-ui:1.10.1")
+            }
+        }
         val desktopMain by getting {
             kotlin.srcDir(generatedBuildInfo)
             dependencies {
@@ -121,6 +175,7 @@ kotlin {
         val desktopTest by getting {
             dependencies {
                 implementation(kotlin("test"))
+                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0")
             }
         }
     }
@@ -158,6 +213,10 @@ tasks.matching { it.name.startsWith("package") }.configureEach {
 
 tasks.matching { it.name == "compileKotlinDesktop" }.configureEach {
     dependsOn(generateBuildInfo)
+}
+
+tasks.matching { it.name == "compileAndroidMain" }.configureEach {
+    dependsOn(generateBuildInfo, prepareAndroidSharedSources)
 }
 
 val checkLocalizationBundles by tasks.registering {

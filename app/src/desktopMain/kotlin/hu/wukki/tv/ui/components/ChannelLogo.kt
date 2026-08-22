@@ -17,10 +17,6 @@ import hu.wukki.tv.AppLanguage
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.util.logging.Level
-import java.util.logging.Logger
-
-private val logoLogger = Logger.getLogger("hu.wukki.tv.ChannelLogo")
 
 @Composable
 fun ChannelLogo(channel: Channel, language: AppLanguage, modifier: Modifier = Modifier) {
@@ -33,8 +29,7 @@ fun ChannelLogo(channel: Channel, language: AppLanguage, modifier: Modifier = Mo
                 contentScale = ContentScale.Fit,
                 modifier = Modifier.fillMaxSize(),
                 loading = { LogoFallback(channel) },
-                error = { LogoFallback(channel) },
-                onError = { state -> logoLogger.log(Level.WARNING, "Nem tölthető be a csatornalogó: channel=${channel.name}, url=${channel.logo}", state.result.throwable) }
+                error = { LogoFallback(channel) }
             )
         }
     }

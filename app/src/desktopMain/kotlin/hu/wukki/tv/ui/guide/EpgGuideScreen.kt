@@ -57,7 +57,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.isShiftPressed
-import androidx.compose.ui.input.pointer.onPointerEvent
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -289,13 +289,19 @@ fun EpgGuideScreen(
                 TimelineHeader(data.language, state, timeline, timelineWidth, tick, metrics)
                 Box(
                     modifier = Modifier.weight(1f).fillMaxWidth()
-                        .onPointerEvent(PointerEventType.Scroll) { event ->
-                            val change = event.changes.firstOrNull() ?: return@onPointerEvent
-                            val delta: Offset = change.scrollDelta
-                            if (event.keyboardModifiers.isShiftPressed || abs(delta.x) > abs(delta.y)) {
-                                val amount = if (abs(delta.x) > abs(delta.y)) delta.x else delta.y
-                                scope.launch { state.horizontalScroll.scrollBy(amount * 64f) }
-                                change.consume()
+                        .pointerInput(state.horizontalScroll, scope) {
+                            awaitPointerEventScope {
+                                while (true) {
+                                    val event = awaitPointerEvent()
+                                    if (event.type != PointerEventType.Scroll) continue
+                                    val change = event.changes.firstOrNull() ?: continue
+                                    val delta: Offset = change.scrollDelta
+                                    if (event.keyboardModifiers.isShiftPressed || abs(delta.x) > abs(delta.y)) {
+                                        val amount = if (abs(delta.x) > abs(delta.y)) delta.x else delta.y
+                                        scope.launch { state.horizontalScroll.scrollBy(amount * 64f) }
+                                        change.consume()
+                                    }
+                                }
                             }
                         }
                 ) {

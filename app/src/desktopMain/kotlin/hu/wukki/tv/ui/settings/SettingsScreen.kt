@@ -7,10 +7,15 @@ import hu.wukki.tv.ui.components.WukkiBrushes
 import hu.wukki.tv.ui.components.WukkiColors
 
 import androidx.compose.foundation.*
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.ArrowForwardIos
 import androidx.compose.material.icons.outlined.ArrowDropDown
 import androidx.compose.material.icons.outlined.Settings
@@ -18,6 +23,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -53,14 +60,32 @@ fun SettingsScreen(
     remoteCategoryIndex: Int = 0,
     remoteNavigationActive: Boolean = false,
     remoteOptionIndex: Int = 0,
-    modifier: Modifier = Modifier
+    androidFullScreenSubmenus: Boolean = false,
+    onCategoryFocus: (Int) -> Unit = {},
+    onOptionFocus: (Int) -> Unit = {},
+    modifier: Modifier = Modifier,
+    playbackEngineLabel: String = "VLC / libVLC"
 ) {
     BoxWithConstraints(modifier) {
         val scale = minOf(
             maxWidth.value / SETTINGS_REFERENCE_WIDTH,
             maxHeight.value / SETTINGS_REFERENCE_HEIGHT
         ).coerceIn(.70f, 1f)
-        Column(Modifier.fillMaxSize()) {
+        if (androidFullScreenSubmenus) {
+            AndroidSettingsLayout(
+                model = model,
+                scope = scope,
+                selectedSection = selectedSection,
+                onSectionChange = onSectionChange,
+                remoteCategoryIndex = remoteCategoryIndex,
+                remoteNavigationActive = remoteNavigationActive,
+                remoteOptionIndex = remoteOptionIndex,
+                onCategoryFocus = onCategoryFocus,
+                onOptionFocus = onOptionFocus,
+                scale = scale,
+                playbackEngineLabel = playbackEngineLabel
+            )
+        } else Column(Modifier.fillMaxSize()) {
             Text(
                 tr(model.settings.language, "settings.title"),
                 color = WukkiColors.textPrimary,
@@ -76,6 +101,7 @@ fun SettingsScreen(
                     model = model,
                     selected = selectedSection,
                     onSelect = onSectionChange,
+                    onCategoryFocus = onCategoryFocus,
                     remoteCategoryIndex = remoteCategoryIndex,
                     remoteNavigationActive = remoteNavigationActive,
                     scale = scale,
@@ -90,6 +116,8 @@ fun SettingsScreen(
                         selectedSection = selectedSection,
                         scale = scale,
                         remoteOptionIndex = remoteOptionIndex,
+                        onOptionFocus = onOptionFocus,
+                        playbackEngineLabel = playbackEngineLabel,
                         modifier = Modifier.weight(1f).fillMaxHeight()
                     )
                 }
@@ -103,23 +131,32 @@ private fun SettingsNavigation(
     model: WukkiModel,
     selected: SettingsSection?,
     onSelect: (SettingsSection?) -> Unit,
+    onCategoryFocus: (Int) -> Unit,
     remoteCategoryIndex: Int,
     remoteNavigationActive: Boolean,
     scale: Float,
-    modifier: Modifier
+    modifier: Modifier,
+    scrollable: Boolean = false
 ) {
     val shape = RoundedCornerShape(12.dp * scale)
-    Column(
+    val listState = rememberLazyListState()
+    LaunchedEffect(scrollable, selected, remoteNavigationActive, remoteCategoryIndex) {
+        if (scrollable && selected == null && remoteNavigationActive) {
+            listState.animateScrollToItem(remoteCategoryIndex.coerceIn(0, SettingsSection.entries.lastIndex))
+        }
+    }
+    LazyColumn(
+        state = listState,
         modifier = modifier.clip(shape).background(SettingsSurface).border(1.dp, WukkiColors.border, shape)
     ) {
-        SettingsSection.entries.forEachIndexed { index, item ->
+        itemsIndexed(SettingsSection.entries) { index, item ->
             val active = item == selected
             val focused = remoteNavigationActive && selected == null && index == remoteCategoryIndex
             Row(
                 modifier = Modifier.fillMaxWidth().height(81.dp * scale)
                     .background(if (active) WukkiColors.surfaceSelected else WukkiColors.transparent)
                     .border(if (focused) 2.dp else .5.dp, if (focused) SettingsAccent else WukkiColors.border.copy(alpha = .72f))
-                    .clickable { onSelect(item) }.padding(horizontal = 24.dp * scale),
+                    .clickable { onCategoryFocus(index); onSelect(item) }.padding(horizontal = 24.dp * scale),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
@@ -141,6 +178,79 @@ private fun SettingsNavigation(
                 }
                 Icon(Icons.AutoMirrored.Outlined.ArrowForwardIos, contentDescription = null, tint = WukkiColors.textSecondary, modifier = Modifier.size(22.dp * scale))
             }
+        }
+    }
+}
+
+@Composable
+private fun AndroidSettingsLayout(
+    model: WukkiModel,
+    scope: CoroutineScope,
+    selectedSection: SettingsSection?,
+    onSectionChange: (SettingsSection?) -> Unit,
+    remoteCategoryIndex: Int,
+    remoteNavigationActive: Boolean,
+    remoteOptionIndex: Int,
+    onCategoryFocus: (Int) -> Unit,
+    onOptionFocus: (Int) -> Unit,
+    scale: Float,
+    playbackEngineLabel: String
+) {
+    Column(Modifier.fillMaxSize()) {
+        Text(
+            tr(model.settings.language, "settings.title"),
+            color = WukkiColors.textPrimary,
+            fontWeight = FontWeight.Black,
+            fontSize = (26f * scale).sp,
+            modifier = Modifier.padding(start = 8.dp * scale, top = 8.dp * scale, bottom = 18.dp * scale)
+        )
+        if (selectedSection == null) {
+            SettingsNavigation(
+                model = model,
+                selected = null,
+                onSelect = onSectionChange,
+                onCategoryFocus = onCategoryFocus,
+                remoteCategoryIndex = remoteCategoryIndex,
+                remoteNavigationActive = remoteNavigationActive,
+                scale = scale,
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                scrollable = true
+            )
+        } else {
+            val sectionTitle = selectedSection.title(model)
+            Row(
+                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+                    .background(WukkiColors.backgroundRaised).clickable { onSectionChange(null) }
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Outlined.ArrowBack,
+                    contentDescription = tr(model.settings.language, "action.back"),
+                    tint = WukkiColors.textPrimary
+                )
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    sectionTitle,
+                    color = WukkiColors.textPrimary,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = (18f * scale).sp,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Spacer(Modifier.height(12.dp))
+            SettingsDetail(
+                model = model,
+                scope = scope,
+                selectedSection = selectedSection,
+                scale = scale,
+                remoteOptionIndex = remoteOptionIndex,
+                onOptionFocus = onOptionFocus,
+                playbackEngineLabel = playbackEngineLabel,
+                modifier = Modifier.fillMaxWidth().weight(1f)
+            )
         }
     }
 }
@@ -176,44 +286,43 @@ private fun SettingsDetail(
     selectedSection: SettingsSection,
     scale: Float,
     remoteOptionIndex: Int,
+    onOptionFocus: (Int) -> Unit,
+    playbackEngineLabel: String,
     modifier: Modifier
 ) {
     SettingsCard(modifier) {
-        when (selectedSection) {
-            SettingsSection.EPG -> EpgSettings(model, scope, remoteOptionIndex)
-            SettingsSection.PLAYLISTS -> PlaylistSettings(model, scope, remoteOptionIndex)
-            else -> Column(
-                modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())
-            ) {
+        Column(
+            modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())
+        ) {
                 when (selectedSection) {
-                    SettingsSection.PLAYBACK -> PlaybackSettings(model, remoteOptionIndex)
-                    SettingsSection.DISPLAY -> DisplaySettings(model, remoteOptionIndex)
+                    SettingsSection.PLAYBACK -> PlaybackSettings(model, remoteOptionIndex, onOptionFocus)
+                    SettingsSection.EPG -> EpgSettings(model, scope, remoteOptionIndex, onOptionFocus)
+                    SettingsSection.DISPLAY -> DisplaySettings(model, remoteOptionIndex, onOptionFocus)
                     SettingsSection.PARENTAL -> ParentalSettings(model)
-                    SettingsSection.LANGUAGE -> LanguageSettings(model, remoteOptionIndex)
-                    SettingsSection.ABOUT -> AboutSettings(model)
-                    SettingsSection.EPG, SettingsSection.PLAYLISTS -> Unit
+                    SettingsSection.PLAYLISTS -> PlaylistSettings(model, scope, remoteOptionIndex, onOptionFocus)
+                    SettingsSection.LANGUAGE -> LanguageSettings(model, remoteOptionIndex, onOptionFocus)
+                    SettingsSection.ABOUT -> AboutSettings(model, playbackEngineLabel)
                 }
-            }
         }
     }
 }
 
 @Composable
-private fun PlaybackSettings(model: WukkiModel, remoteOptionIndex: Int) {
+private fun PlaybackSettings(model: WukkiModel, remoteOptionIndex: Int, onOptionFocus: (Int) -> Unit) {
     val settings = model.settings.playback
     val focusedOption = PlaybackOption.entries.getOrElse(remoteOptionIndex) { PlaybackOption.AUTOPLAY }
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        SettingsOptionRow(model, "settings.playback.autoplay", "settings.playback.autoplay.description", focusedOption == PlaybackOption.AUTOPLAY) {
+        SettingsOptionRow(model, "settings.playback.autoplay", "settings.playback.autoplay.description", focusedOption == PlaybackOption.AUTOPLAY, onFocus = { onOptionFocus(0) }) {
             Switch(
                 checked = settings.autoPlayOnLaunch != false,
-                onCheckedChange = { enabled -> model.updatePlayback { it.copy(autoPlayOnLaunch = enabled) } },
+                onCheckedChange = { enabled -> onOptionFocus(0); model.updatePlayback { it.copy(autoPlayOnLaunch = enabled) } },
                 colors = SwitchDefaults.colors(checkedThumbColor = WukkiColors.textPrimary, checkedTrackColor = SettingsAccent, uncheckedThumbColor = SettingsMuted, uncheckedTrackColor = WukkiColors.border)
             )
         }
-        SettingsOptionRow(model, "settings.playback.volume", "settings.playback.volume.description", focusedOption == PlaybackOption.VOLUME) {
+        SettingsOptionRow(model, "settings.playback.volume", "settings.playback.volume.description", focusedOption == PlaybackOption.VOLUME, onFocus = { onOptionFocus(1) }) {
             Row(
                 modifier = Modifier.widthIn(min = 150.dp, max = 205.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -222,54 +331,61 @@ private fun PlaybackSettings(model: WukkiModel, remoteOptionIndex: Int) {
                 Text("${settings.volume}%", color = WukkiColors.textPrimary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                 Slider(
                     value = settings.volume.toFloat(),
-                    onValueChange = { volume -> model.updatePlayback { it.copy(volume = volume.toInt()) } },
+                    onValueChange = { volume -> onOptionFocus(1); model.updatePlayback { it.copy(volume = volume.toInt()) } },
                     valueRange = 0f..100f,
                     modifier = Modifier.weight(1f)
                 )
             }
         }
-        SettingsOptionRow(model, "settings.playback.buffer", "settings.playback.buffer.description", focusedOption == PlaybackOption.BUFFER) {
+        SettingsOptionRow(model, "settings.playback.buffer", "settings.playback.buffer.description", focusedOption == PlaybackOption.BUFFER, onFocus = { onOptionFocus(2) }) {
             Column(modifier = Modifier.widthIn(min = 150.dp, max = 205.dp)) {
-            PlaybackSelect(settings.bufferProfile, BufferProfile.entries.toList(), { it.label(model) }) { profile -> model.updatePlayback { it.copy(bufferProfile = profile) } }
+            PlaybackSelect(settings.bufferProfile, BufferProfile.entries.toList(), { it.label(model) }, { onOptionFocus(2) }) { profile -> model.updatePlayback { it.copy(bufferProfile = profile) } }
             }
         }
-        SettingsOptionRow(model, "settings.playback.aspect", "settings.playback.aspect.description", focusedOption == PlaybackOption.ASPECT_RATIO) {
+        SettingsOptionRow(model, "settings.playback.aspect", "settings.playback.aspect.description", focusedOption == PlaybackOption.ASPECT_RATIO, onFocus = { onOptionFocus(3) }) {
             Column(modifier = Modifier.widthIn(min = 150.dp, max = 205.dp)) {
-            PlaybackSelect(settings.aspectRatio ?: AspectRatioMode.AUTO, AspectRatioMode.entries.toList(), { it.label(model) }) { ratio -> model.updatePlayback { it.copy(aspectRatio = ratio) } }
+            PlaybackSelect(settings.aspectRatio ?: AspectRatioMode.AUTO, AspectRatioMode.entries.toList(), { it.label(model) }, { onOptionFocus(3) }) { ratio -> model.updatePlayback { it.copy(aspectRatio = ratio) } }
             }
         }
-        SettingsOptionRow(model, "settings.playback.reconnect", "settings.playback.reconnect.description", focusedOption == PlaybackOption.RECONNECT) {
+        SettingsOptionRow(model, "settings.playback.reconnect", "settings.playback.reconnect.description", focusedOption == PlaybackOption.RECONNECT, onFocus = { onOptionFocus(4) }) {
             Switch(
                 checked = settings.autoReconnect,
-                onCheckedChange = { enabled -> model.updatePlayback { it.copy(autoReconnect = enabled) } },
+                onCheckedChange = { enabled -> onOptionFocus(4); model.updatePlayback { it.copy(autoReconnect = enabled) } },
                 colors = SwitchDefaults.colors(checkedThumbColor = WukkiColors.textPrimary, checkedTrackColor = SettingsAccent, uncheckedThumbColor = SettingsMuted, uncheckedTrackColor = WukkiColors.border)
             )
         }
-        SettingsOptionRow(model, "settings.playback.attempts", "settings.playback.attempts.description", focusedOption == PlaybackOption.RETRIES) {
+        SettingsOptionRow(model, "settings.playback.attempts", "settings.playback.attempts.description", focusedOption == PlaybackOption.RETRIES, onFocus = { onOptionFocus(5) }) {
             PlaybackStepper(
                 value = settings.reconnectAttempts,
-                onDecrease = { model.updatePlayback { it.copy(reconnectAttempts = (it.reconnectAttempts - 1).coerceAtLeast(1)) } },
-                onIncrease = { model.updatePlayback { it.copy(reconnectAttempts = (it.reconnectAttempts + 1).coerceAtMost(10)) } }
+                onDecrease = { onOptionFocus(5); model.updatePlayback { it.copy(reconnectAttempts = (it.reconnectAttempts - 1).coerceAtLeast(1)) } },
+                onIncrease = { onOptionFocus(5); model.updatePlayback { it.copy(reconnectAttempts = (it.reconnectAttempts + 1).coerceAtMost(10)) } }
             )
         }
     }
 }
 
 @Composable
+@OptIn(ExperimentalFoundationApi::class)
 private fun SettingsOptionRow(
     model: WukkiModel,
     titleKey: String,
     descriptionKey: String? = null,
     selected: Boolean = false,
+    onFocus: (() -> Unit)? = null,
     onSelect: (() -> Unit)? = null,
     control: @Composable () -> Unit
 ) {
+    val bringIntoViewRequester = remember { BringIntoViewRequester() }
+    LaunchedEffect(selected) {
+        if (selected) bringIntoViewRequester.bringIntoView()
+    }
     Row(
         modifier = Modifier.fillMaxWidth().height(66.dp)
             .clip(RoundedCornerShape(6.dp))
             .background(if (selected) WukkiColors.surfaceSelected else WukkiColors.backgroundRaised)
             .border(1.dp, if (selected) SettingsAccent else WukkiColors.border, RoundedCornerShape(6.dp))
-            .then(if (onSelect != null) Modifier.clickable(onClick = onSelect) else Modifier)
+            .bringIntoViewRequester(bringIntoViewRequester)
+            .then(if (onFocus != null || onSelect != null) Modifier.clickable { onFocus?.invoke(); onSelect?.invoke() } else Modifier)
             .padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -285,12 +401,12 @@ private fun SettingsOptionRow(
 }
 
 @Composable
-private fun <T> PlaybackSelect(value: T, entries: List<T>, label: @Composable (T) -> String, onSelect: (T) -> Unit) {
+private fun <T> PlaybackSelect(value: T, entries: List<T>, label: @Composable (T) -> String, onFocus: () -> Unit, onSelect: (T) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     Box {
         Row(
             modifier = Modifier.widthIn(min = 155.dp).clip(RoundedCornerShape(5.dp)).background(WukkiColors.surfaceInput)
-                .border(1.dp, WukkiColors.border, RoundedCornerShape(5.dp)).clickable { expanded = true }
+                .border(1.dp, WukkiColors.border, RoundedCornerShape(5.dp)).clickable { onFocus(); expanded = true }
                 .padding(horizontal = 11.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -299,7 +415,7 @@ private fun <T> PlaybackSelect(value: T, entries: List<T>, label: @Composable (T
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             entries.forEach { entry ->
-                DropdownMenuItem(text = { Text(label(entry), color = WukkiColors.textPrimary) }, onClick = { onSelect(entry); expanded = false })
+                DropdownMenuItem(text = { Text(label(entry), color = WukkiColors.textPrimary) }, onClick = { onFocus(); onSelect(entry); expanded = false })
             }
         }
     }
@@ -319,14 +435,15 @@ private fun PlaybackStepper(value: Int, onDecrease: () -> Unit, onIncrease: () -
 }
 
 @Composable
-private fun EpgSettings(model: WukkiModel, scope: CoroutineScope, remoteOptionIndex: Int) {
+private fun EpgSettings(model: WukkiModel, scope: CoroutineScope, remoteOptionIndex: Int, onOptionFocus: (Int) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-    SettingsOptionRow(model, "settings.epg.refresh", selected = remoteOptionIndex == 0) {
+    SettingsOptionRow(model, "settings.epg.refresh", selected = remoteOptionIndex == 0, onFocus = { onOptionFocus(0) }) {
         RefreshSelector(
             model,
             model.settings.epgRefresh,
             intervals = RefreshInterval.entries.toList(),
             useHourlyLabels = true,
+            onFocus = { onOptionFocus(0) },
             onSelect = model::setEpgRefresh
         )
     }
@@ -337,46 +454,48 @@ private fun EpgSettings(model: WukkiModel, scope: CoroutineScope, remoteOptionIn
         location = model.officialEpgSource?.url,
         updatedAt = model.officialEpgSource?.lastUpdatedAt,
         selected = remoteOptionIndex == 1,
+        onFocus = { onOptionFocus(1) },
         onRefresh = { scope.launch { model.refreshOfficialEpg() } }
     )
     }
 }
 @Composable
-private fun DisplaySettings(model: WukkiModel, remoteOptionIndex: Int) {
+private fun DisplaySettings(model: WukkiModel, remoteOptionIndex: Int, onOptionFocus: (Int) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-    SettingsOptionRow(model, "settings.display.scale", selected = remoteOptionIndex == 0) {
+    SettingsOptionRow(model, "settings.display.scale", selected = remoteOptionIndex == 0, onFocus = { onOptionFocus(0) }) {
         Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
             listOf(.9f to tr(model.settings.language, "settings.display.small"), 1f to tr(model.settings.language, "settings.display.normal"), 1.15f to tr(model.settings.language, "settings.display.large")).forEach { (scale, title) ->
-                FilterChip(selected = model.settings.display.uiScale == scale, onClick = { model.updateDisplay { it.copy(uiScale = scale) } }, label = { Text(title) })
+                FilterChip(selected = model.settings.display.uiScale == scale, onClick = { onOptionFocus(0); model.updateDisplay { it.copy(uiScale = scale) } }, label = { Text(title) })
             }
         }
     }
-    SettingsOptionRow(model, "settings.display.channel.list", selected = remoteOptionIndex == 1) {
+    SettingsOptionRow(model, "settings.display.channel.list", selected = remoteOptionIndex == 1, onFocus = { onOptionFocus(1) }) {
         Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
             ChannelListDisplayMode.entries.forEach { mode ->
                 FilterChip(
                     selected = (model.settings.display.channelListMode ?: ChannelListDisplayMode.NORMAL) == mode,
-                    onClick = { model.updateDisplay { it.copy(channelListMode = mode) } },
+                    onClick = { onOptionFocus(1); model.updateDisplay { it.copy(channelListMode = mode) } },
                     label = { Text(mode.label(model)) }
                 )
             }
         }
     }
-    SettingsToggle(model, "settings.display.programme", model.settings.display.showChannelProgramme, remoteOptionIndex == 2) { model.updateDisplay { settings -> settings.copy(showChannelProgramme = it) } }
-    SettingsToggle(model, "settings.display.mini.guide", model.settings.display.showMiniGuide, remoteOptionIndex == 3) { model.updateDisplay { settings -> settings.copy(showMiniGuide = it) } }
-    SettingsToggle(model, "settings.display.logos", model.settings.display.showLogos, remoteOptionIndex == 4) { model.updateDisplay { settings -> settings.copy(showLogos = it) } }
-    SettingsToggle(model, "settings.display.programme.images", model.settings.display.showProgrammeImages != false, remoteOptionIndex == 5) { model.updateDisplay { settings -> settings.copy(showProgrammeImages = it) } }
+    SettingsToggle(model, "settings.display.programme", model.settings.display.showChannelProgramme, remoteOptionIndex == 2, { onOptionFocus(2) }) { model.updateDisplay { settings -> settings.copy(showChannelProgramme = it) } }
+    SettingsToggle(model, "settings.display.mini.guide", model.settings.display.showMiniGuide, remoteOptionIndex == 3, { onOptionFocus(3) }) { model.updateDisplay { settings -> settings.copy(showMiniGuide = it) } }
+    SettingsToggle(model, "settings.display.logos", model.settings.display.showLogos, remoteOptionIndex == 4, { onOptionFocus(4) }) { model.updateDisplay { settings -> settings.copy(showLogos = it) } }
+    SettingsToggle(model, "settings.display.programme.images", model.settings.display.showProgrammeImages != false, remoteOptionIndex == 5, { onOptionFocus(5) }) { model.updateDisplay { settings -> settings.copy(showProgrammeImages = it) } }
     }
 }
 
 @Composable
-private fun PlaylistSettings(model: WukkiModel, scope: CoroutineScope, remoteOptionIndex: Int) {
+private fun PlaylistSettings(model: WukkiModel, scope: CoroutineScope, remoteOptionIndex: Int, onOptionFocus: (Int) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-    SettingsOptionRow(model, "settings.playlist.refresh", selected = remoteOptionIndex == 0) {
+    SettingsOptionRow(model, "settings.playlist.refresh", selected = remoteOptionIndex == 0, onFocus = { onOptionFocus(0) }) {
         RefreshSelector(
             model,
             model.settings.playlistRefresh,
             intervals = listOf(RefreshInterval.MANUAL, RefreshInterval.SIX_HOURS, RefreshInterval.DAILY),
+            onFocus = { onOptionFocus(0) },
             onSelect = model::setPlaylistRefresh
         )
     }
@@ -388,6 +507,7 @@ private fun PlaylistSettings(model: WukkiModel, scope: CoroutineScope, remoteOpt
         updatedAt = model.officialPlaylist.updatedAt,
         footer = tr(model.settings.language, "settings.channels.count", model.state.channels.size),
         selected = remoteOptionIndex == 1,
+        onFocus = { onOptionFocus(1) },
         onRefresh = { scope.launch { model.refreshOfficialPlaylist() } }
     )
     }
@@ -401,6 +521,7 @@ private fun FixedSourceCard(
     location: String?,
     updatedAt: Long?,
     selected: Boolean,
+    onFocus: () -> Unit,
     onRefresh: () -> Unit,
     footer: String? = null
 ) {
@@ -410,13 +531,14 @@ private fun FixedSourceCard(
             .clip(shape)
             .background(if (selected) WukkiColors.surfaceSelected else WukkiColors.backgroundRaised)
             .border(1.dp, if (selected) SettingsAccent else WukkiColors.border, shape)
+            .clickable { onFocus() }
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(5.dp)
     ) {
         Text(tr(model.settings.language, titleKey), color = WukkiColors.textSecondary, fontSize = 11.sp)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(sourceName, color = WukkiColors.textPrimary, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            TextButton(onClick = onRefresh) { Text(tr(model.settings.language, "settings.refresh")) }
+            TextButton(onClick = { onFocus(); onRefresh() }) { Text(tr(model.settings.language, "settings.refresh")) }
         }
         location?.let { Text(it, color = SettingsMuted, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
         Text(
@@ -427,12 +549,12 @@ private fun FixedSourceCard(
     }
 }
 @Composable
-private fun LanguageSettings(model: WukkiModel, remoteOptionIndex: Int) {
+private fun LanguageSettings(model: WukkiModel, remoteOptionIndex: Int, onOptionFocus: (Int) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-    SettingsOptionRow(model, "settings.language.title", selected = remoteOptionIndex == 0) {
+    SettingsOptionRow(model, "settings.language.title", selected = remoteOptionIndex == 0, onFocus = { onOptionFocus(0) }) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(selected = model.settings.language == AppLanguage.HUNGARIAN, onClick = { model.setLanguage(AppLanguage.HUNGARIAN) }, label = { Text(tr(model.settings.language, "language.hungarian")) })
-            FilterChip(selected = model.settings.language == AppLanguage.ENGLISH, onClick = { model.setLanguage(AppLanguage.ENGLISH) }, label = { Text(tr(model.settings.language, "language.english")) })
+            FilterChip(selected = model.settings.language == AppLanguage.HUNGARIAN, onClick = { onOptionFocus(0); model.setLanguage(AppLanguage.HUNGARIAN) }, label = { Text(tr(model.settings.language, "language.hungarian")) })
+            FilterChip(selected = model.settings.language == AppLanguage.ENGLISH, onClick = { onOptionFocus(0); model.setLanguage(AppLanguage.ENGLISH) }, label = { Text(tr(model.settings.language, "language.english")) })
         }
     }
     SettingsOptionRow(model, "settings.language.notice") { }
@@ -445,7 +567,7 @@ private fun ParentalSettings(model: WukkiModel) {
 }
 
 @Composable
-private fun AboutSettings(model: WukkiModel) {
+private fun AboutSettings(model: WukkiModel, playbackEngineLabel: String) {
     var deviceInfo by remember { mutableStateOf<DeviceInfo?>(null) }
     var legalDocument by remember { mutableStateOf<LegalDocument?>(null) }
     LaunchedEffect(Unit) {
@@ -455,7 +577,7 @@ private fun AboutSettings(model: WukkiModel) {
         SettingsOptionRow(model, "settings.about", "settings.about.licenses") { Text("Wukki TV", color = WukkiColors.textPrimary, fontWeight = FontWeight.SemiBold) }
         SettingsOptionRow(model, "settings.about.version") { Text(WukkiBuildInfo.VERSION, color = WukkiColors.textPrimary, fontWeight = FontWeight.SemiBold) }
         SettingsOptionRow(model, "settings.about.build") { Text(WukkiBuildInfo.BUILD, color = WukkiColors.textPrimary, fontWeight = FontWeight.SemiBold) }
-        SettingsOptionRow(model, "settings.about.engine") { Text("VLC / libVLC", color = WukkiColors.textPrimary, fontWeight = FontWeight.SemiBold) }
+        SettingsOptionRow(model, "settings.about.engine") { Text(playbackEngineLabel, color = WukkiColors.textPrimary, fontWeight = FontWeight.SemiBold) }
         SettingsOptionRow(model, "settings.about.platform") { Text(deviceInfo?.platform ?: tr(model.settings.language, "settings.about.loading"), color = WukkiColors.textPrimary, fontWeight = FontWeight.SemiBold) }
         SettingsOptionRow(model, "settings.about.os") { Text(deviceInfo?.osVersion ?: tr(model.settings.language, "settings.about.loading"), color = WukkiColors.textPrimary, fontWeight = FontWeight.SemiBold) }
         SettingsOptionRow(model, "settings.about.device.id") { Text(deviceInfo?.installationId ?: tr(model.settings.language, "settings.about.loading"), color = WukkiColors.textPrimary, fontWeight = FontWeight.SemiBold) }
@@ -520,11 +642,11 @@ private fun LegalDocumentDialog(model: WukkiModel, document: LegalDocument, onDi
 }
 
 @Composable
-private fun SettingsToggle(model: WukkiModel, titleKey: String, checked: Boolean, selected: Boolean = false, onCheckedChange: (Boolean) -> Unit) {
-    SettingsOptionRow(model, titleKey, selected = selected) {
+private fun SettingsToggle(model: WukkiModel, titleKey: String, checked: Boolean, selected: Boolean = false, onFocus: () -> Unit, onCheckedChange: (Boolean) -> Unit) {
+    SettingsOptionRow(model, titleKey, selected = selected, onFocus = onFocus) {
         Switch(
             checked = checked,
-            onCheckedChange = onCheckedChange,
+            onCheckedChange = { value -> onFocus(); onCheckedChange(value) },
             colors = SwitchDefaults.colors(
                 checkedThumbColor = WukkiColors.textPrimary,
                 checkedTrackColor = SettingsAccent,
@@ -541,13 +663,14 @@ private fun RefreshSelector(
     selected: RefreshInterval,
     intervals: List<RefreshInterval>,
     useHourlyLabels: Boolean = false,
+    onFocus: () -> Unit,
     onSelect: (RefreshInterval) -> Unit
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
         intervals.forEach { interval ->
             FilterChip(
                 selected = interval == selected,
-                onClick = { onSelect(interval) },
+                onClick = { onFocus(); onSelect(interval) },
                 label = { Text(interval.label(model, useHourlyLabels)) }
             )
         }
@@ -570,6 +693,7 @@ private fun SettingsSection.title(model: WukkiModel): String = tr(model.settings
     SettingsSection.LANGUAGE -> "settings.language"
     SettingsSection.ABOUT -> "settings.about"
 })
+
 private fun RefreshInterval.label(model: WukkiModel, useHourlyLabels: Boolean = false): String = tr(model.settings.language, when (this) {
     RefreshInterval.MANUAL -> "refresh.manual"
     RefreshInterval.SIX_HOURS -> "refresh.six.hours"

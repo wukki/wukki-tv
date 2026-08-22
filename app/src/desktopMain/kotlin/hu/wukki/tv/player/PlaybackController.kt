@@ -33,39 +33,11 @@ import java.util.concurrent.TimeUnit
 import kotlin.math.max
 import kotlin.math.min
 
-enum class PlaybackState {
-    IDLE, OPENING, BUFFERING, PLAYING, RECONNECTING, ERROR
-}
-
-data class PlaybackOverlayData(
-    val channelId: String,
-    val channelNumber: String,
-    val channelName: String,
-    val logoUrl: String?,
-    val showProgrammeInfo: Boolean,
-    val showPreviewLogo: Boolean,
-    val channelNumberInput: String?,
-    val noEpgLabel: String,
-    val nextLabel: String,
-    val currentTitle: String?,
-    val currentStart: Long?,
-    val currentEnd: Long?,
-    val remainingText: String?,
-    val nextTitle: String?,
-    val nextStart: Long?,
-    val nextEnd: Long?,
-    val now: Long,
-    val playbackStatus: String? = null,
-    val playbackError: Boolean = false,
-    val showBufferingSpinner: Boolean = false,
-    val bufferingLabel: String? = null
-)
-
 /**
  * Owns one libVLC instance for the full lifetime of the Compose application.
  * The Swing host may be removed while browsing other screens; audio and the stream keep running.
  */
-class PlaybackController(initialLanguage: AppLanguage = AppLanguage.HUNGARIAN) {
+class PlaybackController(initialLanguage: AppLanguage = AppLanguage.HUNGARIAN) : PlaybackEngine {
     private val retryExecutor = Executors.newSingleThreadScheduledExecutor { runnable ->
         Thread(runnable, "wukki-vlc-reconnect").apply { isDaemon = true }
     }
@@ -85,12 +57,12 @@ class PlaybackController(initialLanguage: AppLanguage = AppLanguage.HUNGARIAN) {
     private var attempt = 0
     private var released = false
 
-    var state by mutableStateOf(PlaybackState.IDLE)
+    override var state by mutableStateOf(PlaybackState.IDLE)
         private set
-    var detail by mutableStateOf<String?>(null)
+    override var detail by mutableStateOf<String?>(null)
         private set
     /** Set from libVLC's `playing` event; consumed by the Compose application layer. */
-    var successfullyPlayedChannelId by mutableStateOf<String?>(null)
+    override var successfullyPlayedChannelId by mutableStateOf<String?>(null)
         private set
 
     private val runtimeResolution = VlcRuntimeResolver.resolve()
@@ -124,7 +96,7 @@ class PlaybackController(initialLanguage: AppLanguage = AppLanguage.HUNGARIAN) {
         })
     }
 
-    fun play(channel: Channel?, settings: PlaybackSettings, showLogos: Boolean = true, language: AppLanguage = AppLanguage.HUNGARIAN) {
+    override fun play(channel: Channel?, settings: PlaybackSettings, showLogos: Boolean, language: AppLanguage) {
         if (channel == null || released) return
         val changedChannel = currentChannel?.streamUrl != channel.streamUrl
         val changedBuffer = currentSettings.bufferProfile != settings.bufferProfile
@@ -144,13 +116,13 @@ class PlaybackController(initialLanguage: AppLanguage = AppLanguage.HUNGARIAN) {
         }
     }
 
-    fun updateSettings(settings: PlaybackSettings) {
+    override fun updateSettings(settings: PlaybackSettings) {
         val channel = currentChannel ?: return
         play(channel, settings, currentShowLogos, currentLanguage)
     }
 
     /** Updates the Java2D video overlay without restarting or reconfiguring the stream. */
-    fun updateOverlay(data: PlaybackOverlayData) {
+    override fun updateOverlay(data: PlaybackOverlayData) {
         if (released) return
         val component = overlayComponent ?: return
         val logo = data.logoUrl?.let(logoCache::get)
@@ -176,7 +148,7 @@ class PlaybackController(initialLanguage: AppLanguage = AppLanguage.HUNGARIAN) {
         }
     }
 
-    fun stop() {
+    override fun stop() {
         retryTask?.cancel(false)
         retryTask = null
         cancelBufferingIndicator()
@@ -184,7 +156,7 @@ class PlaybackController(initialLanguage: AppLanguage = AppLanguage.HUNGARIAN) {
         updateState(PlaybackState.IDLE, null)
     }
 
-    fun release() {
+    override fun release() {
         if (released) return
         released = true
         retryTask?.cancel(true)

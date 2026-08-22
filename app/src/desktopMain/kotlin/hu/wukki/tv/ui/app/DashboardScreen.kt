@@ -16,7 +16,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import hu.wukki.tv.Channel
-import hu.wukki.tv.PlaybackController
+import hu.wukki.tv.AppFeedbackKind
+import hu.wukki.tv.LiveVideoGestures
 import hu.wukki.tv.WukkiModel
 import hu.wukki.tv.ui.channels.ChannelBrowserCallbacks
 import hu.wukki.tv.ui.channels.ChannelBrowserRowUiState
@@ -92,7 +93,6 @@ private fun channelBrowserUiState(model: WukkiModel, tick: Long): ChannelBrowser
 @Composable
 fun DashboardScreen(
     model: WukkiModel,
-    playbackController: PlaybackController,
     scope: CoroutineScope,
     tick: Long,
     activeSection: DashboardSection,
@@ -110,29 +110,37 @@ fun DashboardScreen(
     onChannelSearchOpenChange: (Boolean) -> Unit,
     settingsCategoryIndex: Int,
     settingsOptionIndex: Int,
+    androidSettingsNavigation: Boolean,
+    onSettingsCategoryFocus: (Int) -> Unit,
+    onSettingsOptionFocus: (Int) -> Unit,
     guideProgrammeDetailsVisible: Boolean,
     guideProgrammeDialogFocusedAction: GuideProgrammeDialogAction,
     onShowGuideProgrammeDetails: () -> Unit,
     onDismissGuideProgrammeDetails: () -> Unit,
     onOpenGuideProgrammeChannel: (String) -> Unit,
-    onGuideProgrammeDialogEvent: (GuideProgrammeDialogEvent) -> Unit
+    onGuideProgrammeDialogEvent: (GuideProgrammeDialogEvent) -> Unit,
+    videoHost: @Composable (Modifier, LiveVideoGestures?) -> Unit,
+    liveVideoGestures: LiveVideoGestures,
+    playbackEngineLabel: String
 ) {
     BoxWithConstraints(Modifier.fillMaxSize().background(WukkiBrushes.appBackground())) {
         val scale = minOf(maxWidth.value / 1470f, maxHeight.value / 920f).coerceIn(.70f, 1.45f)
-        val navigationWidth = (256.dp * scale).coerceIn(220.dp, 430.dp)
+        val compactNavigation = maxWidth < 980.dp
+        val navigationWidth = if (compactNavigation) 76.dp else (256.dp * scale).coerceIn(220.dp, 430.dp)
         val padding = (14.dp * scale).coerceIn(8.dp, 20.dp)
         Row(Modifier.fillMaxSize()) {
             SideNavigation(
                 state = navigationState(model, activeSection, mainNavigationSection.takeIf { mainNavigationFocused }, tick),
                 onSelect = onSectionChange,
                 scale = scale,
+                compact = compactNavigation,
                 modifier = Modifier.width(navigationWidth).fillMaxHeight()
             )
             when (activeSection) {
                 DashboardSection.LIVE -> LiveTvScreen(
                     LiveTvUiState(model.selectedChannel() != null, tr(model.settings.language, "live.empty")),
                     scale,
-                    video = { hu.wukki.tv.EmbeddedVlcPlayer(playbackController, Modifier.fillMaxSize()) },
+                    video = { videoHost(Modifier.fillMaxSize(), liveVideoGestures) },
                     modifier = Modifier.weight(1f).fillMaxHeight()
                 )
                 DashboardSection.GUIDE -> EpgGuideScreen(
@@ -158,19 +166,30 @@ fun DashboardScreen(
                     listOpenRequest = channelListOpenRequest,
                     searchOpen = channelSearchOpen,
                     onSearchOpenChange = onChannelSearchOpenChange,
-                    videoPreview = { hu.wukki.tv.EmbeddedVlcPlayer(playbackController, Modifier.fillMaxSize()) }
+                    videoPreview = { videoHost(Modifier.fillMaxSize(), null) }
                 )
                 DashboardSection.SETTINGS -> SettingsScreen(
                     model = model, scope = scope, selectedSection = settingsSection,
                     onSectionChange = onSettingsSectionChange, remoteCategoryIndex = settingsCategoryIndex,
                     remoteNavigationActive = !mainNavigationFocused, remoteOptionIndex = settingsOptionIndex,
-                    modifier = Modifier.weight(1f).fillMaxHeight().padding(padding)
+                    androidFullScreenSubmenus = androidSettingsNavigation,
+                    onCategoryFocus = onSettingsCategoryFocus,
+                    onOptionFocus = onSettingsOptionFocus,
+                    modifier = Modifier.weight(1f).fillMaxHeight().padding(padding),
+                    playbackEngineLabel = playbackEngineLabel
                 )
             }
         }
         Column(Modifier.align(Alignment.BottomCenter).padding(bottom = 24.dp).widthIn(max = 720.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             model.error?.let { AppFeedback(tr(model.settings.language, "app.error.prefix", it.text(model.settings.language)), WukkiColors.error, WukkiColors.errorContainer) }
-            model.status?.let { AppFeedback(it.text(model.settings.language), WukkiColors.success, WukkiColors.successContainer) }
+            model.status?.let { message ->
+                val loading = model.feedbackKind == AppFeedbackKind.LOADING
+                AppFeedback(
+                    message.text(model.settings.language),
+                    if (loading) WukkiColors.textPrimary else WukkiColors.success,
+                    if (loading) WukkiColors.surfaceOverlay else WukkiColors.successContainer
+                )
+            }
         }
         if (guideProgrammeDetailsVisible) {
             val focused = guideState.focusedProgramme(model.guideDataSource(), guideTimeline(tick, model.guideLatestProgrammeEnd()))

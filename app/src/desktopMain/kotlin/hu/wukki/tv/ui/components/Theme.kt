@@ -4,7 +4,6 @@ import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import java.awt.Color as AwtColor
 
 /**
  * The application's one visual vocabulary. Feature UIs should use these semantic tokens instead
@@ -77,17 +76,3 @@ val WukkiColorScheme: ColorScheme = darkColorScheme(
     errorContainer = WukkiColors.errorContainer,
     onErrorContainer = WukkiColors.error
 )
-
-/** AWT equivalent of the Compose tokens for the VLC Java2D overlay. */
-object WukkiOverlayColors {
-    val panel = WukkiColors.overlayPanel.toAwt()
-    val accent = WukkiColors.primary.toAwt()
-    val surface = WukkiColors.backgroundRaised.toAwt()
-    val divider = WukkiColors.overlayDivider.toAwt()
-    val text = WukkiColors.overlayText.toAwt()
-    val muted = WukkiColors.overlayMuted.toAwt()
-    val errorPanel = WukkiColors.errorContainer.toAwt()
-    val errorText = WukkiColors.error.toAwt()
-}
-
-private fun Color.toAwt(): AwtColor = AwtColor(red, green, blue, alpha)

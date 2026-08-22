@@ -5,3 +5,7 @@ build/
 .idea/
 *.iml
 out/
+local.properties
+*.keystore
+*.jks
+androidApp/keystore.properties
