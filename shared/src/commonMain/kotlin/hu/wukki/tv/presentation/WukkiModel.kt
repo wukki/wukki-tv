@@ -19,16 +19,22 @@ class WukkiModel(
     private val provisionedState = OfficialWukkiSource.provision(initialState)
 
     var state by mutableStateOf(provisionedState)
-    var selectedPlaylistId by mutableStateOf(OfficialWukkiSource.PLAYLIST_ID)
+        private set
     var selectedChannelId by mutableStateOf(
         state.lastChannelId?.takeIf { savedId -> state.channels.any { it.id == savedId } }
             ?: state.channels.firstOrNull()?.id
     )
+        private set
     var query by mutableStateOf("")
+        private set
     var category by mutableStateOf<String?>(null)
+        private set
     var onlyFavorites by mutableStateOf(false)
+        private set
     var status by mutableStateOf<UserMessage?>(null)
+        private set
     var error by mutableStateOf<UserMessage?>(null)
+        private set
     var feedbackKind by mutableStateOf<AppFeedbackKind?>(null)
         private set
     /** Increments for every displayed feedback so an earlier timeout cannot dismiss a newer one. */
@@ -62,6 +68,19 @@ class WukkiModel(
     fun setEpgRefresh(interval: RefreshInterval) = updateSettings { it.copy(epgRefresh = interval) }
     fun updatePlayback(transform: (PlaybackSettings) -> PlaybackSettings) = updateSettings { it.copy(playback = transform(it.playback)) }
     fun updateDisplay(transform: (DisplaySettings) -> DisplaySettings) = updateSettings { it.copy(display = transform(it.display)) }
+    fun setChannelQuery(value: String) { query = value }
+    fun showAllChannels() {
+        category = null
+        onlyFavorites = false
+    }
+    fun showFavoriteChannels() {
+        category = null
+        onlyFavorites = true
+    }
+    fun showChannelCategory(value: String) {
+        category = value
+        onlyFavorites = false
+    }
 
     /** Fetches the fixed M3U and updates its single, header-managed EPG source. */
     suspend fun refreshOfficialPlaylist(showFeedback: Boolean = true): Boolean {
@@ -86,7 +105,6 @@ class WukkiModel(
                 channels = channels,
                 lastChannelId = restoredLastChannelId
             )
-            selectedPlaylistId = OfficialWukkiSource.PLAYLIST_ID
             selectedChannelId = matchingChannelId(previousSelected, previousChannels, channels)
                 ?: restoredLastChannelId
                 ?: channels.firstOrNull()?.id
@@ -208,7 +226,7 @@ class WukkiModel(
         val channels = filteredChannels()
         if (channels.isEmpty()) return
         val index = channels.indexOfFirst { it.id == selectedChannelId }.let { if (it < 0) 0 else it }
-        selectChannel(channels[(index + delta).floorMod(channels.size)].id)
+        selectChannel(channels[(index + delta).mod(channels.size)].id)
     }
 
     fun selectChannelByNumber(number: String): Boolean {
@@ -328,8 +346,6 @@ internal fun nextEpgRefreshDelayMillis(sources: List<EpgSource>, interval: Refre
 
 private fun List<Channel>.sortedChannels(): List<Channel> =
     sortedWith(compareBy<Channel> { it.tvgChno ?: Int.MAX_VALUE }.thenBy { normalize(it.name) })
-
-private fun Int.floorMod(modulus: Int): Int = ((this % modulus) + modulus) % modulus
 
 private fun Programme.shiftedBy(hours: Double?): Programme {
     val offset = hours?.takeIf { it.isFinite() }?.times(MILLIS_PER_HOUR)?.roundToLong() ?: return this

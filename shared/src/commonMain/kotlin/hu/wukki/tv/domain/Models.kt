@@ -113,7 +113,9 @@ data class AppState(
 ) : Persistable {
     companion object { const val serialVersionUID: Long = -8266148574268495181L }
     fun normalized(): AppState {
-        val loadedSettings = settings ?: AppSettings(playlistRefresh = RefreshInterval.entries.first { it.hours == autoRefreshHours })
+        val legacyPlaylistRefresh = RefreshInterval.entries.firstOrNull { it.hours == autoRefreshHours }
+            ?: RefreshInterval.MANUAL
+        val loadedSettings = settings ?: AppSettings(playlistRefresh = legacyPlaylistRefresh)
         // Java serialization supplies null for fields that did not exist in older state files.
         // Normalising here preserves the intended, enabled-by-default autoplay behaviour.
         val migratedSettings = loadedSettings.copy(

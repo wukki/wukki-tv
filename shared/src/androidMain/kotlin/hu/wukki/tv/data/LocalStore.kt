@@ -15,7 +15,7 @@ import kotlinx.serialization.json.Json
 private val Context.wukkiStateDataStore by preferencesDataStore(name = "wukki_tv_state")
 
 /** Android equivalent of the desktop state.bin store. State is kept as one atomic DataStore value. */
-class AndroidStateStore(context: Context) {
+private class AndroidStateStore(context: Context) {
     private val appContext = context.applicationContext
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val json = Json { encodeDefaults = true; ignoreUnknownKeys = true }

@@ -46,4 +46,11 @@ class EpgRefreshScheduleTest {
 
         assertEquals(ChannelListDisplayMode.NORMAL, state.settings?.display?.channelListMode)
     }
+
+    @Test
+    fun `unknown legacy refresh interval normalizes to manual`() {
+        val state = AppState(settings = null, autoRefreshHours = 17).normalized()
+
+        assertEquals(RefreshInterval.MANUAL, state.settings?.playlistRefresh)
+    }
 }

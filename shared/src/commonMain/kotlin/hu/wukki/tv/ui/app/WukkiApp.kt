@@ -358,7 +358,7 @@ fun WukkiApp(
                     }
                     if (activeSection == DashboardSection.CHANNELS && channelRemoteFocus == ChannelRemoteFocus.SEARCH) {
                         if (event.key == Key.Escape) {
-                            model.query = ""
+                            model.setChannelQuery("")
                             channelSearchOpen = false
                             channelRemoteFocus = ChannelRemoteFocus.LIST
                             return@onPreviewKeyEvent true
@@ -426,8 +426,8 @@ fun WukkiApp(
                                     val delta = if (event.key == Key.DirectionLeft) -1 else 1
                                     when (settingsOptionIndex) {
                                         1 -> model.updatePlayback { it.copy(volume = (it.volume + delta * 5).coerceIn(0, 100)) }
-                                        2 -> model.updatePlayback { current -> current.copy(bufferProfile = BufferProfile.entries[(current.bufferProfile.ordinal + delta).floorMod(BufferProfile.entries.size)]) }
-                                        3 -> model.updatePlayback { current -> current.copy(aspectRatio = AspectRatioMode.entries[((current.aspectRatio ?: AspectRatioMode.AUTO).ordinal + delta).floorMod(AspectRatioMode.entries.size)]) }
+                                        2 -> model.updatePlayback { current -> current.copy(bufferProfile = BufferProfile.entries[(current.bufferProfile.ordinal + delta).mod(BufferProfile.entries.size)]) }
+                                        3 -> model.updatePlayback { current -> current.copy(aspectRatio = AspectRatioMode.entries[((current.aspectRatio ?: AspectRatioMode.AUTO).ordinal + delta).mod(AspectRatioMode.entries.size)]) }
                                         5 -> model.updatePlayback { it.copy(reconnectAttempts = (it.reconnectAttempts + delta).coerceIn(1, 10)) }
                                         else -> model.updatePlayback { it.copy(autoPlayOnLaunch = !(it.autoPlayOnLaunch != false)) }
                                     }
@@ -455,12 +455,12 @@ fun WukkiApp(
                                         val values = listOf(.9f, 1f, 1.15f)
                                         val current = values.indexOf(model.settings.display.uiScale).coerceAtLeast(0)
                                         val delta = if (event.key == Key.DirectionLeft) -1 else 1
-                                        model.updateDisplay { it.copy(uiScale = values[(current + delta).floorMod(values.size)]) }
+                                        model.updateDisplay { it.copy(uiScale = values[(current + delta).mod(values.size)]) }
                                     } else if (settingsOptionIndex == 1) {
                                         val current = (model.settings.display.channelListMode ?: ChannelListDisplayMode.NORMAL).ordinal
                                         val delta = if (event.key == Key.DirectionLeft) -1 else 1
                                         model.updateDisplay { display ->
-                                            display.copy(channelListMode = ChannelListDisplayMode.entries[(current + delta).floorMod(ChannelListDisplayMode.entries.size)])
+                                            display.copy(channelListMode = ChannelListDisplayMode.entries[(current + delta).mod(ChannelListDisplayMode.entries.size)])
                                         }
                                     } else toggleDisplayOption(model, settingsOptionIndex)
                                 }
@@ -468,11 +468,11 @@ fun WukkiApp(
                                     if (settingsOptionIndex == 0) {
                                         val values = listOf(.9f, 1f, 1.15f)
                                         val current = values.indexOf(model.settings.display.uiScale).coerceAtLeast(0)
-                                        model.updateDisplay { it.copy(uiScale = values[(current + 1).floorMod(values.size)]) }
+                                        model.updateDisplay { it.copy(uiScale = values[(current + 1).mod(values.size)]) }
                                     } else if (settingsOptionIndex == 1) {
                                         val current = (model.settings.display.channelListMode ?: ChannelListDisplayMode.NORMAL).ordinal
                                         model.updateDisplay { display ->
-                                            display.copy(channelListMode = ChannelListDisplayMode.entries[(current + 1).floorMod(ChannelListDisplayMode.entries.size)])
+                                            display.copy(channelListMode = ChannelListDisplayMode.entries[(current + 1).mod(ChannelListDisplayMode.entries.size)])
                                         }
                                     } else toggleDisplayOption(model, settingsOptionIndex)
                                 } else return@onPreviewKeyEvent false
@@ -488,7 +488,7 @@ fun WukkiApp(
                             }
                             fun cycleRefresh(delta: Int) {
                                 val current = if (isEpg) model.settings.epgRefresh else model.settings.playlistRefresh
-                                val next = intervals[(intervals.indexOf(current).coerceAtLeast(0) + delta).floorMod(intervals.size)]
+                                val next = intervals[(intervals.indexOf(current).coerceAtLeast(0) + delta).mod(intervals.size)]
                                 if (isEpg) model.setEpgRefresh(next) else model.setPlaylistRefresh(next)
                             }
                             when (event.key) {
@@ -530,9 +530,9 @@ fun WukkiApp(
                                 Key.DirectionDown -> channelRemoteFocus = ChannelRemoteFocus.LIST
                                 else -> if (event.key.isConfirmKey()) {
                                     when (channelFilterIndex) {
-                                        0 -> { model.category = null; model.onlyFavorites = false }
-                                        1 -> { model.category = null; model.onlyFavorites = true }
-                                        else -> { model.onlyFavorites = false; model.category = model.categories()[channelFilterIndex - 2] }
+                                        0 -> model.showAllChannels()
+                                        1 -> model.showFavoriteChannels()
+                                        else -> model.showChannelCategory(model.categories()[channelFilterIndex - 2])
                                     }
                                     channelListIndex = 0
                                 } else return@onPreviewKeyEvent false
@@ -656,8 +656,6 @@ fun WukkiApp(
         }
     }
 }
-
-private fun Int.floorMod(modulus: Int): Int = ((this % modulus) + modulus) % modulus
 
 private fun toggleDisplayOption(model: WukkiModel, optionIndex: Int) = model.updateDisplay { display ->
     when (optionIndex) {

@@ -1,7 +1,6 @@
 package hu.wukki.tv.ui.app
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -144,10 +143,10 @@ fun DashboardScreen(
                 DashboardSection.CHANNELS -> ChannelBrowserScreen(
                     state = channelBrowserUiState(model, tick),
                     callbacks = ChannelBrowserCallbacks(
-                        onQueryChange = { model.query = it },
-                        onSelectAll = { model.category = null; model.onlyFavorites = false },
-                        onSelectFavorites = { model.category = null; model.onlyFavorites = true },
-                        onSelectCategory = { model.onlyFavorites = false; model.category = it },
+                        onQueryChange = model::setChannelQuery,
+                        onSelectAll = model::showAllChannels,
+                        onSelectFavorites = model::showFavoriteChannels,
+                        onSelectCategory = model::showChannelCategory,
                         onSelectChannel = model::selectChannel,
                         onToggleFavorite = model::toggleFavorite
                     ),
