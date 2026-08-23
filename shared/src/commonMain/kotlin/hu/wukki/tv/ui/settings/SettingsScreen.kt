@@ -22,10 +22,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import hu.wukki.tv.ui.components.WukkiColors
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -45,6 +47,8 @@ fun SettingsScreen(
     remoteCategoryIndex: Int = 0,
     remoteNavigationActive: Boolean = false,
     remoteOptionIndex: Int = 0,
+    playbackDropdownOpenRequest: Int = 0,
+    playbackDropdownOptionIndex: Int = -1,
     androidFullScreenSubmenus: Boolean = false,
     onCategoryFocus: (Int) -> Unit = {},
     onOptionFocus: (Int) -> Unit = {},
@@ -65,6 +69,8 @@ fun SettingsScreen(
                 remoteCategoryIndex = remoteCategoryIndex,
                 remoteNavigationActive = remoteNavigationActive,
                 remoteOptionIndex = remoteOptionIndex,
+                playbackDropdownOpenRequest = playbackDropdownOpenRequest,
+                playbackDropdownOptionIndex = playbackDropdownOptionIndex,
                 onCategoryFocus = onCategoryFocus,
                 onOptionFocus = onOptionFocus,
                 scale = scale,
@@ -100,6 +106,8 @@ fun SettingsScreen(
                         selectedSection = selectedSection,
                         scale = scale,
                         remoteOptionIndex = remoteOptionIndex,
+                        playbackDropdownOpenRequest = playbackDropdownOpenRequest,
+                        playbackDropdownOptionIndex = playbackDropdownOptionIndex,
                         onOptionFocus = onOptionFocus,
                         playbackEngineLabel = playbackEngineLabel,
                         modifier = Modifier.weight(1f).fillMaxHeight()
@@ -134,27 +142,28 @@ private fun SettingsNavigation(
                 val active = item == selected
                 SettingsListRow(
                     title = item.title(model),
+                    selected = active,
                     onClick = { onCategoryFocus(index); onSelect(item) },
                     scale = scale,
                     titleFontSize = 19.sp,
                     titleWeight = if (active) FontWeight.SemiBold else FontWeight.Normal
                 ) {
                     Row(
-                        modifier = Modifier.width(148.dp * scale),
+                        modifier = Modifier.width((if (scrollable) 116.dp else 148.dp) * scale),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         if (item == SettingsSection.LANGUAGE) {
                             Text(
                                 tr(model.settings.language, "settings.language.current"),
                                 modifier = Modifier.weight(1f),
-                                fontSize = (16f * scale).sp,
+                                fontSize = ((if (scrollable) 14f else 16f) * scale).sp,
                                 textAlign = androidx.compose.ui.text.style.TextAlign.End,
                                 maxLines = 1
                             )
                         } else {
                             Spacer(Modifier.weight(1f))
                         }
-                        Spacer(Modifier.width(12.dp * scale))
+                        Spacer(Modifier.width((if (scrollable) 8.dp else 12.dp) * scale))
                         Icon(Icons.AutoMirrored.Outlined.ArrowForwardIos, contentDescription = null, modifier = Modifier.size(22.dp * scale))
                     }
                 }
@@ -172,6 +181,8 @@ private fun AndroidSettingsLayout(
     remoteCategoryIndex: Int,
     remoteNavigationActive: Boolean,
     remoteOptionIndex: Int,
+    playbackDropdownOpenRequest: Int,
+    playbackDropdownOptionIndex: Int,
     onCategoryFocus: (Int) -> Unit,
     onOptionFocus: (Int) -> Unit,
     scale: Float,
@@ -214,6 +225,8 @@ private fun AndroidSettingsLayout(
                 selectedSection = selectedSection,
                 scale = scale,
                 remoteOptionIndex = remoteOptionIndex,
+                playbackDropdownOpenRequest = playbackDropdownOpenRequest,
+                playbackDropdownOptionIndex = playbackDropdownOptionIndex,
                 onOptionFocus = onOptionFocus,
                 playbackEngineLabel = playbackEngineLabel,
                 modifier = Modifier.fillMaxWidth().weight(1f)
@@ -252,6 +265,8 @@ private fun SettingsDetail(
     selectedSection: SettingsSection,
     scale: Float,
     remoteOptionIndex: Int,
+    playbackDropdownOpenRequest: Int,
+    playbackDropdownOptionIndex: Int,
     onOptionFocus: (Int) -> Unit,
     playbackEngineLabel: String,
     modifier: Modifier
@@ -261,7 +276,14 @@ private fun SettingsDetail(
             modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())
         ) {
                 when (selectedSection) {
-                    SettingsSection.PLAYBACK -> PlaybackSettings(model, remoteOptionIndex, onOptionFocus, scale)
+                    SettingsSection.PLAYBACK -> PlaybackSettings(
+                        model = model,
+                        remoteOptionIndex = remoteOptionIndex,
+                        dropdownOpenRequest = playbackDropdownOpenRequest,
+                        dropdownOptionIndex = playbackDropdownOptionIndex,
+                        onOptionFocus = onOptionFocus,
+                        scale = scale
+                    )
                     SettingsSection.EPG -> EpgSettings(model, scope, remoteOptionIndex, onOptionFocus, scale)
                     SettingsSection.DISPLAY -> DisplaySettings(model, remoteOptionIndex, onOptionFocus, scale)
                     SettingsSection.PARENTAL -> ParentalSettings(model, scale)
@@ -274,7 +296,14 @@ private fun SettingsDetail(
 }
 
 @Composable
-private fun PlaybackSettings(model: WukkiModel, remoteOptionIndex: Int, onOptionFocus: (Int) -> Unit, scale: Float) {
+private fun PlaybackSettings(
+    model: WukkiModel,
+    remoteOptionIndex: Int,
+    dropdownOpenRequest: Int,
+    dropdownOptionIndex: Int,
+    onOptionFocus: (Int) -> Unit,
+    scale: Float
+) {
     val settings = model.settings.playback
     val focusedOption = PlaybackOption.entries.getOrElse(remoteOptionIndex) { PlaybackOption.AUTOPLAY }
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -301,12 +330,24 @@ private fun PlaybackSettings(model: WukkiModel, remoteOptionIndex: Int, onOption
         }
         SettingsOptionRow(model, "settings.playback.buffer", "settings.playback.buffer.description", focusedOption == PlaybackOption.BUFFER, onFocus = { onOptionFocus(2) }, scale = scale) {
             Column(modifier = Modifier.widthIn(min = 150.dp, max = 205.dp)) {
-            PlaybackSelect(settings.bufferProfile, BufferProfile.entries.toList(), { it.label(model) }, { onOptionFocus(2) }) { profile -> model.updatePlayback { it.copy(bufferProfile = profile) } }
+            SettingsExposedDropdown(
+                value = settings.bufferProfile,
+                entries = BufferProfile.entries.toList(),
+                label = { it.label(model) },
+                onFocus = { onOptionFocus(2) },
+                openRequest = if (dropdownOptionIndex == 2) dropdownOpenRequest else 0
+            ) { profile -> model.updatePlayback { it.copy(bufferProfile = profile) } }
             }
         }
         SettingsOptionRow(model, "settings.playback.aspect", "settings.playback.aspect.description", focusedOption == PlaybackOption.ASPECT_RATIO, onFocus = { onOptionFocus(3) }, scale = scale) {
             Column(modifier = Modifier.widthIn(min = 150.dp, max = 205.dp)) {
-            PlaybackSelect(settings.aspectRatio ?: AspectRatioMode.AUTO, AspectRatioMode.entries.toList(), { it.label(model) }, { onOptionFocus(3) }) { ratio -> model.updatePlayback { it.copy(aspectRatio = ratio) } }
+            SettingsExposedDropdown(
+                value = settings.aspectRatio ?: AspectRatioMode.AUTO,
+                entries = AspectRatioMode.entries.toList(),
+                label = { it.label(model) },
+                onFocus = { onOptionFocus(3) },
+                openRequest = if (dropdownOptionIndex == 3) dropdownOpenRequest else 0
+            ) { ratio -> model.updatePlayback { it.copy(aspectRatio = ratio) } }
             }
         }
         SettingsOptionRow(model, "settings.playback.reconnect", "settings.playback.reconnect.description", focusedOption == PlaybackOption.RECONNECT, onFocus = { onOptionFocus(4) }, scale = scale) {
@@ -351,13 +392,59 @@ private fun SettingsOptionRow(
 }
 
 @Composable
-private fun <T> PlaybackSelect(value: T, entries: List<T>, label: @Composable (T) -> String, onFocus: () -> Unit, onSelect: (T) -> Unit) {
+@OptIn(ExperimentalMaterial3Api::class)
+private fun <T> SettingsExposedDropdown(
+    value: T,
+    entries: List<T>,
+    label: (T) -> String,
+    onFocus: () -> Unit,
+    openRequest: Int,
+    onSelect: (T) -> Unit
+) {
     var expanded by remember { mutableStateOf(false) }
-    Box {
-        TextButton(onClick = { onFocus(); expanded = true }) { Text(label(value)) }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            entries.forEach { entry ->
-                DropdownMenuItem(text = { Text(label(entry)) }, onClick = { onFocus(); onSelect(entry); expanded = false })
+    val dropdownShape = RoundedCornerShape(28.dp)
+    LaunchedEffect(openRequest) {
+        if (openRequest > 0) expanded = true
+    }
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { isExpanded ->
+            onFocus()
+            expanded = isExpanded
+        },
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        OutlinedTextField(
+            value = label(value),
+            onValueChange = {},
+            readOnly = true,
+            singleLine = true,
+            shape = dropdownShape,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = MaterialTheme.colorScheme.primary
+            ),
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            shape = dropdownShape,
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        ) {
+            entries.forEachIndexed { index, entry ->
+                DropdownMenuItem(
+                    text = { Text(label(entry)) },
+                    onClick = {
+                        onFocus()
+                        onSelect(entry)
+                        expanded = false
+                    }
+                )
+                if (index < entries.lastIndex) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+                }
             }
         }
     }
@@ -366,9 +453,21 @@ private fun <T> PlaybackSelect(value: T, entries: List<T>, label: @Composable (T
 @Composable
 private fun PlaybackStepper(value: Int, onDecrease: () -> Unit, onIncrease: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = onDecrease) { Text("−") }
+        IconButton(
+            onClick = onDecrease,
+            colors = IconButtonDefaults.iconButtonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            )
+        ) { Text("−") }
         Text(value.toString(), fontWeight = FontWeight.SemiBold, modifier = Modifier.width(30.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-        IconButton(onClick = onIncrease) { Text("+") }
+        IconButton(
+            onClick = onIncrease,
+            colors = IconButtonDefaults.iconButtonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            )
+        ) { Text("+") }
     }
 }
 
@@ -588,6 +687,7 @@ private fun SettingsToggle(
 private fun SettingsListRow(
     title: String,
     description: String? = null,
+    selected: Boolean = false,
     onClick: (() -> Unit)? = null,
     scale: Float = 1f,
     titleFontSize: androidx.compose.ui.unit.TextUnit = 19.sp,
@@ -599,6 +699,16 @@ private fun SettingsListRow(
         headlineContent = { Text(title, fontSize = titleFontSize * scale, fontWeight = titleWeight, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         supportingContent = description?.let { value -> { Text(value, maxLines = 1, overflow = TextOverflow.Ellipsis) } },
         trailingContent = { control() },
+        colors = if (selected) {
+            ListItemDefaults.colors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                headlineColor = MaterialTheme.colorScheme.onPrimary,
+                supportingColor = MaterialTheme.colorScheme.onPrimary,
+                trailingIconColor = MaterialTheme.colorScheme.onPrimary
+            )
+        } else {
+            ListItemDefaults.colors()
+        },
         modifier = modifier.fillMaxWidth().heightIn(min = 81.dp * scale)
             .then(onClick?.let { Modifier.clickable(onClick = it) } ?: Modifier)
     )
@@ -636,6 +746,10 @@ private fun <T> SettingsSegmentedChoice(
                 selected = entry == selected,
                 onClick = { onSelect(entry) },
                 shape = SegmentedButtonDefaults.itemShape(index = index, count = entries.size),
+                colors = SegmentedButtonDefaults.colors(
+                    activeContainerColor = MaterialTheme.colorScheme.primary,
+                    activeContentColor = MaterialTheme.colorScheme.onPrimary
+                ),
                 label = { Text(label(entry), maxLines = 1, overflow = TextOverflow.Ellipsis) }
             )
         }

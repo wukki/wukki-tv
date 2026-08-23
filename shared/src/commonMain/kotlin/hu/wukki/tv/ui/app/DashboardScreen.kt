@@ -100,8 +100,11 @@ fun DashboardScreen(
     onChannelSearchOpenChange: (Boolean) -> Unit,
     settingsCategoryIndex: Int,
     settingsOptionIndex: Int,
+    playbackDropdownOpenRequest: Int,
+    playbackDropdownOptionIndex: Int,
     androidSettingsNavigation: Boolean,
     useExpandedDesktopNavigation: Boolean,
+    showCompactNavigationBrand: Boolean,
     onSettingsCategoryFocus: (Int) -> Unit,
     onSettingsOptionFocus: (Int) -> Unit,
     guideProgrammeDetailsVisible: Boolean,
@@ -124,6 +127,7 @@ fun DashboardScreen(
                 onSelect = onSectionChange,
                 scale = scale,
                 expandedDesktop = expandedDesktopNavigation,
+                showCompactBrand = showCompactNavigationBrand,
                 modifier = Modifier.width(navigationWidth).fillMaxHeight()
             )
             when (activeSection) {
@@ -162,6 +166,8 @@ fun DashboardScreen(
                     model = model, scope = scope, selectedSection = settingsSection,
                     onSectionChange = onSettingsSectionChange, remoteCategoryIndex = settingsCategoryIndex,
                     remoteNavigationActive = !mainNavigationFocused, remoteOptionIndex = settingsOptionIndex,
+                    playbackDropdownOpenRequest = playbackDropdownOpenRequest,
+                    playbackDropdownOptionIndex = playbackDropdownOptionIndex,
                     androidFullScreenSubmenus = androidSettingsNavigation,
                     onCategoryFocus = onSettingsCategoryFocus,
                     onOptionFocus = onSettingsOptionFocus,

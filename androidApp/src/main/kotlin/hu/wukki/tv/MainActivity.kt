@@ -60,6 +60,7 @@ class MainActivity : ComponentActivity() {
                         },
                         androidSettingsNavigation = true,
                         useExpandedDesktopNavigation = false,
+                        showCompactNavigationBrand = false,
                         onPlatformBackActionChange = { action -> appBackAction = action }
                     )
                 }

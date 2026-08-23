@@ -51,12 +51,13 @@ fun SideNavigation(
     scale: Float,
     onSelect: (DashboardSection) -> Unit,
     expandedDesktop: Boolean = false,
+    showCompactBrand: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     if (expandedDesktop) {
         ExpandedDesktopNavigation(state, scale, onSelect, modifier)
     } else {
-        CompactNavigation(state, scale, onSelect, modifier)
+        CompactNavigation(state, scale, onSelect, showCompactBrand, modifier)
     }
 }
 
@@ -113,11 +114,14 @@ private fun CompactNavigation(
     state: SideNavigationUiState,
     scale: Float,
     onSelect: (DashboardSection) -> Unit,
+    showBrand: Boolean,
     modifier: Modifier
 ) {
     NavigationRail(modifier = modifier.fillMaxHeight()) {
-        Text("W", modifier = Modifier.padding(top = 14.dp), fontWeight = FontWeight.Black, fontSize = 26.sp)
-        Spacer(Modifier.size(18.dp))
+        if (showBrand) {
+            Text("W", modifier = Modifier.padding(top = 14.dp), fontWeight = FontWeight.Black, fontSize = 26.sp)
+            Spacer(Modifier.size(18.dp))
+        }
         state.entries.forEach { entry ->
             NavigationRailItem(
                 selected = entry.section == state.activeSection || entry.section == state.focusedSection,

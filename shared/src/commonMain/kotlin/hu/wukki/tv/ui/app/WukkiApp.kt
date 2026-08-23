@@ -48,6 +48,7 @@ fun WukkiApp(
     onActiveSectionChange: (DashboardSection) -> Unit = {},
     androidSettingsNavigation: Boolean = false,
     useExpandedDesktopNavigation: Boolean = false,
+    showCompactNavigationBrand: Boolean = true,
     onPlatformBackActionChange: ((() -> Boolean)?) -> Unit = {}
 ) {
     val model = remember { WukkiModel() }
@@ -67,6 +68,8 @@ fun WukkiApp(
     var channelListOpenRequest by remember { mutableIntStateOf(if (activeSection == DashboardSection.CHANNELS) 1 else 0) }
     var settingsCategoryIndex by remember { mutableIntStateOf(0) }
     var settingsOptionIndex by remember { mutableIntStateOf(0) }
+    var playbackDropdownOpenRequest by remember { mutableIntStateOf(0) }
+    var playbackDropdownOptionIndex by remember { mutableIntStateOf(-1) }
     var guideProgrammeDetailsVisible by remember { mutableStateOf(false) }
     var guideProgrammeDialogState by remember { mutableStateOf(GuideProgrammeDialogState()) }
     var automaticLaunchPending by remember { mutableStateOf(autoPlayOnLaunch) }
@@ -432,8 +435,10 @@ fun WukkiApp(
                                 else -> if (event.key.isConfirmKey()) {
                                     when (settingsOptionIndex) {
                                         0 -> model.updatePlayback { it.copy(autoPlayOnLaunch = !(it.autoPlayOnLaunch != false)) }
-                                        2 -> model.updatePlayback { current -> current.copy(bufferProfile = BufferProfile.entries[(current.bufferProfile.ordinal + 1).floorMod(BufferProfile.entries.size)]) }
-                                        3 -> model.updatePlayback { current -> current.copy(aspectRatio = AspectRatioMode.entries[((current.aspectRatio ?: AspectRatioMode.AUTO).ordinal + 1).floorMod(AspectRatioMode.entries.size)]) }
+                                        2, 3 -> {
+                                            playbackDropdownOptionIndex = settingsOptionIndex
+                                            playbackDropdownOpenRequest++
+                                        }
                                         4 -> model.updatePlayback { it.copy(autoReconnect = !it.autoReconnect) }
                                         5 -> model.updatePlayback { it.copy(reconnectAttempts = (it.reconnectAttempts + 1).coerceAtMost(10)) }
                                     }
@@ -627,8 +632,11 @@ fun WukkiApp(
                 },
                 settingsCategoryIndex = settingsCategoryIndex,
                 settingsOptionIndex = settingsOptionIndex,
+                playbackDropdownOpenRequest = playbackDropdownOpenRequest,
+                playbackDropdownOptionIndex = playbackDropdownOptionIndex,
                 androidSettingsNavigation = androidSettingsNavigation,
                 useExpandedDesktopNavigation = useExpandedDesktopNavigation,
+                showCompactNavigationBrand = showCompactNavigationBrand,
                 onSettingsCategoryFocus = { settingsCategoryIndex = it.coerceIn(0, SettingsSection.entries.lastIndex) },
                 onSettingsOptionFocus = { settingsOptionIndex = it.coerceAtLeast(0) },
                 guideProgrammeDetailsVisible = guideProgrammeDetailsVisible,
