@@ -5,13 +5,7 @@ import hu.wukki.tv.ui.guide.*
 import hu.wukki.tv.ui.settings.*
 import hu.wukki.tv.ui.components.displayTitle
 import hu.wukki.tv.ui.components.tr
-import hu.wukki.tv.ui.navigation.ChannelRemoteFocus
-import hu.wukki.tv.ui.navigation.DashboardSection
-import hu.wukki.tv.ui.navigation.TvFocusZone
-import hu.wukki.tv.ui.navigation.isBackKey
-import hu.wukki.tv.ui.navigation.isConfirmKey
-import hu.wukki.tv.ui.navigation.activeChannelIndex
-import hu.wukki.tv.ui.navigation.restoredChannelIndex
+import hu.wukki.tv.ui.navigation.*
 
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Column
@@ -55,7 +49,7 @@ fun WukkiApp(
     val scope = rememberCoroutineScope()
     val focusRequester = remember { FocusRequester() }
     var tick by remember { mutableStateOf(System.currentTimeMillis()) }
-    var settingsSection by remember { mutableStateOf<SettingsSection?>(null) }
+    var settingsNavigation by remember { mutableStateOf(SettingsNavigationState()) }
     val autoPlayOnLaunch = model.settings.playback.autoPlayOnLaunch != false
     var activeSection by remember { mutableStateOf(if (autoPlayOnLaunch) DashboardSection.LIVE else DashboardSection.CHANNELS) }
     var focusZone by remember { mutableStateOf(TvFocusZone.CONTENT) }
@@ -66,8 +60,6 @@ fun WukkiApp(
     var channelFocusedId by remember { mutableStateOf<String?>(null) }
     var channelSearchOpen by remember { mutableStateOf(false) }
     var channelListOpenRequest by remember { mutableIntStateOf(if (activeSection == DashboardSection.CHANNELS) 1 else 0) }
-    var settingsCategoryIndex by remember { mutableIntStateOf(0) }
-    var settingsOptionIndex by remember { mutableIntStateOf(0) }
     var settingsDropdownOpenRequest by remember { mutableIntStateOf(0) }
     var settingsDropdownOptionIndex by remember { mutableIntStateOf(-1) }
     var guideProgrammeDetailsVisible by remember { mutableStateOf(false) }
@@ -95,7 +87,7 @@ fun WukkiApp(
             guideState.focusCurrentProgramme(guideData, guideTimeline(tick, model.guideLatestProgrammeEnd()), tick)
         }
         if (androidSettingsNavigation && section == DashboardSection.SETTINGS && activeSection != DashboardSection.SETTINGS) {
-            settingsSection = null
+            settingsNavigation = settingsNavigation.copy(section = null, option = null)
         }
         activeSection = section
         mainNavigationIndex = mainSections.indexOf(section).coerceAtLeast(0)
@@ -158,6 +150,55 @@ fun WukkiApp(
         }
     }
 
+    fun cycleRefresh(section: SettingsSection, delta: Int) {
+        val isEpg = section == SettingsSection.EPG
+        val intervals = if (isEpg) RefreshInterval.entries.toList() else {
+            listOf(RefreshInterval.MANUAL, RefreshInterval.SIX_HOURS, RefreshInterval.DAILY)
+        }
+        val current = if (isEpg) model.settings.epgRefresh else model.settings.playlistRefresh
+        val next = intervals[(intervals.indexOf(current).coerceAtLeast(0) + delta).mod(intervals.size)]
+        if (isEpg) model.setEpgRefresh(next) else model.setPlaylistRefresh(next)
+    }
+
+    fun applySettingsEffect(effect: SettingsNavigationEffect) {
+        when (effect) {
+            SettingsNavigationEffect.None -> Unit
+            SettingsNavigationEffect.ExitToMainMenu -> focusZone = TvFocusZone.MAIN_NAVIGATION
+            is SettingsNavigationEffect.Adjust -> when (val option = effect.option) {
+                is PlaybackSettingsOption -> model.updatePlayback { current ->
+                    when (option) {
+                        PlaybackSettingsOption.AUTOPLAY -> current.copy(autoPlayOnLaunch = !(current.autoPlayOnLaunch != false))
+                        PlaybackSettingsOption.VOLUME -> current.copy(volume = (current.volume + effect.delta * 5).coerceIn(0, 100))
+                        PlaybackSettingsOption.BUFFER -> current.copy(bufferProfile = BufferProfile.entries[(current.bufferProfile.ordinal + effect.delta).mod(BufferProfile.entries.size)])
+                        PlaybackSettingsOption.ASPECT_RATIO -> current.copy(aspectRatio = AspectRatioMode.entries[((current.aspectRatio ?: AspectRatioMode.AUTO).ordinal + effect.delta).mod(AspectRatioMode.entries.size)])
+                        PlaybackSettingsOption.RECONNECT -> current.copy(autoReconnect = !current.autoReconnect)
+                        PlaybackSettingsOption.RETRIES -> current.copy(reconnectAttempts = (current.reconnectAttempts + effect.delta).coerceIn(1, 10))
+                    }
+                }
+                is DisplaySettingsOption -> adjustDisplayOption(model, option, effect.delta)
+                EpgSettingsOption.SCHEDULE -> cycleRefresh(SettingsSection.EPG, effect.delta)
+                PlaylistSettingsOption.SCHEDULE -> cycleRefresh(SettingsSection.PLAYLISTS, effect.delta)
+                LanguageSettingsOption.LANGUAGE -> model.setLanguage(if (model.settings.language == AppLanguage.HUNGARIAN) AppLanguage.ENGLISH else AppLanguage.HUNGARIAN)
+                EpgSettingsOption.REFRESH, PlaylistSettingsOption.REFRESH -> Unit
+            }
+            is SettingsNavigationEffect.Activate -> when (val option = effect.option) {
+                PlaybackSettingsOption.AUTOPLAY -> model.updatePlayback { it.copy(autoPlayOnLaunch = !(it.autoPlayOnLaunch != false)) }
+                PlaybackSettingsOption.BUFFER, PlaybackSettingsOption.ASPECT_RATIO, LanguageSettingsOption.LANGUAGE -> {
+                    settingsDropdownOptionIndex = settingsNavigation.optionIndex
+                    settingsDropdownOpenRequest++
+                }
+                PlaybackSettingsOption.RECONNECT -> model.updatePlayback { it.copy(autoReconnect = !it.autoReconnect) }
+                PlaybackSettingsOption.RETRIES -> model.updatePlayback { it.copy(reconnectAttempts = (it.reconnectAttempts + 1).coerceAtMost(10)) }
+                PlaybackSettingsOption.VOLUME -> Unit
+                is DisplaySettingsOption -> adjustDisplayOption(model, option, 1)
+                EpgSettingsOption.SCHEDULE -> cycleRefresh(SettingsSection.EPG, 1)
+                EpgSettingsOption.REFRESH -> scope.launch { model.refreshOfficialEpg() }
+                PlaylistSettingsOption.SCHEDULE -> cycleRefresh(SettingsSection.PLAYLISTS, 1)
+                PlaylistSettingsOption.REFRESH -> scope.launch { model.refreshOfficialPlaylist() }
+            }
+        }
+    }
+
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
         model.refreshOfficialPlaylist(showFeedback = false)
@@ -170,10 +211,10 @@ fun WukkiApp(
     LaunchedEffect(activeSection) {
         onActiveSectionChange(activeSection)
     }
-    DisposableEffect(activeSection, settingsSection, onPlatformBackActionChange) {
+    DisposableEffect(activeSection, settingsNavigation.section, onPlatformBackActionChange) {
         onPlatformBackActionChange(
-            if (activeSection == DashboardSection.SETTINGS && settingsSection != null) {
-                { settingsSection = null; true }
+            if (activeSection == DashboardSection.SETTINGS && settingsNavigation.section != null) {
+                { settingsNavigation = settingsNavigation.copy(section = null, option = null); true }
             } else {
                 null
             }
@@ -372,7 +413,9 @@ fun WukkiApp(
                     if (event.key.isBackKey()) {
                         when {
                             guideProgrammeDetailsVisible -> guideProgrammeDetailsVisible = false
-                            activeSection == DashboardSection.SETTINGS && settingsSection != null -> settingsSection = null
+                            activeSection == DashboardSection.SETTINGS && settingsNavigation.section != null -> {
+                                settingsNavigation = settingsNavigation.copy(section = null, option = null)
+                            }
                             else -> {
                                 mainNavigationIndex = mainSections.indexOf(activeSection).coerceAtLeast(0)
                                 focusZone = TvFocusZone.MAIN_NAVIGATION
@@ -381,13 +424,15 @@ fun WukkiApp(
                         return@onPreviewKeyEvent true
                     }
                     if (focusZone == TvFocusZone.MAIN_NAVIGATION) {
-                        when (event.key) {
-                            Key.DirectionUp, Key.PageUp -> mainNavigationIndex = (mainNavigationIndex - 1).coerceAtLeast(0)
-                            Key.DirectionDown, Key.PageDown -> mainNavigationIndex = (mainNavigationIndex + 1).coerceAtMost(mainSections.lastIndex)
-                            Key.DirectionRight -> focusZone = TvFocusZone.CONTENT
-                            else -> if (event.key.isConfirmKey()) activateSection(mainSections[mainNavigationIndex]) else return@onPreviewKeyEvent false
+                        val remoteKey = event.key.toRemoteKey() ?: return@onPreviewKeyEvent false
+                        val result = MainMenuNavigationState(mainNavigationIndex).reduce(remoteKey, mainSections.size)
+                        mainNavigationIndex = result.state.index
+                        when (val effect = result.effect) {
+                            MainMenuNavigationEffect.None -> Unit
+                            MainMenuNavigationEffect.EnterContent -> focusZone = TvFocusZone.CONTENT
+                            is MainMenuNavigationEffect.Activate -> activateSection(mainSections[effect.index])
                         }
-                        return@onPreviewKeyEvent true
+                        return@onPreviewKeyEvent result.handled
                     }
                     if (activeSection == DashboardSection.GUIDE) {
                         if (event.key.isConfirmKey()) {
@@ -407,171 +452,36 @@ fun WukkiApp(
                         return@onPreviewKeyEvent true
                     }
                     if (activeSection == DashboardSection.SETTINGS) {
-                        if (settingsSection == null) {
-                            when (event.key) {
-                                Key.DirectionUp, Key.PageUp -> settingsCategoryIndex = (settingsCategoryIndex - 1).coerceAtLeast(0)
-                                Key.DirectionDown, Key.PageDown -> settingsCategoryIndex = (settingsCategoryIndex + 1).coerceAtMost(SettingsSection.entries.lastIndex)
-                                Key.DirectionLeft -> focusZone = TvFocusZone.MAIN_NAVIGATION
-                                Key.DirectionRight -> { settingsSection = SettingsSection.entries[settingsCategoryIndex]; settingsOptionIndex = 0 }
-                                else -> if (event.key.isConfirmKey()) { settingsSection = SettingsSection.entries[settingsCategoryIndex]; settingsOptionIndex = 0 } else return@onPreviewKeyEvent false
-                            }
-                            return@onPreviewKeyEvent true
-                        }
-                        if (settingsSection == SettingsSection.PLAYBACK) {
-                            val optionCount = 6
-                            when (event.key) {
-                                Key.DirectionUp, Key.PageUp -> settingsOptionIndex = (settingsOptionIndex - 1).coerceAtLeast(0)
-                                Key.DirectionDown, Key.PageDown -> settingsOptionIndex = (settingsOptionIndex + 1).coerceAtMost(optionCount - 1)
-                                Key.DirectionLeft, Key.DirectionRight -> {
-                                    val delta = if (event.key == Key.DirectionLeft) -1 else 1
-                                    when (settingsOptionIndex) {
-                                        1 -> model.updatePlayback { it.copy(volume = (it.volume + delta * 5).coerceIn(0, 100)) }
-                                        2 -> model.updatePlayback { current -> current.copy(bufferProfile = BufferProfile.entries[(current.bufferProfile.ordinal + delta).mod(BufferProfile.entries.size)]) }
-                                        3 -> model.updatePlayback { current -> current.copy(aspectRatio = AspectRatioMode.entries[((current.aspectRatio ?: AspectRatioMode.AUTO).ordinal + delta).mod(AspectRatioMode.entries.size)]) }
-                                        5 -> model.updatePlayback { it.copy(reconnectAttempts = (it.reconnectAttempts + delta).coerceIn(1, 10)) }
-                                        else -> model.updatePlayback { it.copy(autoPlayOnLaunch = !(it.autoPlayOnLaunch != false)) }
-                                    }
-                                }
-                                else -> if (event.key.isConfirmKey()) {
-                                    when (settingsOptionIndex) {
-                                        0 -> model.updatePlayback { it.copy(autoPlayOnLaunch = !(it.autoPlayOnLaunch != false)) }
-                                        2, 3 -> {
-                                            settingsDropdownOptionIndex = settingsOptionIndex
-                                            settingsDropdownOpenRequest++
-                                        }
-                                        4 -> model.updatePlayback { it.copy(autoReconnect = !it.autoReconnect) }
-                                        5 -> model.updatePlayback { it.copy(reconnectAttempts = (it.reconnectAttempts + 1).coerceAtMost(10)) }
-                                    }
-                                } else return@onPreviewKeyEvent false
-                            }
-                            return@onPreviewKeyEvent true
-                        }
-                        if (settingsSection == SettingsSection.DISPLAY) {
-                            when (event.key) {
-                                Key.DirectionUp, Key.PageUp -> settingsOptionIndex = (settingsOptionIndex - 1).coerceAtLeast(0)
-                                Key.DirectionDown, Key.PageDown -> settingsOptionIndex = (settingsOptionIndex + 1).coerceAtMost(5)
-                                Key.DirectionLeft, Key.DirectionRight -> {
-                                    if (settingsOptionIndex == 0) {
-                                        val values = listOf(.9f, 1f, 1.15f)
-                                        val current = values.indexOf(model.settings.display.uiScale).coerceAtLeast(0)
-                                        val delta = if (event.key == Key.DirectionLeft) -1 else 1
-                                        model.updateDisplay { it.copy(uiScale = values[(current + delta).mod(values.size)]) }
-                                    } else if (settingsOptionIndex == 1) {
-                                        val current = (model.settings.display.channelListMode ?: ChannelListDisplayMode.NORMAL).ordinal
-                                        val delta = if (event.key == Key.DirectionLeft) -1 else 1
-                                        model.updateDisplay { display ->
-                                            display.copy(channelListMode = ChannelListDisplayMode.entries[(current + delta).mod(ChannelListDisplayMode.entries.size)])
-                                        }
-                                    } else toggleDisplayOption(model, settingsOptionIndex)
-                                }
-                                else -> if (event.key.isConfirmKey()) {
-                                    if (settingsOptionIndex == 0) {
-                                        val values = listOf(.9f, 1f, 1.15f)
-                                        val current = values.indexOf(model.settings.display.uiScale).coerceAtLeast(0)
-                                        model.updateDisplay { it.copy(uiScale = values[(current + 1).mod(values.size)]) }
-                                    } else if (settingsOptionIndex == 1) {
-                                        val current = (model.settings.display.channelListMode ?: ChannelListDisplayMode.NORMAL).ordinal
-                                        model.updateDisplay { display ->
-                                            display.copy(channelListMode = ChannelListDisplayMode.entries[(current + 1).mod(ChannelListDisplayMode.entries.size)])
-                                        }
-                                    } else toggleDisplayOption(model, settingsOptionIndex)
-                                } else return@onPreviewKeyEvent false
-                            }
-                            return@onPreviewKeyEvent true
-                        }
-                        if (settingsSection == SettingsSection.EPG || settingsSection == SettingsSection.PLAYLISTS) {
-                            val isEpg = settingsSection == SettingsSection.EPG
-                            val intervals = if (isEpg) {
-                                RefreshInterval.entries.toList()
-                            } else {
-                                listOf(RefreshInterval.MANUAL, RefreshInterval.SIX_HOURS, RefreshInterval.DAILY)
-                            }
-                            fun cycleRefresh(delta: Int) {
-                                val current = if (isEpg) model.settings.epgRefresh else model.settings.playlistRefresh
-                                val next = intervals[(intervals.indexOf(current).coerceAtLeast(0) + delta).mod(intervals.size)]
-                                if (isEpg) model.setEpgRefresh(next) else model.setPlaylistRefresh(next)
-                            }
-                            when (event.key) {
-                                Key.DirectionUp, Key.PageUp -> settingsOptionIndex = (settingsOptionIndex - 1).coerceAtLeast(0)
-                                Key.DirectionDown, Key.PageDown -> settingsOptionIndex = (settingsOptionIndex + 1).coerceAtMost(1)
-                                Key.DirectionLeft -> if (settingsOptionIndex == 0) cycleRefresh(-1)
-                                Key.DirectionRight -> if (settingsOptionIndex == 0) cycleRefresh(1)
-                                else -> if (event.key.isConfirmKey()) {
-                                    if (settingsOptionIndex == 0) {
-                                        cycleRefresh(1)
-                                    } else if (isEpg) {
-                                        scope.launch { model.refreshOfficialEpg() }
-                                    } else {
-                                        scope.launch { model.refreshOfficialPlaylist() }
-                                    }
-                                } else return@onPreviewKeyEvent false
-                            }
-                            return@onPreviewKeyEvent true
-                        }
-                        if (settingsSection == SettingsSection.LANGUAGE) {
-                            if (event.key.isConfirmKey()) {
-                                settingsDropdownOptionIndex = 0
-                                settingsDropdownOpenRequest++
-                                return@onPreviewKeyEvent true
-                            }
-                            if (event.key == Key.DirectionLeft || event.key == Key.DirectionRight) {
-                                model.setLanguage(if (model.settings.language == AppLanguage.HUNGARIAN) AppLanguage.ENGLISH else AppLanguage.HUNGARIAN)
-                                return@onPreviewKeyEvent true
-                            }
-                        }
-                        return@onPreviewKeyEvent false
+                        val remoteKey = event.key.toRemoteKey() ?: return@onPreviewKeyEvent false
+                        val result = settingsNavigation.reduce(remoteKey)
+                        settingsNavigation = result.state
+                        applySettingsEffect(result.effect)
+                        return@onPreviewKeyEvent result.handled
                     }
                     if (activeSection == DashboardSection.CHANNELS) {
                         val filterCount = model.categories().size + 2
-                        when (channelRemoteFocus) {
-                            ChannelRemoteFocus.FILTERS -> when (event.key) {
-                                Key.DirectionLeft -> if (channelFilterIndex == 0) focusZone = TvFocusZone.MAIN_NAVIGATION else channelFilterIndex--
-                                Key.DirectionRight -> if (channelFilterIndex >= filterCount - 1) channelRemoteFocus = ChannelRemoteFocus.SEARCH else channelFilterIndex++
-                                Key.DirectionDown -> channelRemoteFocus = ChannelRemoteFocus.LIST
-                                else -> if (event.key.isConfirmKey()) {
-                                    when (channelFilterIndex) {
-                                        0 -> model.showAllChannels()
-                                        1 -> model.showFavoriteChannels()
-                                        else -> model.showChannelCategory(model.categories()[channelFilterIndex - 2])
-                                    }
-                                    channelListIndex = 0
-                                } else return@onPreviewKeyEvent false
-                            }
-                            ChannelRemoteFocus.SEARCH -> when (event.key) {
-                                Key.DirectionLeft, Key.DirectionRight, Key.DirectionDown -> {
-                                    if (model.query.isEmpty()) {
-                                        channelRemoteFocus = if (event.key == Key.DirectionLeft) {
-                                            ChannelRemoteFocus.FILTERS
-                                        } else {
-                                            ChannelRemoteFocus.LIST
-                                        }
-                                    } else {
-                                        return@onPreviewKeyEvent false
-                                    }
+                        val remoteKey = event.key.toRemoteKey() ?: return@onPreviewKeyEvent false
+                        val result = ChannelNavigationState(channelRemoteFocus, channelFilterIndex, channelListIndex).reduce(
+                            remoteKey, filterCount, model.filteredChannels().size, model.query.isNotEmpty()
+                        )
+                        channelRemoteFocus = result.state.focus
+                        channelFilterIndex = result.state.filterIndex
+                        channelListIndex = result.state.channelIndex
+                        when (val effect = result.effect) {
+                            ChannelNavigationEffect.None -> Unit
+                            ChannelNavigationEffect.ExitToMainMenu -> focusZone = TvFocusZone.MAIN_NAVIGATION
+                            is ChannelNavigationEffect.ActivateFilter -> {
+                                when (effect.index) {
+                                    0 -> model.showAllChannels()
+                                    1 -> model.showFavoriteChannels()
+                                    else -> model.showChannelCategory(model.categories()[effect.index - 2])
                                 }
-                                else -> return@onPreviewKeyEvent false
+                                channelListIndex = 0
                             }
-                            ChannelRemoteFocus.LIST -> when (event.key) {
-                                Key.DirectionLeft -> focusZone = TvFocusZone.MAIN_NAVIGATION
-                                Key.DirectionRight -> channelRemoteFocus = ChannelRemoteFocus.FAVORITE
-                                Key.DirectionUp, Key.PageUp -> {
-                                    if (channelListIndex == 0) channelRemoteFocus = ChannelRemoteFocus.FILTERS
-                                    else channelListIndex--
-                                }
-                                Key.DirectionDown, Key.PageDown -> channelListIndex = (channelListIndex + 1).coerceAtMost((model.filteredChannels().size - 1).coerceAtLeast(0))
-                                else -> if (event.key.isConfirmKey()) model.filteredChannels().getOrNull(channelListIndex)?.let { model.selectChannel(it.id) } else return@onPreviewKeyEvent false
-                            }
-                            ChannelRemoteFocus.FAVORITE -> when (event.key) {
-                                Key.DirectionLeft -> channelRemoteFocus = ChannelRemoteFocus.LIST
-                                Key.DirectionUp, Key.PageUp -> {
-                                    if (channelListIndex == 0) channelRemoteFocus = ChannelRemoteFocus.FILTERS
-                                    else channelListIndex--
-                                }
-                                Key.DirectionDown, Key.PageDown -> channelListIndex = (channelListIndex + 1).coerceAtMost((model.filteredChannels().size - 1).coerceAtLeast(0))
-                                else -> if (event.key.isConfirmKey()) model.filteredChannels().getOrNull(channelListIndex)?.let { model.toggleFavorite(it.id) } else return@onPreviewKeyEvent false
-                            }
+                            is ChannelNavigationEffect.OpenChannel -> model.filteredChannels().getOrNull(effect.index)?.let { model.selectChannel(it.id) }
+                            is ChannelNavigationEffect.ToggleFavorite -> model.filteredChannels().getOrNull(effect.index)?.let { model.toggleFavorite(it.id) }
                         }
-                        return@onPreviewKeyEvent true
+                        return@onPreviewKeyEvent result.handled
                     }
                     val digit = when (event.key) {
                         Key.One, Key.NumPad1 -> "1"
@@ -612,13 +522,15 @@ fun WukkiApp(
                 onSectionChange = { section ->
                     activateSection(section)
                 },
-                settingsSection = settingsSection,
+                settingsSection = settingsNavigation.section,
                 onSettingsSectionChange = { section ->
-                    settingsSection = section
-                    if (section != null) {
-                        settingsCategoryIndex = SettingsSection.entries.indexOf(section).coerceAtLeast(0)
-                        settingsOptionIndex = 0
-                    }
+                    val categoryIndex = section?.let { SettingsSection.entries.indexOf(it).coerceAtLeast(0) }
+                        ?: settingsNavigation.categoryIndex
+                    settingsNavigation = SettingsNavigationState(
+                        section = section,
+                        categoryIndex = categoryIndex,
+                        option = section?.options()?.firstOrNull()
+                    )
                 },
                 mainNavigationFocused = focusZone == TvFocusZone.MAIN_NAVIGATION,
                 mainNavigationSection = mainSections[mainNavigationIndex],
@@ -635,15 +547,21 @@ fun WukkiApp(
                         channelRemoteFocus = ChannelRemoteFocus.LIST
                     }
                 },
-                settingsCategoryIndex = settingsCategoryIndex,
-                settingsOptionIndex = settingsOptionIndex,
+                settingsCategoryIndex = settingsNavigation.categoryIndex,
+                settingsOptionIndex = settingsNavigation.optionIndex,
                 settingsDropdownOpenRequest = settingsDropdownOpenRequest,
                 settingsDropdownOptionIndex = settingsDropdownOptionIndex,
                 androidSettingsNavigation = androidSettingsNavigation,
                 useExpandedDesktopNavigation = useExpandedDesktopNavigation,
                 showCompactNavigationBrand = showCompactNavigationBrand,
-                onSettingsCategoryFocus = { settingsCategoryIndex = it.coerceIn(0, SettingsSection.entries.lastIndex) },
-                onSettingsOptionFocus = { settingsOptionIndex = it.coerceAtLeast(0) },
+                onSettingsCategoryFocus = { index ->
+                    settingsNavigation = settingsNavigation.copy(categoryIndex = index.coerceIn(0, SettingsSection.entries.lastIndex))
+                },
+                onSettingsOptionFocus = { index ->
+                    settingsNavigation.section?.options()?.getOrNull(index)?.let { option ->
+                        settingsNavigation = settingsNavigation.copy(option = option)
+                    }
+                },
                 guideProgrammeDetailsVisible = guideProgrammeDetailsVisible,
                 onShowGuideProgrammeDetails = ::showGuideProgrammeDetails,
                 onDismissGuideProgrammeDetails = { guideProgrammeDetailsVisible = false },
@@ -657,13 +575,21 @@ fun WukkiApp(
     }
 }
 
-private fun toggleDisplayOption(model: WukkiModel, optionIndex: Int) = model.updateDisplay { display ->
-    when (optionIndex) {
-        2 -> display.copy(showChannelProgramme = !display.showChannelProgramme)
-        3 -> display.copy(showMiniGuide = !display.showMiniGuide)
-        4 -> display.copy(showLogos = !display.showLogos)
-        5 -> display.copy(showProgrammeImages = !(display.showProgrammeImages != false))
-        else -> display
+private fun adjustDisplayOption(model: WukkiModel, option: DisplaySettingsOption, delta: Int) = model.updateDisplay { display ->
+    when (option) {
+        DisplaySettingsOption.UI_SCALE -> {
+            val values = listOf(.9f, 1f, 1.15f)
+            val current = values.indexOf(display.uiScale).coerceAtLeast(0)
+            display.copy(uiScale = values[(current + delta).mod(values.size)])
+        }
+        DisplaySettingsOption.CHANNEL_LIST -> {
+            val current = (display.channelListMode ?: ChannelListDisplayMode.NORMAL).ordinal
+            display.copy(channelListMode = ChannelListDisplayMode.entries[(current + delta).mod(ChannelListDisplayMode.entries.size)])
+        }
+        DisplaySettingsOption.PROGRAMME -> display.copy(showChannelProgramme = !display.showChannelProgramme)
+        DisplaySettingsOption.MINI_GUIDE -> display.copy(showMiniGuide = !display.showMiniGuide)
+        DisplaySettingsOption.LOGOS -> display.copy(showLogos = !display.showLogos)
+        DisplaySettingsOption.PROGRAMME_IMAGES -> display.copy(showProgrammeImages = !(display.showProgrammeImages != false))
     }
 }
 
