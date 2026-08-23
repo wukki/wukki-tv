@@ -4,7 +4,7 @@
 http://88.212.15.19/live/test_m_1_hungary_1200_atk/playlist.m3u8
 #EXTINF:-1 tvg-id="MediaPressTV_44" tvg-logo="https://i.imgur.com/B0nYT0l.png" group-title="General" tvg-name="M2" tvg-chno="2",
 http://88.212.15.19/live/m2_hun/index.m3u8
-#EXTINF:-1 tvg-id="MediaPressTV_89" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b4/TV2_2008.svg/960px-TV2_2008.svg.png" user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36" group-title="General" tvg-name="TV2" tvg-chno="3",
+#EXTINF:-1 tvg-id="MediaPressTV_89" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/9/9e/TV2_logo.png" user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36" group-title="General" tvg-name="TV2" tvg-chno="3",
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36
 http://88.212.15.19/live/test_tv_2_hungary_1200_atk/playlist.m3u8
 #EXTINF:-1 tvg-id="MediaPressTV_85" tvg-logo="https://i.imgur.com/JCu1u2v.png" user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36" group-title="General" tvg-name="Super TV2" tvg-chno="4",
@@ -43,8 +43,8 @@ http://88.212.15.19/live/jocky/index.m3u8
 #EXTINF:-1 tvg-id="MediaPressTV_42" tvg-logo="https://i.imgur.com/3znYv1N.png" group-title="Entertainment" user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" tvg-name="Life TV" tvg-chno="16",
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36
 http://88.212.15.19/live/lifetv/index.m3u8
-#EXTINF:-1 tvg-name="JimJam" tvg-logo="https://i.imgur.com/ODhkYyx.png" group-title="Kids" tvg-id="MediaPressTV_160" tvg-chno="17",
-http://88.212.15.19/live/jim_jam_hun/index.m3u8
+#EXTINF:-1 tvg-name="JimJam" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/e/e3/2024_Disney_Jr._Logo.svg" group-title="Kids" tvg-id="MediaPressTV_160" tvg-chno="17",
+https://i.imgur.com/ODhkYyx.png
 #EXTINF:-1 tvg-id="MediaPressTV_167" tvg-logo="https://i.imgur.com/WWOlm1x.png" group-title="Kids" user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" tvg-name="Minimax" tvg-chno="18",
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36
 http://88.212.15.19/live/minimax_hun/index.m3u8
