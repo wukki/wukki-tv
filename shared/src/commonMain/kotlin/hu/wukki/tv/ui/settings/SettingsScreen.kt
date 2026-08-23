@@ -297,10 +297,7 @@ private fun SettingsDetail(
 private fun PlaybackSettings(model: WukkiModel, remoteOptionIndex: Int, onOptionFocus: (Int) -> Unit, scale: Float) {
     val settings = model.settings.playback
     val focusedOption = PlaybackOption.entries.getOrElse(remoteOptionIndex) { PlaybackOption.AUTOPLAY }
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
+    Column(modifier = Modifier.fillMaxWidth()) {
         SettingsOptionRow(model, "settings.playback.autoplay", "settings.playback.autoplay.description", focusedOption == PlaybackOption.AUTOPLAY, onFocus = { onOptionFocus(0) }, scale = scale) {
             Switch(
                 checked = settings.autoPlayOnLaunch != false,
@@ -413,7 +410,7 @@ private fun PlaybackStepper(value: Int, onDecrease: () -> Unit, onIncrease: () -
 
 @Composable
 private fun EpgSettings(model: WukkiModel, scope: CoroutineScope, remoteOptionIndex: Int, onOptionFocus: (Int) -> Unit, scale: Float) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column {
     SettingsOptionRow(model, "settings.epg.refresh", selected = remoteOptionIndex == 0, onFocus = { onOptionFocus(0) }, scale = scale) {
         RefreshSelector(
             model,
@@ -439,24 +436,23 @@ private fun EpgSettings(model: WukkiModel, scope: CoroutineScope, remoteOptionIn
 }
 @Composable
 private fun DisplaySettings(model: WukkiModel, remoteOptionIndex: Int, onOptionFocus: (Int) -> Unit, scale: Float) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column {
     SettingsOptionRow(model, "settings.display.scale", selected = remoteOptionIndex == 0, onFocus = { onOptionFocus(0) }, scale = scale) {
-        Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-            listOf(.9f to tr(model.settings.language, "settings.display.small"), 1f to tr(model.settings.language, "settings.display.normal"), 1.15f to tr(model.settings.language, "settings.display.large")).forEach { (scale, title) ->
-                FilterChip(selected = model.settings.display.uiScale == scale, onClick = { onOptionFocus(0); model.updateDisplay { it.copy(uiScale = scale) } }, label = { Text(title) })
-            }
-        }
+        val options = listOf(.9f to tr(model.settings.language, "settings.display.small"), 1f to tr(model.settings.language, "settings.display.normal"), 1.15f to tr(model.settings.language, "settings.display.large"))
+        SettingsSegmentedChoice(
+            entries = options,
+            selected = options.first { it.first == model.settings.display.uiScale },
+            label = { it.second },
+            onSelect = { option -> onOptionFocus(0); model.updateDisplay { it.copy(uiScale = option.first) } }
+        )
     }
     SettingsOptionRow(model, "settings.display.channel.list", selected = remoteOptionIndex == 1, onFocus = { onOptionFocus(1) }, scale = scale) {
-        Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-            ChannelListDisplayMode.entries.forEach { mode ->
-                FilterChip(
-                    selected = (model.settings.display.channelListMode ?: ChannelListDisplayMode.NORMAL) == mode,
-                    onClick = { onOptionFocus(1); model.updateDisplay { it.copy(channelListMode = mode) } },
-                    label = { Text(mode.label(model)) }
-                )
-            }
-        }
+        SettingsSegmentedChoice(
+            entries = ChannelListDisplayMode.entries,
+            selected = model.settings.display.channelListMode ?: ChannelListDisplayMode.NORMAL,
+            label = { it.label(model) },
+            onSelect = { mode -> onOptionFocus(1); model.updateDisplay { it.copy(channelListMode = mode) } }
+        )
     }
     SettingsToggle(model, "settings.display.programme", model.settings.display.showChannelProgramme, remoteOptionIndex == 2, { onOptionFocus(2) }, scale) { model.updateDisplay { settings -> settings.copy(showChannelProgramme = it) } }
     SettingsToggle(model, "settings.display.mini.guide", model.settings.display.showMiniGuide, remoteOptionIndex == 3, { onOptionFocus(3) }, scale) { model.updateDisplay { settings -> settings.copy(showMiniGuide = it) } }
@@ -467,7 +463,7 @@ private fun DisplaySettings(model: WukkiModel, remoteOptionIndex: Int, onOptionF
 
 @Composable
 private fun PlaylistSettings(model: WukkiModel, scope: CoroutineScope, remoteOptionIndex: Int, onOptionFocus: (Int) -> Unit, scale: Float) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column {
     SettingsOptionRow(model, "settings.playlist.refresh", selected = remoteOptionIndex == 0, onFocus = { onOptionFocus(0) }, scale = scale) {
         RefreshSelector(
             model,
@@ -528,12 +524,14 @@ private fun FixedSourceCard(
 }
 @Composable
 private fun LanguageSettings(model: WukkiModel, remoteOptionIndex: Int, onOptionFocus: (Int) -> Unit, scale: Float) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column {
     SettingsOptionRow(model, "settings.language.title", selected = remoteOptionIndex == 0, onFocus = { onOptionFocus(0) }, scale = scale) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(selected = model.settings.language == AppLanguage.HUNGARIAN, onClick = { onOptionFocus(0); model.setLanguage(AppLanguage.HUNGARIAN) }, label = { Text(tr(model.settings.language, "language.hungarian")) })
-            FilterChip(selected = model.settings.language == AppLanguage.ENGLISH, onClick = { onOptionFocus(0); model.setLanguage(AppLanguage.ENGLISH) }, label = { Text(tr(model.settings.language, "language.english")) })
-        }
+        SettingsSegmentedChoice(
+            entries = AppLanguage.entries,
+            selected = model.settings.language,
+            label = { language -> tr(model.settings.language, if (language == AppLanguage.HUNGARIAN) "language.hungarian" else "language.english") },
+            onSelect = { language -> onOptionFocus(0); model.setLanguage(language) }
+        )
     }
     SettingsOptionRow(model, "settings.language.notice", scale = scale) { }
     }
@@ -551,7 +549,7 @@ private fun AboutSettings(model: WukkiModel, playbackEngineLabel: String, scale:
     LaunchedEffect(Unit) {
         deviceInfo = withContext(Dispatchers.Default) { DeviceInfoProvider.collect() }
     }
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column {
         SettingsOptionRow(model, "settings.about", "settings.about.licenses", scale = scale) { Text("Wukki TV", color = WukkiColors.textPrimary, fontWeight = FontWeight.SemiBold) }
         SettingsOptionRow(model, "settings.about.version", scale = scale) { Text(WukkiBuildInfo.VERSION, color = WukkiColors.textPrimary, fontWeight = FontWeight.SemiBold) }
         SettingsOptionRow(model, "settings.about.build", scale = scale) { Text(WukkiBuildInfo.BUILD, color = WukkiColors.textPrimary, fontWeight = FontWeight.SemiBold) }
@@ -655,11 +653,12 @@ private fun SettingsListRow(
     control: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit
 ) {
     val shape = RoundedCornerShape(12.dp * scale)
+    val highlighted = selected || focused
     Row(
         modifier = modifier.fillMaxWidth().heightIn(min = 81.dp * scale)
             .clip(shape)
-            .background(if (selected) WukkiColors.surfaceSelected else SettingsSurface)
-            .border(if (focused) 2.dp else .5.dp, if (focused) SettingsAccent else WukkiColors.border.copy(alpha = .72f), shape)
+            .background(if (highlighted) WukkiColors.surfaceSelected else SettingsSurface)
+            .border(.5.dp, WukkiColors.border.copy(alpha = .72f), shape)
             .then(onClick?.let { Modifier.clickable(onClick = it) } ?: Modifier)
             .padding(horizontal = 24.dp * scale, vertical = 10.dp * scale),
         verticalAlignment = Alignment.CenterVertically
@@ -691,12 +690,29 @@ private fun RefreshSelector(
     onFocus: () -> Unit,
     onSelect: (RefreshInterval) -> Unit
 ) {
-    Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-        intervals.forEach { interval ->
-            FilterChip(
-                selected = interval == selected,
-                onClick = { onFocus(); onSelect(interval) },
-                label = { Text(interval.label(model, useHourlyLabels)) }
+    SettingsSegmentedChoice(
+        entries = intervals,
+        selected = selected,
+        label = { interval -> interval.label(model, useHourlyLabels) },
+        onSelect = { interval -> onFocus(); onSelect(interval) }
+    )
+}
+
+@Composable
+@OptIn(ExperimentalMaterial3Api::class)
+private fun <T> SettingsSegmentedChoice(
+    entries: List<T>,
+    selected: T,
+    label: (T) -> String,
+    onSelect: (T) -> Unit
+) {
+    SingleChoiceSegmentedButtonRow {
+        entries.forEachIndexed { index, entry ->
+            SegmentedButton(
+                selected = entry == selected,
+                onClick = { onSelect(entry) },
+                shape = SegmentedButtonDefaults.itemShape(index = index, count = entries.size),
+                label = { Text(label(entry), maxLines = 1, overflow = TextOverflow.Ellipsis) }
             )
         }
     }
