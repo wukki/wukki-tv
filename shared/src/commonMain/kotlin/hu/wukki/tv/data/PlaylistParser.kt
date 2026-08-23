@@ -26,7 +26,8 @@ object PlaylistParser {
                         tvgName = attributes["tvg-name"],
                         tvgChno = channelNumber(attributes["tvg-chno"]),
                         group = attributes["group-title"] ?: "Egyéb",
-                        logo = LogoUrl.fromM3u(attributes["tvg-logo"])
+                        logo = LogoUrl.fromM3u(attributes["tvg-logo"]),
+                        tvgShiftHours = tvgShiftHours(attributes["tvg-shift"])
                     )
                     metadata = null
                 }
@@ -64,6 +65,21 @@ object PlaylistParser {
 
     private fun channelNumber(value: String?): Int? = value?.trim()?.let { raw ->
         raw.toIntOrNull() ?: Regex("^\\d+").find(raw)?.value?.toIntOrNull()
+    }
+
+    /**
+     * `tvg-shift` is normally a signed hour value, but some providers use an
+     * `±HH:mm` form. Both forms are accepted so an invalid value never shifts
+     * programme times accidentally.
+     */
+    private fun tvgShiftHours(value: String?): Double? {
+        val raw = value?.trim()?.replace(',', '.')?.takeIf { it.isNotEmpty() } ?: return null
+        raw.toDoubleOrNull()?.takeIf { it.isFinite() }?.let { return it }
+        val match = Regex("^([+-]?)(\\d{1,2}):(\\d{2})$").matchEntire(raw) ?: return null
+        val hours = match.groupValues[2].toIntOrNull() ?: return null
+        val minutes = match.groupValues[3].toIntOrNull()?.takeIf { it < 60 } ?: return null
+        val magnitude = hours + minutes / 60.0
+        return if (match.groupValues[1] == "-") -magnitude else magnitude
     }
 }
 

@@ -68,6 +68,27 @@ class OfficialWukkiSourceTest {
     }
 
     @Test
+    fun `playlist tvg shift offsets only the matched channel EPG`() = runBlocking {
+        val loader = RemoteTextLoader { url ->
+            when (url) {
+                OfficialWukkiSource.PLAYLIST_URL -> m3u("https://epg.example/guide.xml", tvgShift = "+01:30")
+                "https://epg.example/guide.xml" -> xml("rtl", "Híradó")
+                else -> error("Unexpected URL: $url")
+            }
+        }
+        val model = WukkiModel(AppState(), loader, stateSaver = {})
+
+        assertTrue(model.refreshOfficialPlaylist(showFeedback = false))
+
+        val channel = model.state.channels.single()
+        val rawStart = 1_787_248_800_000L // 2026-08-20 18:00:00 UTC
+        val programme = model.programmesFor(channel, rawStart, rawStart + 8L * 60L * 60L * 1000L).single()
+        assertEquals(1.5, channel.tvgShiftHours)
+        assertEquals(rawStart + 90L * 60L * 1000L, programme.start)
+        assertEquals(rawStart + 150L * 60L * 1000L, programme.end)
+    }
+
+    @Test
     fun `new EPG URL replaces the old cache and missing EPG clears it`() = runBlocking {
         var playlist = m3u("https://epg.example/first.xml")
         val loader = RemoteTextLoader { url ->
@@ -170,11 +191,13 @@ class OfficialWukkiSourceTest {
         epgChannelId = epgSourceId?.let { "rtl" }
     )
 
-    private fun m3u(epgUrl: String?): String = buildString {
+    private fun m3u(epgUrl: String?, tvgShift: String? = null): String = buildString {
         append("#EXTM3U")
         epgUrl?.let { append(" url-tvg=\"").append(it).append("\"") }
         appendLine()
-        appendLine("#EXTINF:-1 tvg-id=\"rtl\" tvg-name=\"RTL\" tvg-chno=\"1\" group-title=\"News\",RTL")
+        append("#EXTINF:-1 tvg-id=\"rtl\" tvg-name=\"RTL\" tvg-chno=\"1\" group-title=\"News\"")
+        tvgShift?.let { append(" tvg-shift=\"").append(it).append("\"") }
+        appendLine(",RTL")
         appendLine("https://stream.example/rtl.m3u8")
     }
 

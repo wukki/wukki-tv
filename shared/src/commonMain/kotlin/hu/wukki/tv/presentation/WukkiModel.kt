@@ -6,6 +6,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlin.math.roundToLong
+
+private const val MILLIS_PER_HOUR = 60L * 60L * 1000L
+
 class WukkiModel(
     initialState: AppState = PlatformAppServices.stateStore.load(),
     private val sourceLoader: RemoteTextLoader = PlatformAppServices.remoteTextLoader,
@@ -270,7 +274,11 @@ class WukkiModel(
         } else {
             emptyList()
         }
-        return programmes.filter { programme -> programme.channelId.equals(epgChannelId, ignoreCase = true) }.sortedBy { it.start }
+        return programmes.asSequence()
+            .filter { programme -> programme.channelId.equals(epgChannelId, ignoreCase = true) }
+            .map { programme -> programme.shiftedBy(channel.tvgShiftHours) }
+            .sortedBy { it.start }
+            .toList()
     }
 
     private fun channelCategoryName(channel: Channel): String = channel.group.ifBlank { OTHER_CATEGORY_ID }
@@ -322,3 +330,8 @@ private fun List<Channel>.sortedChannels(): List<Channel> =
     sortedWith(compareBy<Channel> { it.tvgChno ?: Int.MAX_VALUE }.thenBy { normalize(it.name) })
 
 private fun Int.floorMod(modulus: Int): Int = ((this % modulus) + modulus) % modulus
+
+private fun Programme.shiftedBy(hours: Double?): Programme {
+    val offset = hours?.takeIf { it.isFinite() }?.times(MILLIS_PER_HOUR)?.roundToLong() ?: return this
+    return if (offset == 0L) this else copy(start = start + offset, end = end + offset)
+}

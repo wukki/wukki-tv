@@ -79,7 +79,9 @@ data class Channel(
     val logo: String?,
     val favorite: Boolean = false,
     val epgChannelId: String? = null,
-    val epgSourceId: String? = null
+    val epgSourceId: String? = null,
+    /** Optional M3U `tvg-shift`, expressed in hours, applied when this channel's EPG is shown. */
+    val tvgShiftHours: Double? = null
 ) : Persistable {
     companion object { const val serialVersionUID: Long = -1321689634413548830L }
 }
