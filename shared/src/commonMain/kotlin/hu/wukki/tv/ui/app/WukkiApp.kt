@@ -47,6 +47,7 @@ fun WukkiApp(
     playbackEngineLabel: String,
     onActiveSectionChange: (DashboardSection) -> Unit = {},
     androidSettingsNavigation: Boolean = false,
+    useExpandedDesktopNavigation: Boolean = false,
     onPlatformBackActionChange: ((() -> Boolean)?) -> Unit = {}
 ) {
     val model = remember { WukkiModel() }
@@ -623,10 +624,10 @@ fun WukkiApp(
                 settingsCategoryIndex = settingsCategoryIndex,
                 settingsOptionIndex = settingsOptionIndex,
                 androidSettingsNavigation = androidSettingsNavigation,
+                useExpandedDesktopNavigation = useExpandedDesktopNavigation,
                 onSettingsCategoryFocus = { settingsCategoryIndex = it.coerceIn(0, SettingsSection.entries.lastIndex) },
                 onSettingsOptionFocus = { settingsOptionIndex = it.coerceAtLeast(0) },
                 guideProgrammeDetailsVisible = guideProgrammeDetailsVisible,
-                guideProgrammeDialogFocusedAction = guideProgrammeDialogState.focusedAction,
                 onShowGuideProgrammeDetails = ::showGuideProgrammeDetails,
                 onDismissGuideProgrammeDetails = { guideProgrammeDetailsVisible = false },
                 onOpenGuideProgrammeChannel = ::openGuideProgrammeChannel,

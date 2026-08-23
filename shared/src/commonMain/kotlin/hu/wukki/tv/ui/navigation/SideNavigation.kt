@@ -1,9 +1,17 @@
 package hu.wukki.tv.ui.navigation
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.FormatListBulleted
@@ -11,12 +19,15 @@ import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.LiveTv
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationDrawerItem
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -33,82 +44,99 @@ data class SideNavigationUiState(
     val dateLabel: String
 )
 
-/** Pure main navigation: it has no knowledge of the model or the playback runtime. */
+/** Material navigation controls with the product's desktop brand lockup. */
 @Composable
 fun SideNavigation(
     state: SideNavigationUiState,
     scale: Float,
     onSelect: (DashboardSection) -> Unit,
-    compact: Boolean = false,
+    expandedDesktop: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    Column(
-        modifier = modifier.background(WukkiBrushes.navigationBackground())
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(
-                start = if (compact) 0.dp else 30.dp * scale,
-                top = if (compact) 22.dp else 40.dp * scale
-            ),
-            horizontalArrangement = if (compact) Arrangement.Center else Arrangement.Start,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (compact) {
-                androidx.compose.material3.Text("W", color = WukkiColors.textPrimary, fontWeight = FontWeight.Black, fontSize = 26.sp)
-            } else {
-                androidx.compose.material3.Text("Wukki", color = WukkiColors.textPrimary, fontWeight = FontWeight.Black, fontSize = (36 * scale).sp, letterSpacing = (-1.2).sp)
-                Spacer(Modifier.width(7.dp * scale))
-                androidx.compose.material3.Text(
-                    "TV", color = WukkiColors.textPrimary, fontSize = (17 * scale).sp, fontWeight = FontWeight.Bold,
-                    modifier = Modifier.clip(RoundedCornerShape(5.dp * scale))
-                        .background(WukkiBrushes.accent())
-                        .padding(horizontal = 7.dp * scale, vertical = 4.dp * scale)
+    if (expandedDesktop) {
+        ExpandedDesktopNavigation(state, scale, onSelect, modifier)
+    } else {
+        CompactNavigation(state, scale, onSelect, modifier)
+    }
+}
+
+@Composable
+private fun ExpandedDesktopNavigation(
+    state: SideNavigationUiState,
+    scale: Float,
+    onSelect: (DashboardSection) -> Unit,
+    modifier: Modifier
+) {
+    Surface(modifier = modifier.fillMaxHeight()) {
+        Column(Modifier.fillMaxHeight()) {
+            WukkiTvBrand(scale)
+            Spacer(Modifier.height(83.dp * scale))
+            state.entries.forEach { entry ->
+                NavigationDrawerItem(
+                    label = { Text(entry.label, maxLines = 1, fontSize = (19f * scale).sp) },
+                    selected = entry.section == state.activeSection || entry.section == state.focusedSection,
+                    onClick = { onSelect(entry.section) },
+                    icon = { NavigationIcon(entry.section, Modifier.size((29.dp * scale).coerceIn(22.dp, 38.dp))) },
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp * scale, vertical = 2.dp * scale)
                 )
             }
-        }
-        Spacer(Modifier.height(if (compact) 30.dp else 83.dp * scale))
-        state.entries.forEach { entry ->
-            val selected = entry.section == state.activeSection
-            val focused = entry.section == state.focusedSection
-            Row(
-                modifier = Modifier.fillMaxWidth().height((76.dp * scale).coerceIn(54.dp, 94.dp))
-                    .background(
-                        if (selected) WukkiBrushes.navigationSelected()
-                        else Brush.horizontalGradient(listOf(WukkiColors.transparent, WukkiColors.transparent))
-                    )
-                    .border(if (focused) 2.dp else 0.dp, if (focused) WukkiColors.focus else WukkiColors.transparent)
-                    .clickable { onSelect(entry.section) }.padding(
-                        start = if (compact) 0.dp else 40.dp * scale,
-                        end = if (compact) 0.dp else 16.dp
-                    ),
-                horizontalArrangement = if (compact) Arrangement.Center else Arrangement.Start,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                NavigationIcon(entry.section, if (selected) WukkiColors.textPrimary else WukkiColors.textSecondary, Modifier.size((29.dp * scale).coerceIn(22.dp, 38.dp)))
-                if (!compact) {
-                    Spacer(Modifier.width(25.dp * scale))
-                    androidx.compose.material3.Text(entry.label, color = if (selected) WukkiColors.textPrimary else WukkiColors.textSecondary, fontSize = (19 * scale).sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
-                }
-            }
-        }
-        Spacer(Modifier.weight(1f))
-        if (!compact) {
-            Column(modifier = Modifier.padding(start = 30.dp * scale, bottom = 70.dp * scale)) {
-                androidx.compose.material3.Text(state.timeLabel, color = WukkiColors.textPrimary, fontSize = (34 * scale).sp, fontWeight = FontWeight.Light)
+            Spacer(Modifier.weight(1f))
+            Column(Modifier.padding(start = 30.dp * scale, bottom = 70.dp * scale)) {
+                Text(state.timeLabel, fontSize = (34f * scale).sp, fontWeight = FontWeight.Light)
                 Spacer(Modifier.height(5.dp * scale))
-                androidx.compose.material3.Text(state.dateLabel, color = WukkiColors.textMuted, fontSize = (15 * scale).sp)
+                Text(state.dateLabel, fontSize = (15f * scale).sp)
             }
         }
     }
 }
 
 @Composable
-private fun NavigationIcon(section: DashboardSection, color: Color, modifier: Modifier) {
+private fun WukkiTvBrand(scale: Float) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(start = 30.dp * scale, top = 40.dp * scale),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text("Wukki", fontWeight = FontWeight.Black, fontSize = (36f * scale).sp, letterSpacing = (-1.2).sp)
+        Spacer(Modifier.width(7.dp * scale))
+        Box(
+            modifier = Modifier.clip(RoundedCornerShape(5.dp * scale)).background(WukkiBrushes.brandAccent())
+                .padding(horizontal = 7.dp * scale, vertical = 4.dp * scale),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("TV", color = WukkiColors.textPrimary, fontSize = (17f * scale).sp, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun CompactNavigation(
+    state: SideNavigationUiState,
+    scale: Float,
+    onSelect: (DashboardSection) -> Unit,
+    modifier: Modifier
+) {
+    NavigationRail(modifier = modifier.fillMaxHeight()) {
+        Text("W", modifier = Modifier.padding(top = 14.dp), fontWeight = FontWeight.Black, fontSize = 26.sp)
+        Spacer(Modifier.size(18.dp))
+        state.entries.forEach { entry ->
+            NavigationRailItem(
+                selected = entry.section == state.activeSection || entry.section == state.focusedSection,
+                onClick = { onSelect(entry.section) },
+                icon = { NavigationIcon(entry.section, Modifier.size((26.dp * scale).coerceIn(20.dp, 32.dp))) },
+                label = { Text(entry.label, maxLines = 1) },
+                alwaysShowLabel = false
+            )
+        }
+    }
+}
+
+@Composable
+private fun NavigationIcon(section: DashboardSection, modifier: Modifier) {
     val icon = when (section) {
         DashboardSection.LIVE -> Icons.Outlined.LiveTv
         DashboardSection.GUIDE -> Icons.Outlined.CalendarMonth
         DashboardSection.CHANNELS -> Icons.AutoMirrored.Outlined.FormatListBulleted
         DashboardSection.SETTINGS -> Icons.Outlined.Settings
     }
-    Icon(imageVector = icon, contentDescription = null, tint = color, modifier = modifier)
+    Icon(imageVector = icon, contentDescription = null, modifier = modifier)
 }

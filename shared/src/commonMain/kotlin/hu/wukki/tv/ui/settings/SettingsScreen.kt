@@ -4,12 +4,10 @@ import hu.wukki.tv.*
 import hu.wukki.tv.ui.components.formatTime
 import hu.wukki.tv.ui.components.Localizer
 import hu.wukki.tv.ui.components.tr
-import hu.wukki.tv.ui.components.WukkiColors
 
 import androidx.compose.foundation.*
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -17,7 +15,6 @@ import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.ArrowForwardIos
-import androidx.compose.material.icons.outlined.ArrowDropDown
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.*
@@ -25,8 +22,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -37,9 +32,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 enum class SettingsSection { PLAYBACK, EPG, DISPLAY, PARENTAL, PLAYLISTS, LANGUAGE, ABOUT }
-private val SettingsSurface = WukkiColors.surface
-private val SettingsMuted = WukkiColors.textMuted
-private val SettingsAccent = WukkiColors.primary
 private const val SETTINGS_REFERENCE_WIDTH = 1116f
 private const val SETTINGS_REFERENCE_HEIGHT = 892f
 private enum class PlaybackOption { AUTOPLAY, VOLUME, BUFFER, ASPECT_RATIO, RECONNECT, RETRIES }
@@ -81,7 +73,6 @@ fun SettingsScreen(
         } else Column(Modifier.fillMaxSize()) {
             Text(
                 tr(model.settings.language, "settings.title"),
-                color = WukkiColors.textPrimary,
                 fontWeight = FontWeight.Black,
                 fontSize = (29f * scale).sp,
                 modifier = Modifier.padding(start = 8.dp * scale, top = 8.dp * scale, bottom = 34.dp * scale)
@@ -131,38 +122,28 @@ private fun SettingsNavigation(
     modifier: Modifier,
     scrollable: Boolean = false
 ) {
-    val shape = RoundedCornerShape(12.dp * scale)
     val listState = rememberLazyListState()
     LaunchedEffect(scrollable, selected, remoteNavigationActive, remoteCategoryIndex) {
         if (scrollable && selected == null && remoteNavigationActive) {
             listState.animateScrollToItem(remoteCategoryIndex.coerceIn(0, SettingsSection.entries.lastIndex))
         }
     }
-    LazyColumn(
-        state = listState,
-        modifier = modifier.clip(shape).background(SettingsSurface).border(1.dp, WukkiColors.border, shape)
-    ) {
-        itemsIndexed(SettingsSection.entries) { index, item ->
-            val active = item == selected
-            val focused = remoteNavigationActive && selected == null && index == remoteCategoryIndex
-            SettingsListRow(
-                title = item.title(model),
-                selected = active,
-                focused = focused,
-                onClick = { onCategoryFocus(index); onSelect(item) },
-                scale = scale,
-                titleFontSize = 19.sp,
-                titleWeight = if (active) FontWeight.SemiBold else FontWeight.Normal
-            ) {
-                if (item == SettingsSection.LANGUAGE) {
-                    Text(
-                        tr(model.settings.language, "settings.language.current"),
-                        color = WukkiColors.textPrimary,
-                        fontSize = (16f * scale).sp,
-                        modifier = Modifier.padding(end = 14.dp * scale)
-                    )
+    Card(modifier = modifier) {
+        LazyColumn(state = listState) {
+            itemsIndexed(SettingsSection.entries) { index, item ->
+                val active = item == selected
+                SettingsListRow(
+                    title = item.title(model),
+                    onClick = { onCategoryFocus(index); onSelect(item) },
+                    scale = scale,
+                    titleFontSize = 19.sp,
+                    titleWeight = if (active) FontWeight.SemiBold else FontWeight.Normal
+                ) {
+                    if (item == SettingsSection.LANGUAGE) {
+                        Text(tr(model.settings.language, "settings.language.current"), fontSize = (16f * scale).sp)
+                    }
+                    Icon(Icons.AutoMirrored.Outlined.ArrowForwardIos, contentDescription = null, modifier = Modifier.size(22.dp * scale))
                 }
-                Icon(Icons.AutoMirrored.Outlined.ArrowForwardIos, contentDescription = null, tint = WukkiColors.textSecondary, modifier = Modifier.size(22.dp * scale))
             }
         }
     }
@@ -185,7 +166,6 @@ private fun AndroidSettingsLayout(
     Column(Modifier.fillMaxSize()) {
         Text(
             tr(model.settings.language, "settings.title"),
-            color = WukkiColors.textPrimary,
             fontWeight = FontWeight.Black,
             fontSize = (26f * scale).sp,
             modifier = Modifier.padding(start = 8.dp * scale, top = 8.dp * scale, bottom = 18.dp * scale)
@@ -204,28 +184,15 @@ private fun AndroidSettingsLayout(
             )
         } else {
             val sectionTitle = selectedSection.title(model)
-            Row(
-                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                    .background(WukkiColors.backgroundRaised).clickable { onSectionChange(null) }
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    Icons.AutoMirrored.Outlined.ArrowBack,
-                    contentDescription = tr(model.settings.language, "action.back"),
-                    tint = WukkiColors.textPrimary
-                )
-                Spacer(Modifier.width(10.dp))
-                Text(
-                    sectionTitle,
-                    color = WukkiColors.textPrimary,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = (18f * scale).sp,
-                    modifier = Modifier.weight(1f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
+            ListItem(
+                headlineContent = { Text(sectionTitle, fontSize = (18f * scale).sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                leadingContent = {
+                    IconButton(onClick = { onSectionChange(null) }) {
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = tr(model.settings.language, "action.back"))
+                    }
+                },
+                modifier = Modifier.fillMaxWidth().clickable { onSectionChange(null) }
+            )
             Spacer(Modifier.height(12.dp))
             SettingsDetail(
                 model = model,
@@ -252,7 +219,6 @@ private fun SettingsHome(model: WukkiModel, scale: Float, modifier: Modifier) {
         Spacer(Modifier.height(52.dp * scale))
         Text(
             tr(model.settings.language, "settings.home"),
-            color = WukkiColors.textSecondary,
             fontSize = (18f * scale).sp,
             lineHeight = (28f * scale).sp,
             fontWeight = FontWeight.SemiBold
@@ -262,7 +228,7 @@ private fun SettingsHome(model: WukkiModel, scale: Float, modifier: Modifier) {
 
 @Composable
 private fun SettingsGear(scale: Float) {
-    Icon(Icons.Outlined.Settings, contentDescription = null, tint = SettingsAccent, modifier = Modifier.size(184.dp * scale))
+    Icon(Icons.Outlined.Settings, contentDescription = null, modifier = Modifier.size(184.dp * scale))
 }
 
 @Composable
@@ -302,7 +268,6 @@ private fun PlaybackSettings(model: WukkiModel, remoteOptionIndex: Int, onOption
             Switch(
                 checked = settings.autoPlayOnLaunch != false,
                 onCheckedChange = { enabled -> onOptionFocus(0); model.updatePlayback { it.copy(autoPlayOnLaunch = enabled) } },
-                colors = SwitchDefaults.colors(checkedThumbColor = WukkiColors.textPrimary, checkedTrackColor = SettingsAccent, uncheckedThumbColor = SettingsMuted, uncheckedTrackColor = WukkiColors.border)
             )
         }
         SettingsOptionRow(model, "settings.playback.volume", "settings.playback.volume.description", focusedOption == PlaybackOption.VOLUME, onFocus = { onOptionFocus(1) }, scale = scale) {
@@ -311,7 +276,7 @@ private fun PlaybackSettings(model: WukkiModel, remoteOptionIndex: Int, onOption
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("${settings.volume}%", color = WukkiColors.textPrimary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                Text("${settings.volume}%", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                 Slider(
                     value = settings.volume.toFloat(),
                     onValueChange = { volume -> onOptionFocus(1); model.updatePlayback { it.copy(volume = volume.toInt()) } },
@@ -334,7 +299,6 @@ private fun PlaybackSettings(model: WukkiModel, remoteOptionIndex: Int, onOption
             Switch(
                 checked = settings.autoReconnect,
                 onCheckedChange = { enabled -> onOptionFocus(4); model.updatePlayback { it.copy(autoReconnect = enabled) } },
-                colors = SwitchDefaults.colors(checkedThumbColor = WukkiColors.textPrimary, checkedTrackColor = SettingsAccent, uncheckedThumbColor = SettingsMuted, uncheckedTrackColor = WukkiColors.border)
             )
         }
         SettingsOptionRow(model, "settings.playback.attempts", "settings.playback.attempts.description", focusedOption == PlaybackOption.RETRIES, onFocus = { onOptionFocus(5) }, scale = scale) {
@@ -366,8 +330,6 @@ private fun SettingsOptionRow(
     SettingsListRow(
         title = tr(model.settings.language, titleKey),
         description = descriptionKey?.let { tr(model.settings.language, it) },
-        selected = selected,
-        focused = selected,
         onClick = if (onFocus != null || onSelect != null) ({ onFocus?.invoke(); onSelect?.invoke() }) else null,
         scale = scale,
         modifier = Modifier.bringIntoViewRequester(bringIntoViewRequester),
@@ -378,18 +340,10 @@ private fun SettingsOptionRow(
 private fun <T> PlaybackSelect(value: T, entries: List<T>, label: @Composable (T) -> String, onFocus: () -> Unit, onSelect: (T) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     Box {
-        Row(
-            modifier = Modifier.widthIn(min = 155.dp).clip(RoundedCornerShape(5.dp)).background(WukkiColors.surfaceInput)
-                .border(1.dp, WukkiColors.border, RoundedCornerShape(5.dp)).clickable { onFocus(); expanded = true }
-                .padding(horizontal = 11.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(label(value), color = WukkiColors.textPrimary, fontSize = 12.sp, modifier = Modifier.weight(1f))
-            Icon(Icons.Outlined.ArrowDropDown, contentDescription = null, tint = SettingsMuted, modifier = Modifier.size(18.dp))
-        }
+        TextButton(onClick = { onFocus(); expanded = true }) { Text(label(value)) }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             entries.forEach { entry ->
-                DropdownMenuItem(text = { Text(label(entry), color = WukkiColors.textPrimary) }, onClick = { onFocus(); onSelect(entry); expanded = false })
+                DropdownMenuItem(text = { Text(label(entry)) }, onClick = { onFocus(); onSelect(entry); expanded = false })
             }
         }
     }
@@ -397,14 +351,10 @@ private fun <T> PlaybackSelect(value: T, entries: List<T>, label: @Composable (T
 
 @Composable
 private fun PlaybackStepper(value: Int, onDecrease: () -> Unit, onIncrease: () -> Unit) {
-    Row(
-        modifier = Modifier.clip(RoundedCornerShape(5.dp)).background(WukkiColors.surfaceInput)
-            .border(1.dp, WukkiColors.border, RoundedCornerShape(5.dp)),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        TextButton(onClick = onDecrease, modifier = Modifier.size(34.dp)) { Text("−", color = WukkiColors.textPrimary, fontSize = 17.sp) }
-        Text(value.toString(), color = WukkiColors.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(30.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-        TextButton(onClick = onIncrease, modifier = Modifier.size(34.dp)) { Text("+", color = WukkiColors.textPrimary, fontSize = 17.sp) }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        IconButton(onClick = onDecrease) { Text("−") }
+        Text(value.toString(), fontWeight = FontWeight.SemiBold, modifier = Modifier.width(30.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        IconButton(onClick = onIncrease) { Text("+") }
     }
 }
 
@@ -506,8 +456,6 @@ private fun FixedSourceCard(
     SettingsListRow(
         title = tr(model.settings.language, titleKey),
         description = details,
-        selected = selected,
-        focused = selected,
         onClick = onFocus,
         scale = scale
     ) {
@@ -516,8 +464,8 @@ private fun FixedSourceCard(
             horizontalAlignment = Alignment.End,
             verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
-            Text(sourceName, color = WukkiColors.textPrimary, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            location?.let { Text(it, color = SettingsMuted, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            Text(sourceName, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            location?.let { Text(it, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
             TextButton(onClick = { onFocus(); onRefresh() }) { Text(tr(model.settings.language, "settings.refresh")) }
         }
     }
@@ -550,26 +498,25 @@ private fun AboutSettings(model: WukkiModel, playbackEngineLabel: String, scale:
         deviceInfo = withContext(Dispatchers.Default) { DeviceInfoProvider.collect() }
     }
     Column {
-        SettingsOptionRow(model, "settings.about", "settings.about.licenses", scale = scale) { Text("Wukki TV", color = WukkiColors.textPrimary, fontWeight = FontWeight.SemiBold) }
-        SettingsOptionRow(model, "settings.about.version", scale = scale) { Text(WukkiBuildInfo.VERSION, color = WukkiColors.textPrimary, fontWeight = FontWeight.SemiBold) }
-        SettingsOptionRow(model, "settings.about.build", scale = scale) { Text(WukkiBuildInfo.BUILD, color = WukkiColors.textPrimary, fontWeight = FontWeight.SemiBold) }
-        SettingsOptionRow(model, "settings.about.engine", scale = scale) { Text(playbackEngineLabel, color = WukkiColors.textPrimary, fontWeight = FontWeight.SemiBold) }
-        SettingsOptionRow(model, "settings.about.platform", scale = scale) { Text(deviceInfo?.platform ?: tr(model.settings.language, "settings.about.loading"), color = WukkiColors.textPrimary, fontWeight = FontWeight.SemiBold) }
-        SettingsOptionRow(model, "settings.about.os", scale = scale) { Text(deviceInfo?.osVersion ?: tr(model.settings.language, "settings.about.loading"), color = WukkiColors.textPrimary, fontWeight = FontWeight.SemiBold) }
-        SettingsOptionRow(model, "settings.about.device.id", scale = scale) { Text(deviceInfo?.installationId ?: tr(model.settings.language, "settings.about.loading"), color = WukkiColors.textPrimary, fontWeight = FontWeight.SemiBold) }
+        SettingsOptionRow(model, "settings.about", "settings.about.licenses", scale = scale) { Text("Wukki TV", fontWeight = FontWeight.SemiBold) }
+        SettingsOptionRow(model, "settings.about.version", scale = scale) { Text(WukkiBuildInfo.VERSION, fontWeight = FontWeight.SemiBold) }
+        SettingsOptionRow(model, "settings.about.build", scale = scale) { Text(WukkiBuildInfo.BUILD, fontWeight = FontWeight.SemiBold) }
+        SettingsOptionRow(model, "settings.about.engine", scale = scale) { Text(playbackEngineLabel, fontWeight = FontWeight.SemiBold) }
+        SettingsOptionRow(model, "settings.about.platform", scale = scale) { Text(deviceInfo?.platform ?: tr(model.settings.language, "settings.about.loading"), fontWeight = FontWeight.SemiBold) }
+        SettingsOptionRow(model, "settings.about.os", scale = scale) { Text(deviceInfo?.osVersion ?: tr(model.settings.language, "settings.about.loading"), fontWeight = FontWeight.SemiBold) }
+        SettingsOptionRow(model, "settings.about.device.id", scale = scale) { Text(deviceInfo?.installationId ?: tr(model.settings.language, "settings.about.loading"), fontWeight = FontWeight.SemiBold) }
         SettingsOptionRow(model, "settings.about.storage", scale = scale) {
             Text(
                 deviceInfo?.let { info -> tr(model.settings.language, "settings.about.storage.value", formatByteSize(info.appDataBytes), formatByteSize(info.availableStorageBytes)) }
                     ?: tr(model.settings.language, "settings.about.loading"),
-                color = WukkiColors.textPrimary,
                 fontWeight = FontWeight.SemiBold
             )
         }
         SettingsOptionRow(model, "settings.about.privacy", onSelect = { legalDocument = LegalDocument.PRIVACY }, scale = scale) {
-            Text(tr(model.settings.language, "action.open"), color = WukkiColors.textPrimary, fontWeight = FontWeight.SemiBold)
+            Text(tr(model.settings.language, "action.open"), fontWeight = FontWeight.SemiBold)
         }
         SettingsOptionRow(model, "settings.about.licenses.title", onSelect = { legalDocument = LegalDocument.LICENSES }, scale = scale) {
-            Text(tr(model.settings.language, "action.open"), color = WukkiColors.textPrimary, fontWeight = FontWeight.SemiBold)
+            Text(tr(model.settings.language, "action.open"), fontWeight = FontWeight.SemiBold)
         }
     }
     legalDocument?.let { document ->
@@ -592,24 +539,17 @@ private fun LegalDocumentDialog(model: WukkiModel, document: LegalDocument, onDi
         }
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = WukkiColors.surfaceOverlay,
-        titleContentColor = WukkiColors.textPrimary,
-        textContentColor = WukkiColors.textSecondary,
         title = { Text(tr(language, document.titleKey), fontWeight = FontWeight.Bold) },
         text = {
             Text(
                 text = text,
                 modifier = Modifier.heightIn(max = 430.dp).verticalScroll(rememberScrollState()),
-                color = WukkiColors.textSecondary,
                 fontSize = 13.sp,
                 lineHeight = 20.sp
             )
         },
         confirmButton = {
-            Button(
-                onClick = onDismiss,
-                colors = ButtonDefaults.buttonColors(containerColor = WukkiColors.primary, contentColor = WukkiColors.textPrimary)
-            ) { Text(tr(language, "action.close")) }
+            Button(onClick = onDismiss) { Text(tr(language, "action.close")) }
         }
     )
 }
@@ -625,16 +565,7 @@ private fun SettingsToggle(
     onCheckedChange: (Boolean) -> Unit
 ) {
     SettingsOptionRow(model, titleKey, selected = selected, onFocus = onFocus, scale = scale) {
-        Switch(
-            checked = checked,
-            onCheckedChange = { value -> onFocus(); onCheckedChange(value) },
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = WukkiColors.textPrimary,
-                checkedTrackColor = SettingsAccent,
-                uncheckedThumbColor = SettingsMuted,
-                uncheckedTrackColor = WukkiColors.border
-            )
-        )
+        Switch(checked = checked, onCheckedChange = { value -> onFocus(); onCheckedChange(value) })
     }
 }
 
@@ -643,42 +574,20 @@ private fun SettingsToggle(
 private fun SettingsListRow(
     title: String,
     description: String? = null,
-    selected: Boolean = false,
-    focused: Boolean = false,
     onClick: (() -> Unit)? = null,
     scale: Float = 1f,
     titleFontSize: androidx.compose.ui.unit.TextUnit = 14.sp,
     titleWeight: FontWeight = FontWeight.SemiBold,
     modifier: Modifier = Modifier,
-    control: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit
+    control: @Composable () -> Unit
 ) {
-    val shape = RoundedCornerShape(12.dp * scale)
-    val highlighted = selected || focused
-    Row(
+    ListItem(
+        headlineContent = { Text(title, fontSize = titleFontSize * scale, fontWeight = titleWeight, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        supportingContent = description?.let { value -> { Text(value, maxLines = 1, overflow = TextOverflow.Ellipsis) } },
+        trailingContent = { control() },
         modifier = modifier.fillMaxWidth().heightIn(min = 81.dp * scale)
-            .clip(shape)
-            .background(if (highlighted) WukkiColors.surfaceSelected else SettingsSurface)
-            .border(.5.dp, WukkiColors.border.copy(alpha = .72f), shape)
             .then(onClick?.let { Modifier.clickable(onClick = it) } ?: Modifier)
-            .padding(horizontal = 24.dp * scale, vertical = 10.dp * scale),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(modifier = Modifier.weight(1f).padding(end = 18.dp * scale)) {
-            Text(
-                title,
-                color = WukkiColors.textPrimary,
-                fontSize = titleFontSize * scale,
-                fontWeight = titleWeight,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            description?.let {
-                Spacer(Modifier.height(2.dp * scale))
-                Text(it, color = SettingsMuted, fontSize = 11.sp * scale, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-        }
-        control()
-    }
+    )
 }
 
 @Composable
@@ -720,7 +629,7 @@ private fun <T> SettingsSegmentedChoice(
 
 @Composable
 private fun SettingsCard(modifier: Modifier, content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
-    Card(modifier = modifier, shape = RoundedCornerShape(12.dp), border = BorderStroke(1.dp, WukkiColors.border), colors = CardDefaults.cardColors(containerColor = SettingsSurface)) {
+    Card(modifier = modifier) {
         Column(modifier = Modifier.fillMaxSize().padding(18.dp), content = content)
     }
 }

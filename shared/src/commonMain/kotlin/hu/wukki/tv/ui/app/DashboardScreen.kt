@@ -1,6 +1,5 @@
 package hu.wukki.tv.ui.app
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -16,7 +15,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import hu.wukki.tv.Channel
-import hu.wukki.tv.AppFeedbackKind
 import hu.wukki.tv.LiveVideoGestures
 import hu.wukki.tv.WukkiModel
 import hu.wukki.tv.ui.channels.ChannelBrowserCallbacks
@@ -26,14 +24,11 @@ import hu.wukki.tv.ui.channels.ChannelBrowserUiState
 import hu.wukki.tv.ui.channels.ChannelPreviewUiState
 import hu.wukki.tv.ui.components.formatTime
 import hu.wukki.tv.ui.components.text
-import hu.wukki.tv.ui.components.WukkiBrushes
-import hu.wukki.tv.ui.components.WukkiColors
 import hu.wukki.tv.ui.components.tr
 import hu.wukki.tv.ui.guide.EpgGuideScreen
 import hu.wukki.tv.ui.guide.EpgGuideState
 import hu.wukki.tv.ui.guide.GuideProgrammeDetails
 import hu.wukki.tv.ui.guide.GuideProgrammeDetailsUiState
-import hu.wukki.tv.ui.guide.GuideProgrammeDialogAction
 import hu.wukki.tv.ui.guide.GuideProgrammeDialogEvent
 import hu.wukki.tv.ui.guide.guideTimeline
 import hu.wukki.tv.ui.live.LiveTvScreen
@@ -106,10 +101,10 @@ fun DashboardScreen(
     settingsCategoryIndex: Int,
     settingsOptionIndex: Int,
     androidSettingsNavigation: Boolean,
+    useExpandedDesktopNavigation: Boolean,
     onSettingsCategoryFocus: (Int) -> Unit,
     onSettingsOptionFocus: (Int) -> Unit,
     guideProgrammeDetailsVisible: Boolean,
-    guideProgrammeDialogFocusedAction: GuideProgrammeDialogAction,
     onShowGuideProgrammeDetails: () -> Unit,
     onDismissGuideProgrammeDetails: () -> Unit,
     onOpenGuideProgrammeChannel: (String) -> Unit,
@@ -118,17 +113,17 @@ fun DashboardScreen(
     liveVideoGestures: LiveVideoGestures,
     playbackEngineLabel: String
 ) {
-    BoxWithConstraints(Modifier.fillMaxSize().background(WukkiBrushes.appBackground())) {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
         val scale = minOf(maxWidth.value / 1470f, maxHeight.value / 920f).coerceIn(.70f, 1.45f)
-        val compactNavigation = maxWidth < 980.dp
-        val navigationWidth = if (compactNavigation) 76.dp else (256.dp * scale).coerceIn(220.dp, 430.dp)
+        val expandedDesktopNavigation = useExpandedDesktopNavigation && maxWidth >= 980.dp
+        val navigationWidth = if (expandedDesktopNavigation) (256.dp * scale).coerceIn(220.dp, 430.dp) else 80.dp
         val padding = (14.dp * scale).coerceIn(8.dp, 20.dp)
         Row(Modifier.fillMaxSize()) {
             SideNavigation(
                 state = navigationState(model, activeSection, mainNavigationSection.takeIf { mainNavigationFocused }, tick),
                 onSelect = onSectionChange,
                 scale = scale,
-                compact = compactNavigation,
+                expandedDesktop = expandedDesktopNavigation,
                 modifier = Modifier.width(navigationWidth).fillMaxHeight()
             )
             when (activeSection) {
@@ -176,14 +171,9 @@ fun DashboardScreen(
             }
         }
         Column(Modifier.align(Alignment.BottomCenter).padding(bottom = 24.dp).widthIn(max = 720.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            model.error?.let { AppFeedback(tr(model.settings.language, "app.error.prefix", it.text(model.settings.language)), WukkiColors.error, WukkiColors.errorContainer) }
+            model.error?.let { AppFeedback(tr(model.settings.language, "app.error.prefix", it.text(model.settings.language))) }
             model.status?.let { message ->
-                val loading = model.feedbackKind == AppFeedbackKind.LOADING
-                AppFeedback(
-                    message.text(model.settings.language),
-                    if (loading) WukkiColors.textPrimary else WukkiColors.success,
-                    if (loading) WukkiColors.surfaceOverlay else WukkiColors.successContainer
-                )
+                AppFeedback(message.text(model.settings.language))
             }
         }
         if (guideProgrammeDetailsVisible) {
@@ -192,7 +182,7 @@ fun DashboardScreen(
                 val next = model.programmesFor(channel, programme.end, programme.end + 86_400_000L).firstOrNull()
                 GuideProgrammeDetails(
                     GuideProgrammeDetailsUiState(model.settings.language, channel, programme, next, model.settings.display.showProgrammeImages != false),
-                    guideProgrammeDialogFocusedAction, onDismissGuideProgrammeDetails, onOpenGuideProgrammeChannel, onGuideProgrammeDialogEvent
+                    onDismissGuideProgrammeDetails, onOpenGuideProgrammeChannel, onGuideProgrammeDialogEvent
                 )
             }
         }

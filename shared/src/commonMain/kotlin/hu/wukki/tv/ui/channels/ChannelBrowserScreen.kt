@@ -1,7 +1,6 @@
 package hu.wukki.tv.ui.channels
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.rememberScrollState
@@ -24,24 +23,22 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.SignalCellularAlt
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -53,10 +50,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -74,16 +69,12 @@ import hu.wukki.tv.Programme
 import hu.wukki.tv.OTHER_CATEGORY_ID
 import hu.wukki.tv.ui.components.ChannelLogo
 import hu.wukki.tv.ui.components.ProgrammeArtwork
-import hu.wukki.tv.ui.components.WukkiBrushes
 import hu.wukki.tv.ui.components.WukkiColors
 import hu.wukki.tv.ui.components.displayTitle
 import hu.wukki.tv.ui.components.formatTime
 import hu.wukki.tv.ui.components.tr
 import hu.wukki.tv.ui.navigation.ChannelRemoteFocus
 
-private val panelBorder = WukkiColors.border
-private val muted = WukkiColors.textMuted
-private val accent = WukkiColors.primary
 
 /** Channels feature. The optional video slot is supplied by the app composition. */
 @Composable
@@ -130,8 +121,7 @@ fun ChannelBrowserScreen(
             horizontalArrangement = Arrangement.spacedBy(20.dp * scale)
         ) {
             ChannelDirectory(
-                state, callbacks, scale, remoteFocus == ChannelRemoteFocus.LIST,
-                remoteFocus == ChannelRemoteFocus.FAVORITE, remoteListIndex, listOpenRequest,
+                state, callbacks, scale, remoteListIndex, listOpenRequest,
                 modifier = Modifier.weight(.62f).fillMaxHeight()
             )
             ProgrammeInformation(
@@ -155,20 +145,19 @@ private fun ChannelHeader(
     onCloseSearch: () -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
-        Text(tr(state.language, "channels.title"), color = WukkiColors.textPrimary, fontSize = (28f * scale).sp, fontWeight = FontWeight.Bold)
+        Text(tr(state.language, "channels.title"), fontSize = (28f * scale).sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(15.dp * scale))
         if (searchOpen) {
             Row(Modifier.fillMaxWidth().height(56.dp * scale), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp * scale)) {
                 OutlinedTextField(
                     value = state.query, onValueChange = callbacks.onQueryChange, singleLine = true,
-                    placeholder = { Text(tr(state.language, "channels.search"), color = muted) },
-                    textStyle = LocalTextStyle.current.copy(color = WukkiColors.textPrimary, fontSize = (15f * scale).sp),
-                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = panelBorder, focusedTextColor = WukkiColors.textPrimary, unfocusedTextColor = WukkiColors.textPrimary, cursorColor = accent),
+                    placeholder = { Text(tr(state.language, "channels.search")) },
+                    textStyle = LocalTextStyle.current.copy(fontSize = (15f * scale).sp),
                     modifier = Modifier.widthIn(min = 0.dp).weight(1f).fillMaxHeight().focusRequester(searchFocusRequester).onPreviewKeyEvent {
                         if (it.type == KeyEventType.KeyDown && it.key == Key.Escape) { onCloseSearch(); true } else false
                     }
                 )
-                ChannelHeaderIcon(true, false, scale, onCloseSearch)
+                ChannelHeaderIcon(true, scale, onCloseSearch)
             }
         } else {
             Row(Modifier.fillMaxWidth().height(50.dp * scale), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp * scale)) {
@@ -180,7 +169,7 @@ private fun ChannelHeader(
                     scale = scale,
                     modifier = Modifier.weight(1f).fillMaxHeight()
                 )
-                ChannelHeaderIcon(false, remoteFocus == ChannelRemoteFocus.SEARCH, scale, onOpenSearch)
+                ChannelHeaderIcon(false, scale, onOpenSearch)
             }
         }
     }
@@ -239,27 +228,24 @@ private fun ChannelFilters(
 
 @Composable
 private fun ChannelFilterTab(label: String, selected: Boolean, focused: Boolean, scale: Float, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(9.dp * scale)
-    val selectedBackground = if (selected) Modifier.background(WukkiBrushes.selectedSurface()) else Modifier.background(Color.Transparent)
-    Box(
-        Modifier.fillMaxHeight().clip(shape).then(selectedBackground)
-            .border(if (focused) 2.dp else 0.dp, if (focused) accent else Color.Transparent, shape).clickable(onClick = onClick).padding(horizontal = 16.dp * scale),
-        contentAlignment = Alignment.Center
-    ) { Text(label, color = if (selected) WukkiColors.textPrimary else WukkiColors.textSecondary, fontSize = (15f * scale).sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal, maxLines = 1) }
+    FilterChip(
+        selected = selected || focused,
+        onClick = onClick,
+        label = { Text(label, maxLines = 1) }
+    )
 }
 
 @Composable
-private fun ChannelHeaderIcon(close: Boolean, focused: Boolean, scale: Float, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(9.dp * scale)
-    Box(Modifier.size(46.dp * scale).clip(shape).background(WukkiColors.backgroundRaised).border(if (focused) 2.dp else 1.dp, if (focused) accent else panelBorder, shape).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
-        Icon(if (close) Icons.Outlined.Close else Icons.Outlined.Search, null, tint = WukkiColors.textPrimary, modifier = Modifier.size(22.dp * scale))
+private fun ChannelHeaderIcon(close: Boolean, scale: Float, onClick: () -> Unit) {
+    IconButton(onClick = onClick, modifier = Modifier.size(46.dp * scale)) {
+        Icon(if (close) Icons.Outlined.Close else Icons.Outlined.Search, null, modifier = Modifier.size(22.dp * scale))
     }
 }
 
 @Composable
 private fun ChannelDirectory(
-    state: ChannelBrowserUiState, callbacks: ChannelBrowserCallbacks, scale: Float, listFocused: Boolean,
-    favoriteFocused: Boolean, remoteListIndex: Int, listOpenRequest: Int, modifier: Modifier
+    state: ChannelBrowserUiState, callbacks: ChannelBrowserCallbacks, scale: Float,
+    remoteListIndex: Int, listOpenRequest: Int, modifier: Modifier
 ) {
     val listState = rememberLazyListState()
     val density = LocalDensity.current
@@ -276,11 +262,11 @@ private fun ChannelDirectory(
             centredOpenRequest = listOpenRequest
         } else listState.animateScrollToItem(target)
     }
-    Box(modifier.onSizeChanged { viewportHeightPx = it.height }.clip(RoundedCornerShape(8.dp * scale)).background(WukkiColors.surfaceOverlay).border(1.dp, panelBorder, RoundedCornerShape(8.dp * scale))) {
-        if (state.channels.isEmpty()) Text(tr(state.language, "channels.empty"), color = muted, modifier = Modifier.align(Alignment.Center))
+    Card(modifier.onSizeChanged { viewportHeightPx = it.height }) {
+        if (state.channels.isEmpty()) Text(tr(state.language, "channels.empty"), modifier = Modifier.align(Alignment.CenterHorizontally))
         else LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
             itemsIndexed(state.channels, key = { _, row -> row.channel.id }) { index, row ->
-                ChannelListRow(state, row, rowHeight, scale, row.channel.id == state.selectedChannelId, index == remoteListIndex, listFocused, favoriteFocused, callbacks)
+                ChannelListRow(state, row, rowHeight, scale, callbacks)
             }
         }
     }
@@ -294,46 +280,48 @@ private fun rowHeight(mode: ChannelListDisplayMode, scale: Float): Dp = when (mo
 
 @Composable
 private fun ChannelListRow(
-    state: ChannelBrowserUiState, row: ChannelBrowserRowUiState, height: Dp, scale: Float, selected: Boolean,
-    remoteSelected: Boolean, listFocused: Boolean, favoriteFocused: Boolean, callbacks: ChannelBrowserCallbacks
+    state: ChannelBrowserUiState, row: ChannelBrowserRowUiState, height: Dp, scale: Float,
+    callbacks: ChannelBrowserCallbacks
 ) {
     val channel = row.channel
     val compact = state.displayMode == ChannelListDisplayMode.COMPACT
     val detailed = state.displayMode == ChannelListDisplayMode.DETAILED
-    val shape = RoundedCornerShape(6.dp * scale)
     val logoSize = when (state.displayMode) { ChannelListDisplayMode.COMPACT -> 32.dp * scale; ChannelListDisplayMode.NORMAL -> 44.dp * scale; ChannelListDisplayMode.DETAILED -> 56.dp * scale }
-    Row(Modifier.fillMaxWidth().height(height).clip(shape).background(if (selected) WukkiColors.surfaceSelected else WukkiColors.navigationBackground).border(if (remoteSelected && listFocused) 2.dp else 1.dp, if (remoteSelected && listFocused) WukkiColors.focus else panelBorder.copy(alpha = .58f), shape).clickable { callbacks.onSelectChannel(channel.id) }, verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.width(if (compact) 44.dp * scale else 54.dp * scale).fillMaxHeight().background(if (selected) WukkiColors.backgroundRaised else Color.Transparent), contentAlignment = Alignment.Center) {
-            Text(channel.tvgChno?.toString() ?: row.position.toString(), color = WukkiColors.textPrimary, fontSize = ((if (compact) 18f else 22f) * scale).sp, fontWeight = FontWeight.Light)
-        }
-        Spacer(Modifier.width(if (compact) 8.dp * scale else 10.dp * scale))
-        ChannelLogo(channel, state.language, Modifier.size(logoSize))
-        Spacer(Modifier.width(if (compact) 10.dp * scale else 13.dp * scale))
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
-            Text(channel.name, color = WukkiColors.textPrimary, fontWeight = FontWeight.SemiBold, fontSize = ((if (compact) 16f else 18f) * scale).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    ListItem(
+        modifier = Modifier.fillMaxWidth().height(height).clickable { callbacks.onSelectChannel(channel.id) },
+        leadingContent = {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp * scale)) {
+                Text(channel.tvgChno?.toString() ?: row.position.toString(), fontSize = ((if (compact) 18f else 22f) * scale).sp, fontWeight = FontWeight.Light)
+                ChannelLogo(channel, state.language, Modifier.size(logoSize))
+            }
+        },
+        headlineContent = { Text(channel.name, fontWeight = FontWeight.SemiBold, fontSize = ((if (compact) 16f else 18f) * scale).sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        supportingContent = {
             when {
                 detailed -> DetailedChannelProgrammes(state.language, row.currentProgramme, row.nextProgramme, scale)
-                state.showChannelProgramme && !compact -> { Spacer(Modifier.height(3.dp * scale)); Text(row.currentProgramme?.displayTitle(state.language) ?: tr(state.language, "epg.none"), color = muted, fontSize = (13f * scale).sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                state.showChannelProgramme && !compact -> Text(row.currentProgramme?.displayTitle(state.language) ?: tr(state.language, "epg.none"), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        },
+        trailingContent = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (!compact) Icon(Icons.Outlined.SignalCellularAlt, null, modifier = Modifier.size(24.dp * scale))
+                FavoriteButton(channel.favorite, if (compact) scale * .85f else scale) { callbacks.onToggleFavorite(channel.id) }
             }
         }
-        if (!compact) { Icon(Icons.Outlined.SignalCellularAlt, null, tint = accent, modifier = Modifier.size(30.dp * scale)); Spacer(Modifier.width(12.dp * scale)) }
-        FavoriteButton(channel.favorite, remoteSelected && favoriteFocused, if (compact) scale * .85f else scale) { callbacks.onToggleFavorite(channel.id) }
-        Spacer(Modifier.width(if (compact) 8.dp * scale else 12.dp * scale))
-    }
+    )
 }
 
 @Composable
 private fun DetailedChannelProgrammes(language: hu.wukki.tv.AppLanguage, current: Programme?, next: Programme?, scale: Float) {
     Spacer(Modifier.height(3.dp * scale))
-    Text(current?.let { "${formatTime(it.start)}–${formatTime(it.end)}  ${it.displayTitle(language)}" } ?: tr(language, "epg.none"), color = muted, fontSize = (13f * scale).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-    Text(next?.let { "${tr(language, "epg.next")}: ${formatTime(it.start)}  ${it.displayTitle(language)}" } ?: tr(language, "epg.none"), color = WukkiColors.textSecondary, fontSize = (12f * scale).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    Text(current?.let { "${formatTime(it.start)}–${formatTime(it.end)}  ${it.displayTitle(language)}" } ?: tr(language, "epg.none"), fontSize = (13f * scale).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    Text(next?.let { "${tr(language, "epg.next")}: ${formatTime(it.start)}  ${it.displayTitle(language)}" } ?: tr(language, "epg.none"), fontSize = (12f * scale).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
 }
 
 @Composable
-private fun FavoriteButton(favorite: Boolean, focused: Boolean, scale: Float, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(6.dp * scale)
-    Box(Modifier.size(38.dp * scale).clip(shape).border(if (focused) 2.dp else 0.dp, if (focused) accent else Color.Transparent, shape).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
-        Icon(if (favorite) Icons.Outlined.Favorite else Icons.Outlined.FavoriteBorder, null, tint = if (favorite) accent else WukkiColors.textSecondary, modifier = Modifier.size(27.dp * scale))
+private fun FavoriteButton(favorite: Boolean, scale: Float, onClick: () -> Unit) {
+    IconButton(onClick = onClick, modifier = Modifier.size(38.dp * scale)) {
+        Icon(if (favorite) Icons.Outlined.Favorite else Icons.Outlined.FavoriteBorder, null, modifier = Modifier.size(27.dp * scale))
     }
 }
 
@@ -343,15 +331,15 @@ private fun ProgrammeInformation(
     callbacks: ChannelBrowserCallbacks, scale: Float, modifier: Modifier, videoPreview: @Composable () -> Unit
 ) {
     SurfaceCard(modifier, contentPadding = 0.dp) {
-        if (preview == null) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(tr(language, "channels.select"), color = muted) }
+        if (preview == null) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(tr(language, "channels.select")) }
         else {
             Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(WukkiColors.video)) { videoPreview() }
-            HorizontalDivider(color = panelBorder)
+            HorizontalDivider()
             Column(
                 Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()).padding(18.dp * scale),
                 verticalArrangement = Arrangement.spacedBy(7.dp * scale)
             ) {
-                Text(preview.channel.name, color = WukkiColors.textPrimary, fontSize = (24f * scale).sp, fontWeight = FontWeight.Bold)
+                Text(preview.channel.name, fontSize = (24f * scale).sp, fontWeight = FontWeight.Bold)
                 if (preview.currentProgramme?.imageUrl != null && showProgrammeImages) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp * scale), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp * scale)) { ProgrammeTitleAndTime(language, preview.currentProgramme, scale) }
@@ -360,17 +348,16 @@ private fun ProgrammeInformation(
                 } else ProgrammeTitleAndTime(language, preview.currentProgramme, scale)
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp * scale)) {
                     if (preview.currentProgramme != null) ProgrammeProgress(preview.currentProgramme, preview.now, Modifier.weight(1f))
-                    else Box(Modifier.weight(1f).height(5.dp * scale).clip(RoundedCornerShape(99.dp)).background(WukkiColors.overlayDivider))
-                    Text(formatTime(preview.now), color = muted, fontSize = (12f * scale).sp)
+                    else LinearProgressIndicator(progress = { 0f }, modifier = Modifier.weight(1f).height(5.dp * scale))
+                    Text(formatTime(preview.now), fontSize = (12f * scale).sp)
                 }
                 Spacer(Modifier.height(8.dp * scale))
                 if (showMiniGuide) Text(
                     preview.currentProgramme?.description?.takeIf { it.isNotBlank() } ?: tr(language, "epg.no.description"),
-                    color = WukkiColors.textSecondary,
                     fontSize = (13f * scale).sp
                 )
                 Spacer(Modifier.height(8.dp * scale))
-                OutlinedButton(onClick = { callbacks.onToggleFavorite(preview.channel.id) }, modifier = Modifier.fillMaxWidth().height(48.dp * scale), shape = RoundedCornerShape(8.dp * scale), border = BorderStroke(1.dp, panelBorder), colors = ButtonDefaults.outlinedButtonColors(contentColor = WukkiColors.textPrimary)) {
+                OutlinedButton(onClick = { callbacks.onToggleFavorite(preview.channel.id) }, modifier = Modifier.fillMaxWidth().height(48.dp * scale)) {
                     Text(if (preview.channel.favorite) "♥ ${tr(language, "favourite.current")}" else "♡ ${tr(language, "favourite.add")}", fontSize = (14f * scale).sp)
                 }
             }
@@ -380,19 +367,19 @@ private fun ProgrammeInformation(
 
 @Composable
 private fun ProgrammeTitleAndTime(language: hu.wukki.tv.AppLanguage, programme: Programme?, scale: Float) {
-    Text(programme?.displayTitle(language) ?: tr(language, "epg.none"), color = WukkiColors.textPrimary, fontSize = (17f * scale).sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-    Text(programme?.let { "${formatTime(it.start)} – ${formatTime(it.end)}" } ?: tr(language, "epg.none.description"), color = muted, fontSize = (13f * scale).sp)
+    Text(programme?.displayTitle(language) ?: tr(language, "epg.none"), fontSize = (17f * scale).sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    Text(programme?.let { "${formatTime(it.start)} – ${formatTime(it.end)}" } ?: tr(language, "epg.none.description"), fontSize = (13f * scale).sp)
 }
 
 @Composable
 private fun ProgrammeProgress(programme: Programme, now: Long, modifier: Modifier = Modifier) {
     val progress = ((now - programme.start).toFloat() / (programme.end - programme.start).coerceAtLeast(1)).coerceIn(0f, 1f)
-    LinearProgressIndicator(progress = { progress }, color = accent, trackColor = WukkiColors.overlayDivider, modifier = modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(99.dp)))
+    LinearProgressIndicator(progress = { progress }, modifier = modifier.fillMaxWidth().height(5.dp))
 }
 
 @Composable
 private fun SurfaceCard(modifier: Modifier, contentPadding: Dp, content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
-    Card(modifier = modifier, shape = RoundedCornerShape(10.dp), border = BorderStroke(1.dp, panelBorder), colors = CardDefaults.cardColors(containerColor = WukkiColors.background)) {
+    Card(modifier = modifier) {
         Column(Modifier.fillMaxSize().padding(contentPadding), content = content)
     }
 }

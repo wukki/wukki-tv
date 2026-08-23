@@ -46,17 +46,11 @@ object WukkiColors {
 }
 
 object WukkiBrushes {
-    fun appBackground() = Brush.linearGradient(
-        listOf(WukkiColors.navigationBackground, WukkiColors.background, WukkiColors.navigationBackground)
-    )
-    fun navigationBackground() = Brush.horizontalGradient(
-        listOf(WukkiColors.navigationBackground, WukkiColors.backgroundRaised, WukkiColors.background)
-    )
-    fun navigationSelected() = Brush.horizontalGradient(
-        listOf(WukkiColors.primaryMuted.copy(alpha = .82f), WukkiColors.primaryContainer.copy(alpha = .58f), Color.Transparent)
-    )
+    /** Brand-only gradient used by the WukkiTV lockup. */
+    fun brandAccent() = Brush.verticalGradient(listOf(WukkiColors.primaryStrong, WukkiColors.primary))
+
+    /** The EPG timeline remains a domain-specific visual, not a generic Material component. */
     fun selectedSurface() = Brush.horizontalGradient(listOf(WukkiColors.primaryMuted, WukkiColors.primaryContainer))
-    fun accent() = Brush.verticalGradient(listOf(WukkiColors.primaryStrong, WukkiColors.primary))
 }
 
 val WukkiColorScheme: ColorScheme = darkColorScheme(

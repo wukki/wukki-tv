@@ -13,6 +13,7 @@ fun DesktopWukkiApp() {
     WukkiApp(
         playbackController = playbackController,
         videoHost = { modifier: Modifier, _ -> EmbeddedVlcPlayer(playbackController, modifier) },
-        playbackEngineLabel = "VLC / libVLC"
+        playbackEngineLabel = "VLC / libVLC",
+        useExpandedDesktopNavigation = true
     )
 }
