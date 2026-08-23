@@ -3,7 +3,6 @@ package hu.wukki.tv.ui.app
 import hu.wukki.tv.*
 import hu.wukki.tv.ui.guide.*
 import hu.wukki.tv.ui.settings.*
-import hu.wukki.tv.ui.components.displayTitle
 import hu.wukki.tv.ui.components.tr
 import hu.wukki.tv.ui.navigation.*
 
@@ -34,7 +33,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlin.math.ceil
 
 @Composable
 fun WukkiApp(
@@ -301,44 +299,11 @@ fun WukkiApp(
             }
         }
     }
-    LaunchedEffect(model.settings.playlistRefresh) {
-        val hours = model.settings.playlistRefresh.hours
-        if (hours > 0) {
-            while (true) {
-                delay(hours * 60L * 60L * 1000L)
-                model.refreshOfficialPlaylist(showFeedback = false)
-            }
-        }
-    }
-    val epgRefreshSources = model.epgSources.map { source -> Triple(source.id, source.enabled, source.lastUpdatedAt) }
-    LaunchedEffect(model.settings.epgRefresh, epgRefreshSources) {
-        val interval = model.settings.epgRefresh
-        if (interval.hours > 0) {
-            while (true) {
-                val allDueRefreshesSucceeded = model.refreshDueEpgSources(interval)
-                val waitMillis = if (allDueRefreshesSucceeded) {
-                    model.nextEpgRefreshDelayMillis(interval)
-                } else {
-                    interval.hours * 60L * 60L * 1000L
-                }
-                delay(waitMillis.coerceAtLeast(1_000L))
-            }
-        }
-    }
+    AutomaticRefreshEffects(model)
 
     val overlayChannel = model.selectedChannel()
     val overlayCurrent = overlayChannel?.let { model.currentProgram(it, tick) }
     val overlayNext = overlayChannel?.let { channel -> overlayCurrent?.let { model.nextProgram(channel, it) } }
-    val language = model.settings.language
-    val playbackStatus = when (playbackController.state) {
-        PlaybackState.IDLE, PlaybackState.PLAYING -> null
-        PlaybackState.OPENING -> tr(language, "playback.opening")
-        PlaybackState.BUFFERING -> null
-        PlaybackState.RECONNECTING -> tr(language, "playback.reconnecting")
-        PlaybackState.ERROR -> tr(language, "playback.error")
-    }?.let { label ->
-        listOf(label, playbackController.detail).filterNotNull().joinToString(" · ")
-    }
     LaunchedEffect(
         overlayChannel,
         overlayCurrent,
@@ -349,38 +314,23 @@ fun WukkiApp(
         channelNumberInput,
         model.settings.language,
         model.settings.display.showLogos,
-        playbackStatus,
-        playbackController.state
+        playbackController.state,
+        playbackController.detail
     ) {
         overlayChannel?.let { channel ->
-            val remainingMinutes = overlayCurrent?.end?.let { end ->
-                ceil((end - tick).coerceAtLeast(0L) / 60_000.0).toInt()
-            }
             playbackController.updateOverlay(
-                PlaybackOverlayData(
-                    channelId = channel.id,
-                    channelNumber = channel.tvgChno?.toString() ?: "–",
-                    channelName = channel.name,
-                    logoUrl = channel.logo?.takeIf { model.settings.display.showLogos },
-                    showProgrammeInfo = activeSection == DashboardSection.LIVE && programmeOverlayVisible,
-                    showPreviewLogo = activeSection == DashboardSection.CHANNELS,
-                    channelNumberInput = channelNumberInput.takeIf {
-                        activeSection == DashboardSection.LIVE && it.isNotEmpty()
-                    },
-                    noEpgLabel = tr(language, "epg.none"),
-                    nextLabel = tr(language, "epg.next"),
-                    currentTitle = overlayCurrent?.displayTitle(language),
-                    currentStart = overlayCurrent?.start,
-                    currentEnd = overlayCurrent?.end,
-                    remainingText = remainingMinutes?.let { minutes -> tr(language, "playback.remaining", minutes) },
-                    nextTitle = overlayNext?.displayTitle(language),
-                    nextStart = overlayNext?.start,
-                    nextEnd = overlayNext?.end,
+                playbackOverlayData(
+                    channel = channel,
+                    currentProgramme = overlayCurrent,
+                    nextProgramme = overlayNext,
                     now = tick,
-                    playbackStatus = playbackStatus,
-                    playbackError = playbackController.state == PlaybackState.ERROR,
-                    showBufferingSpinner = playbackController.state == PlaybackState.BUFFERING,
-                    bufferingLabel = tr(language, "playback.buffering")
+                    section = activeSection,
+                    showProgrammeInfo = programmeOverlayVisible,
+                    channelNumberInput = channelNumberInput,
+                    language = model.settings.language,
+                    showLogos = model.settings.display.showLogos,
+                    playbackState = playbackController.state,
+                    playbackDetail = playbackController.detail
                 )
             )
         }
