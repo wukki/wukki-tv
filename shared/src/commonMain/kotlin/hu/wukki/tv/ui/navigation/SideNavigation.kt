@@ -19,9 +19,12 @@ import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.LiveTv
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationDrawerItem
+import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -78,6 +81,11 @@ private fun ExpandedDesktopNavigation(
                     selected = entry.section == state.activeSection || entry.section == state.focusedSection,
                     onClick = { onSelect(entry.section) },
                     icon = { NavigationIcon(entry.section, Modifier.size((29.dp * scale).coerceIn(22.dp, 38.dp))) },
+                    colors = NavigationDrawerItemDefaults.colors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primary,
+                        selectedIconColor = MaterialTheme.colorScheme.onPrimary,
+                        selectedTextColor = MaterialTheme.colorScheme.onPrimary
+                    ),
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp * scale, vertical = 2.dp * scale)
                 )
             }
@@ -128,6 +136,11 @@ private fun CompactNavigation(
                 onClick = { onSelect(entry.section) },
                 icon = { NavigationIcon(entry.section, Modifier.size((26.dp * scale).coerceIn(20.dp, 32.dp))) },
                 label = { Text(entry.label, maxLines = 1) },
+                colors = NavigationRailItemDefaults.colors(
+                    selectedIconColor = MaterialTheme.colorScheme.onPrimary,
+                    selectedTextColor = MaterialTheme.colorScheme.onPrimary,
+                    indicatorColor = MaterialTheme.colorScheme.primary
+                ),
                 alwaysShowLabel = false
             )
         }

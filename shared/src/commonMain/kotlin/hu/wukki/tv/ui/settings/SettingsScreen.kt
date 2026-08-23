@@ -47,8 +47,8 @@ fun SettingsScreen(
     remoteCategoryIndex: Int = 0,
     remoteNavigationActive: Boolean = false,
     remoteOptionIndex: Int = 0,
-    playbackDropdownOpenRequest: Int = 0,
-    playbackDropdownOptionIndex: Int = -1,
+    settingsDropdownOpenRequest: Int = 0,
+    settingsDropdownOptionIndex: Int = -1,
     androidFullScreenSubmenus: Boolean = false,
     onCategoryFocus: (Int) -> Unit = {},
     onOptionFocus: (Int) -> Unit = {},
@@ -69,8 +69,8 @@ fun SettingsScreen(
                 remoteCategoryIndex = remoteCategoryIndex,
                 remoteNavigationActive = remoteNavigationActive,
                 remoteOptionIndex = remoteOptionIndex,
-                playbackDropdownOpenRequest = playbackDropdownOpenRequest,
-                playbackDropdownOptionIndex = playbackDropdownOptionIndex,
+                settingsDropdownOpenRequest = settingsDropdownOpenRequest,
+                settingsDropdownOptionIndex = settingsDropdownOptionIndex,
                 onCategoryFocus = onCategoryFocus,
                 onOptionFocus = onOptionFocus,
                 scale = scale,
@@ -106,8 +106,8 @@ fun SettingsScreen(
                         selectedSection = selectedSection,
                         scale = scale,
                         remoteOptionIndex = remoteOptionIndex,
-                        playbackDropdownOpenRequest = playbackDropdownOpenRequest,
-                        playbackDropdownOptionIndex = playbackDropdownOptionIndex,
+                        settingsDropdownOpenRequest = settingsDropdownOpenRequest,
+                        settingsDropdownOptionIndex = settingsDropdownOptionIndex,
                         onOptionFocus = onOptionFocus,
                         playbackEngineLabel = playbackEngineLabel,
                         modifier = Modifier.weight(1f).fillMaxHeight()
@@ -181,8 +181,8 @@ private fun AndroidSettingsLayout(
     remoteCategoryIndex: Int,
     remoteNavigationActive: Boolean,
     remoteOptionIndex: Int,
-    playbackDropdownOpenRequest: Int,
-    playbackDropdownOptionIndex: Int,
+    settingsDropdownOpenRequest: Int,
+    settingsDropdownOptionIndex: Int,
     onCategoryFocus: (Int) -> Unit,
     onOptionFocus: (Int) -> Unit,
     scale: Float,
@@ -225,8 +225,8 @@ private fun AndroidSettingsLayout(
                 selectedSection = selectedSection,
                 scale = scale,
                 remoteOptionIndex = remoteOptionIndex,
-                playbackDropdownOpenRequest = playbackDropdownOpenRequest,
-                playbackDropdownOptionIndex = playbackDropdownOptionIndex,
+                settingsDropdownOpenRequest = settingsDropdownOpenRequest,
+                settingsDropdownOptionIndex = settingsDropdownOptionIndex,
                 onOptionFocus = onOptionFocus,
                 playbackEngineLabel = playbackEngineLabel,
                 modifier = Modifier.fillMaxWidth().weight(1f)
@@ -265,8 +265,8 @@ private fun SettingsDetail(
     selectedSection: SettingsSection,
     scale: Float,
     remoteOptionIndex: Int,
-    playbackDropdownOpenRequest: Int,
-    playbackDropdownOptionIndex: Int,
+    settingsDropdownOpenRequest: Int,
+    settingsDropdownOptionIndex: Int,
     onOptionFocus: (Int) -> Unit,
     playbackEngineLabel: String,
     modifier: Modifier
@@ -279,8 +279,8 @@ private fun SettingsDetail(
                     SettingsSection.PLAYBACK -> PlaybackSettings(
                         model = model,
                         remoteOptionIndex = remoteOptionIndex,
-                        dropdownOpenRequest = playbackDropdownOpenRequest,
-                        dropdownOptionIndex = playbackDropdownOptionIndex,
+                        dropdownOpenRequest = settingsDropdownOpenRequest,
+                        dropdownOptionIndex = settingsDropdownOptionIndex,
                         onOptionFocus = onOptionFocus,
                         scale = scale
                     )
@@ -288,7 +288,14 @@ private fun SettingsDetail(
                     SettingsSection.DISPLAY -> DisplaySettings(model, remoteOptionIndex, onOptionFocus, scale)
                     SettingsSection.PARENTAL -> ParentalSettings(model, scale)
                     SettingsSection.PLAYLISTS -> PlaylistSettings(model, scope, remoteOptionIndex, onOptionFocus, scale)
-                    SettingsSection.LANGUAGE -> LanguageSettings(model, remoteOptionIndex, onOptionFocus, scale)
+                    SettingsSection.LANGUAGE -> LanguageSettings(
+                        model = model,
+                        remoteOptionIndex = remoteOptionIndex,
+                        dropdownOpenRequest = settingsDropdownOpenRequest,
+                        dropdownOptionIndex = settingsDropdownOptionIndex,
+                        onOptionFocus = onOptionFocus,
+                        scale = scale
+                    )
                     SettingsSection.ABOUT -> AboutSettings(model, playbackEngineLabel, scale)
                 }
         }
@@ -474,7 +481,7 @@ private fun PlaybackStepper(value: Int, onDecrease: () -> Unit, onIncrease: () -
 @Composable
 private fun EpgSettings(model: WukkiModel, scope: CoroutineScope, remoteOptionIndex: Int, onOptionFocus: (Int) -> Unit, scale: Float) {
     Column {
-    SettingsOptionRow(model, "settings.epg.refresh", selected = remoteOptionIndex == 0, onFocus = { onOptionFocus(0) }, scale = scale) {
+    SettingsOptionRow(model, "settings.epg.refresh", "settings.epg.refresh.description", selected = remoteOptionIndex == 0, onFocus = { onOptionFocus(0) }, scale = scale) {
         RefreshSelector(
             model,
             model.settings.epgRefresh,
@@ -500,7 +507,7 @@ private fun EpgSettings(model: WukkiModel, scope: CoroutineScope, remoteOptionIn
 @Composable
 private fun DisplaySettings(model: WukkiModel, remoteOptionIndex: Int, onOptionFocus: (Int) -> Unit, scale: Float) {
     Column {
-    SettingsOptionRow(model, "settings.display.scale", selected = remoteOptionIndex == 0, onFocus = { onOptionFocus(0) }, scale = scale) {
+    SettingsOptionRow(model, "settings.display.scale", "settings.display.scale.description", selected = remoteOptionIndex == 0, onFocus = { onOptionFocus(0) }, scale = scale) {
         val options = listOf(.9f to tr(model.settings.language, "settings.display.small"), 1f to tr(model.settings.language, "settings.display.normal"), 1.15f to tr(model.settings.language, "settings.display.large"))
         SettingsSegmentedChoice(
             entries = options,
@@ -509,7 +516,7 @@ private fun DisplaySettings(model: WukkiModel, remoteOptionIndex: Int, onOptionF
             onSelect = { option -> onOptionFocus(0); model.updateDisplay { it.copy(uiScale = option.first) } }
         )
     }
-    SettingsOptionRow(model, "settings.display.channel.list", selected = remoteOptionIndex == 1, onFocus = { onOptionFocus(1) }, scale = scale) {
+    SettingsOptionRow(model, "settings.display.channel.list", "settings.display.channel.list.description", selected = remoteOptionIndex == 1, onFocus = { onOptionFocus(1) }, scale = scale) {
         SettingsSegmentedChoice(
             entries = ChannelListDisplayMode.entries,
             selected = model.settings.display.channelListMode ?: ChannelListDisplayMode.NORMAL,
@@ -517,17 +524,17 @@ private fun DisplaySettings(model: WukkiModel, remoteOptionIndex: Int, onOptionF
             onSelect = { mode -> onOptionFocus(1); model.updateDisplay { it.copy(channelListMode = mode) } }
         )
     }
-    SettingsToggle(model, "settings.display.programme", model.settings.display.showChannelProgramme, remoteOptionIndex == 2, { onOptionFocus(2) }, scale) { model.updateDisplay { settings -> settings.copy(showChannelProgramme = it) } }
-    SettingsToggle(model, "settings.display.mini.guide", model.settings.display.showMiniGuide, remoteOptionIndex == 3, { onOptionFocus(3) }, scale) { model.updateDisplay { settings -> settings.copy(showMiniGuide = it) } }
-    SettingsToggle(model, "settings.display.logos", model.settings.display.showLogos, remoteOptionIndex == 4, { onOptionFocus(4) }, scale) { model.updateDisplay { settings -> settings.copy(showLogos = it) } }
-    SettingsToggle(model, "settings.display.programme.images", model.settings.display.showProgrammeImages != false, remoteOptionIndex == 5, { onOptionFocus(5) }, scale) { model.updateDisplay { settings -> settings.copy(showProgrammeImages = it) } }
+    SettingsToggle(model, "settings.display.programme", "settings.display.programme.description", model.settings.display.showChannelProgramme, remoteOptionIndex == 2, { onOptionFocus(2) }, scale) { model.updateDisplay { settings -> settings.copy(showChannelProgramme = it) } }
+    SettingsToggle(model, "settings.display.mini.guide", "settings.display.mini.guide.description", model.settings.display.showMiniGuide, remoteOptionIndex == 3, { onOptionFocus(3) }, scale) { model.updateDisplay { settings -> settings.copy(showMiniGuide = it) } }
+    SettingsToggle(model, "settings.display.logos", "settings.display.logos.description", model.settings.display.showLogos, remoteOptionIndex == 4, { onOptionFocus(4) }, scale) { model.updateDisplay { settings -> settings.copy(showLogos = it) } }
+    SettingsToggle(model, "settings.display.programme.images", "settings.display.programme.images.description", model.settings.display.showProgrammeImages != false, remoteOptionIndex == 5, { onOptionFocus(5) }, scale) { model.updateDisplay { settings -> settings.copy(showProgrammeImages = it) } }
     }
 }
 
 @Composable
 private fun PlaylistSettings(model: WukkiModel, scope: CoroutineScope, remoteOptionIndex: Int, onOptionFocus: (Int) -> Unit, scale: Float) {
     Column {
-    SettingsOptionRow(model, "settings.playlist.refresh", selected = remoteOptionIndex == 0, onFocus = { onOptionFocus(0) }, scale = scale) {
+    SettingsOptionRow(model, "settings.playlist.refresh", "settings.playlist.refresh.description", selected = remoteOptionIndex == 0, onFocus = { onOptionFocus(0) }, scale = scale) {
         RefreshSelector(
             model,
             model.settings.playlistRefresh,
@@ -584,17 +591,27 @@ private fun FixedSourceCard(
     }
 }
 @Composable
-private fun LanguageSettings(model: WukkiModel, remoteOptionIndex: Int, onOptionFocus: (Int) -> Unit, scale: Float) {
+private fun LanguageSettings(
+    model: WukkiModel,
+    remoteOptionIndex: Int,
+    dropdownOpenRequest: Int,
+    dropdownOptionIndex: Int,
+    onOptionFocus: (Int) -> Unit,
+    scale: Float
+) {
     Column {
-    SettingsOptionRow(model, "settings.language.title", selected = remoteOptionIndex == 0, onFocus = { onOptionFocus(0) }, scale = scale) {
-        SettingsSegmentedChoice(
-            entries = AppLanguage.entries,
-            selected = model.settings.language,
-            label = { language -> tr(model.settings.language, if (language == AppLanguage.HUNGARIAN) "language.hungarian" else "language.english") },
-            onSelect = { language -> onOptionFocus(0); model.setLanguage(language) }
-        )
+    SettingsOptionRow(model, "settings.language.title", "settings.language.notice", selected = remoteOptionIndex == 0, onFocus = { onOptionFocus(0) }, scale = scale) {
+        Column(modifier = Modifier.widthIn(min = 150.dp, max = 205.dp)) {
+            SettingsExposedDropdown(
+                value = model.settings.language,
+                entries = AppLanguage.entries.toList(),
+                label = { language -> tr(model.settings.language, if (language == AppLanguage.HUNGARIAN) "language.hungarian" else "language.english") },
+                onFocus = { onOptionFocus(0) },
+                openRequest = if (dropdownOptionIndex == 0) dropdownOpenRequest else 0,
+                onSelect = model::setLanguage
+            )
+        }
     }
-    SettingsOptionRow(model, "settings.language.notice", scale = scale) { }
     }
 }
 
@@ -671,13 +688,14 @@ private fun LegalDocumentDialog(model: WukkiModel, document: LegalDocument, onDi
 private fun SettingsToggle(
     model: WukkiModel,
     titleKey: String,
+    descriptionKey: String,
     checked: Boolean,
     selected: Boolean = false,
     onFocus: () -> Unit,
     scale: Float,
     onCheckedChange: (Boolean) -> Unit
 ) {
-    SettingsOptionRow(model, titleKey, selected = selected, onFocus = onFocus, scale = scale) {
+    SettingsOptionRow(model, titleKey, descriptionKey, selected = selected, onFocus = onFocus, scale = scale) {
         Switch(checked = checked, onCheckedChange = { value -> onFocus(); onCheckedChange(value) })
     }
 }

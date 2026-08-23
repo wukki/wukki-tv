@@ -68,8 +68,8 @@ fun WukkiApp(
     var channelListOpenRequest by remember { mutableIntStateOf(if (activeSection == DashboardSection.CHANNELS) 1 else 0) }
     var settingsCategoryIndex by remember { mutableIntStateOf(0) }
     var settingsOptionIndex by remember { mutableIntStateOf(0) }
-    var playbackDropdownOpenRequest by remember { mutableIntStateOf(0) }
-    var playbackDropdownOptionIndex by remember { mutableIntStateOf(-1) }
+    var settingsDropdownOpenRequest by remember { mutableIntStateOf(0) }
+    var settingsDropdownOptionIndex by remember { mutableIntStateOf(-1) }
     var guideProgrammeDetailsVisible by remember { mutableStateOf(false) }
     var guideProgrammeDialogState by remember { mutableStateOf(GuideProgrammeDialogState()) }
     var automaticLaunchPending by remember { mutableStateOf(autoPlayOnLaunch) }
@@ -436,8 +436,8 @@ fun WukkiApp(
                                     when (settingsOptionIndex) {
                                         0 -> model.updatePlayback { it.copy(autoPlayOnLaunch = !(it.autoPlayOnLaunch != false)) }
                                         2, 3 -> {
-                                            playbackDropdownOptionIndex = settingsOptionIndex
-                                            playbackDropdownOpenRequest++
+                                            settingsDropdownOptionIndex = settingsOptionIndex
+                                            settingsDropdownOpenRequest++
                                         }
                                         4 -> model.updatePlayback { it.copy(autoReconnect = !it.autoReconnect) }
                                         5 -> model.updatePlayback { it.copy(reconnectAttempts = (it.reconnectAttempts + 1).coerceAtMost(10)) }
@@ -509,7 +509,12 @@ fun WukkiApp(
                             return@onPreviewKeyEvent true
                         }
                         if (settingsSection == SettingsSection.LANGUAGE) {
-                            if (event.key.isConfirmKey() || event.key == Key.DirectionLeft || event.key == Key.DirectionRight) {
+                            if (event.key.isConfirmKey()) {
+                                settingsDropdownOptionIndex = 0
+                                settingsDropdownOpenRequest++
+                                return@onPreviewKeyEvent true
+                            }
+                            if (event.key == Key.DirectionLeft || event.key == Key.DirectionRight) {
                                 model.setLanguage(if (model.settings.language == AppLanguage.HUNGARIAN) AppLanguage.ENGLISH else AppLanguage.HUNGARIAN)
                                 return@onPreviewKeyEvent true
                             }
@@ -632,8 +637,8 @@ fun WukkiApp(
                 },
                 settingsCategoryIndex = settingsCategoryIndex,
                 settingsOptionIndex = settingsOptionIndex,
-                playbackDropdownOpenRequest = playbackDropdownOpenRequest,
-                playbackDropdownOptionIndex = playbackDropdownOptionIndex,
+                settingsDropdownOpenRequest = settingsDropdownOpenRequest,
+                settingsDropdownOptionIndex = settingsDropdownOptionIndex,
                 androidSettingsNavigation = androidSettingsNavigation,
                 useExpandedDesktopNavigation = useExpandedDesktopNavigation,
                 showCompactNavigationBrand = showCompactNavigationBrand,
