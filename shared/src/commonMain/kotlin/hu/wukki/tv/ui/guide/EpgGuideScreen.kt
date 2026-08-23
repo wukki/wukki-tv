@@ -103,6 +103,8 @@ class EpgGuideState internal constructor(
         private set
     var pixelsPerMinute: Float = 6f
     var viewportWidthPx: Int = 0
+    var guideOpenRequest by mutableIntStateOf(0)
+        private set
     private var initialisedChannelIds by mutableStateOf<List<String>>(emptyList())
     private var initialisedTimelineStart by mutableStateOf<Long?>(null)
     private var initiallyScrolledTimelineStart by mutableStateOf<Long?>(null)
@@ -116,6 +118,26 @@ class EpgGuideState internal constructor(
     fun selectChannel(channel: Channel) {
         focusedChannelId = channel.id
         focusedProgrammeKey = null
+    }
+
+    /** Selects the playing channel's current programme whenever the Guide is opened. */
+    fun focusCurrentProgramme(data: GuideDataSource, timeline: GuideTimeline, now: Long) {
+        val channel = data.channels().firstOrNull { it.id == data.selectedChannelId }
+            ?: data.channels().firstOrNull()
+            ?: return
+        focusedChannelId = channel.id
+        chooseProgrammeAt(data, channel, now, timeline)
+        guideOpenRequest++
+    }
+
+    suspend fun applyGuideOpenFocus(data: GuideDataSource, channels: List<Channel>, timeline: GuideTimeline, now: Long) {
+        if (guideOpenRequest == 0 || channels.isEmpty()) return
+        val channelIndex = channels.indexOfFirst { it.id == focusedChannelId }
+            .takeIf { it >= 0 }
+            ?: return
+        verticalList.scrollToItem(channelIndex)
+        scrollToInitialTime(timeline, now)
+        guideOpenRequest = 0
     }
 
     /** The programme currently targeted by D-pad navigation, if the row has EPG data. */
@@ -270,6 +292,11 @@ fun EpgGuideScreen(
             withFrameNanos { }
             state.scrollToInitialTime(timeline, tick)
             state.markInitialTimelineScrollApplied(timeline)
+        }
+        LaunchedEffect(state.guideOpenRequest, state.horizontalScroll.maxValue) {
+            if (state.guideOpenRequest == 0 || state.horizontalScroll.maxValue == 0) return@LaunchedEffect
+            withFrameNanos { }
+            state.applyGuideOpenFocus(data, channels, timeline, tick)
         }
 
         Card(

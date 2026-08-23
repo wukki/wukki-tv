@@ -87,6 +87,10 @@ fun WukkiApp(
             channelRemoteFocus = ChannelRemoteFocus.LIST
             channelListOpenRequest++
         }
+        if (section == DashboardSection.GUIDE && activeSection != DashboardSection.GUIDE) {
+            val guideData = model.guideDataSource()
+            guideState.focusCurrentProgramme(guideData, guideTimeline(tick, model.guideLatestProgrammeEnd()), tick)
+        }
         if (androidSettingsNavigation && section == DashboardSection.SETTINGS && activeSection != DashboardSection.SETTINGS) {
             settingsSection = null
         }

@@ -267,6 +267,7 @@ private fun ChannelDirectory(
         else LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
             itemsIndexed(state.channels, key = { _, row -> row.channel.id }) { index, row ->
                 ChannelListRow(state, row, rowHeight, scale, callbacks)
+                if (index < state.channels.lastIndex) HorizontalDivider()
             }
         }
     }

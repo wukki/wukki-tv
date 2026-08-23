@@ -139,10 +139,24 @@ private fun SettingsNavigation(
                     titleFontSize = 19.sp,
                     titleWeight = if (active) FontWeight.SemiBold else FontWeight.Normal
                 ) {
-                    if (item == SettingsSection.LANGUAGE) {
-                        Text(tr(model.settings.language, "settings.language.current"), fontSize = (16f * scale).sp)
+                    Row(
+                        modifier = Modifier.width(148.dp * scale),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (item == SettingsSection.LANGUAGE) {
+                            Text(
+                                tr(model.settings.language, "settings.language.current"),
+                                modifier = Modifier.weight(1f),
+                                fontSize = (16f * scale).sp,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.End,
+                                maxLines = 1
+                            )
+                        } else {
+                            Spacer(Modifier.weight(1f))
+                        }
+                        Spacer(Modifier.width(12.dp * scale))
+                        Icon(Icons.AutoMirrored.Outlined.ArrowForwardIos, contentDescription = null, modifier = Modifier.size(22.dp * scale))
                     }
-                    Icon(Icons.AutoMirrored.Outlined.ArrowForwardIos, contentDescription = null, modifier = Modifier.size(22.dp * scale))
                 }
             }
         }
@@ -569,15 +583,15 @@ private fun SettingsToggle(
     }
 }
 
-/** Shared visual shell for category and detail rows in the settings experience. */
+/** Shared Material list row used by both the settings categories and their option panels. */
 @Composable
 private fun SettingsListRow(
     title: String,
     description: String? = null,
     onClick: (() -> Unit)? = null,
     scale: Float = 1f,
-    titleFontSize: androidx.compose.ui.unit.TextUnit = 14.sp,
-    titleWeight: FontWeight = FontWeight.SemiBold,
+    titleFontSize: androidx.compose.ui.unit.TextUnit = 19.sp,
+    titleWeight: FontWeight = FontWeight.Normal,
     modifier: Modifier = Modifier,
     control: @Composable () -> Unit
 ) {
@@ -588,6 +602,7 @@ private fun SettingsListRow(
         modifier = modifier.fillMaxWidth().heightIn(min = 81.dp * scale)
             .then(onClick?.let { Modifier.clickable(onClick = it) } ?: Modifier)
     )
+    HorizontalDivider()
 }
 
 @Composable
@@ -630,7 +645,7 @@ private fun <T> SettingsSegmentedChoice(
 @Composable
 private fun SettingsCard(modifier: Modifier, content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
     Card(modifier = modifier) {
-        Column(modifier = Modifier.fillMaxSize().padding(18.dp), content = content)
+        Column(modifier = Modifier.fillMaxSize(), content = content)
     }
 }
 
