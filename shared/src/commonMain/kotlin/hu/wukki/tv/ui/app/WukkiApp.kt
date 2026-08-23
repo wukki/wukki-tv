@@ -31,7 +31,9 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.platform.LocalDensity
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.math.ceil
 
 @Composable
@@ -70,6 +72,7 @@ fun WukkiApp(
     var overlayRequest by remember { mutableIntStateOf(0) }
     var programmeOverlayVisible by remember { mutableStateOf(false) }
     var channelNumberInput by remember { mutableStateOf("") }
+    var deviceInfo by remember { mutableStateOf<DeviceInfo?>(null) }
     val guideState = rememberEpgGuideState()
     val baseDensity = LocalDensity.current
     val mainSections = DashboardSection.entries
@@ -210,6 +213,11 @@ fun WukkiApp(
     }
     LaunchedEffect(activeSection) {
         onActiveSectionChange(activeSection)
+    }
+    LaunchedEffect(activeSection, settingsNavigation.section) {
+        if (activeSection == DashboardSection.SETTINGS && settingsNavigation.section == SettingsSection.ABOUT && deviceInfo == null) {
+            deviceInfo = withContext(Dispatchers.Default) { DeviceInfoProvider.collect() }
+        }
     }
     DisposableEffect(activeSection, settingsNavigation.section, onPlatformBackActionChange) {
         onPlatformBackActionChange(
@@ -569,7 +577,8 @@ fun WukkiApp(
                 onGuideProgrammeDialogEvent = ::handleGuideProgrammeDialogEvent,
                 videoHost = videoHost,
                 liveVideoGestures = liveVideoGestures,
-                playbackEngineLabel = playbackEngineLabel
+                playbackEngineLabel = playbackEngineLabel,
+                deviceInfo = deviceInfo
             )
         }
     }

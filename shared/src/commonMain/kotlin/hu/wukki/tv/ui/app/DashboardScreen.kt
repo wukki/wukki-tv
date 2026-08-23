@@ -14,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import hu.wukki.tv.Channel
+import hu.wukki.tv.DeviceInfo
 import hu.wukki.tv.LiveVideoGestures
 import hu.wukki.tv.WukkiModel
 import hu.wukki.tv.ui.channels.ChannelBrowserCallbacks
@@ -38,8 +39,12 @@ import hu.wukki.tv.ui.navigation.NavigationEntryUiState
 import hu.wukki.tv.ui.navigation.SideNavigation
 import hu.wukki.tv.ui.navigation.SideNavigationUiState
 import hu.wukki.tv.ui.settings.SettingsScreen
+import hu.wukki.tv.ui.settings.SettingsCallbacks
 import hu.wukki.tv.ui.settings.SettingsSection
+import hu.wukki.tv.ui.settings.SettingsSourceUiState
+import hu.wukki.tv.ui.settings.SettingsUiState
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 
 private fun navigationState(model: WukkiModel, activeSection: DashboardSection, focusedSection: DashboardSection?, tick: Long): SideNavigationUiState {
     val language = model.settings.language
@@ -113,7 +118,8 @@ fun DashboardScreen(
     onGuideProgrammeDialogEvent: (GuideProgrammeDialogEvent) -> Unit,
     videoHost: @Composable (Modifier, LiveVideoGestures?) -> Unit,
     liveVideoGestures: LiveVideoGestures,
-    playbackEngineLabel: String
+    playbackEngineLabel: String,
+    deviceInfo: DeviceInfo?
 ) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val scale = minOf(maxWidth.value / 1470f, maxHeight.value / 920f).coerceIn(.70f, 1.45f)
@@ -162,7 +168,30 @@ fun DashboardScreen(
                     videoPreview = { videoHost(Modifier.fillMaxSize(), null) }
                 )
                 DashboardSection.SETTINGS -> SettingsScreen(
-                    model = model, scope = scope, selectedSection = settingsSection,
+                    state = SettingsUiState(
+                        settings = model.settings,
+                        playlistSource = SettingsSourceUiState(
+                            model.officialPlaylist.name,
+                            model.officialPlaylist.location,
+                            model.officialPlaylist.updatedAt
+                        ),
+                        epgSource = model.officialEpgSource?.let { source ->
+                            SettingsSourceUiState(source.name, source.url, source.lastUpdatedAt)
+                        },
+                        channelCount = model.state.channels.size,
+                        deviceInfo = deviceInfo,
+                        playbackEngineLabel = playbackEngineLabel
+                    ),
+                    callbacks = SettingsCallbacks(
+                        updatePlayback = model::updatePlayback,
+                        updateDisplay = model::updateDisplay,
+                        setPlaylistRefresh = model::setPlaylistRefresh,
+                        setEpgRefresh = model::setEpgRefresh,
+                        setLanguage = model::setLanguage,
+                        refreshPlaylist = { scope.launch { model.refreshOfficialPlaylist() } },
+                        refreshEpg = { scope.launch { model.refreshOfficialEpg() } }
+                    ),
+                    selectedSection = settingsSection,
                     onSectionChange = onSettingsSectionChange, remoteCategoryIndex = settingsCategoryIndex,
                     remoteNavigationActive = !mainNavigationFocused, remoteOptionIndex = settingsOptionIndex,
                     settingsDropdownOpenRequest = settingsDropdownOpenRequest,
@@ -170,8 +199,7 @@ fun DashboardScreen(
                     androidFullScreenSubmenus = androidSettingsNavigation,
                     onCategoryFocus = onSettingsCategoryFocus,
                     onOptionFocus = onSettingsOptionFocus,
-                    modifier = Modifier.weight(1f).fillMaxHeight().padding(padding),
-                    playbackEngineLabel = playbackEngineLabel
+                    modifier = Modifier.weight(1f).fillMaxHeight().padding(padding)
                 )
             }
         }
