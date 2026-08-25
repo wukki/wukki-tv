@@ -20,6 +20,7 @@ internal fun playbackOverlayData(
     channelNumberInput: String,
     language: AppLanguage,
     showLogos: Boolean,
+    showProgrammeImages: Boolean,
     playbackState: PlaybackState,
     playbackDetail: String?
 ): PlaybackOverlayData {
@@ -38,6 +39,9 @@ internal fun playbackOverlayData(
         channelNumber = channel.tvgChno?.toString() ?: "–",
         channelName = channel.name,
         logoUrl = channel.logo?.takeIf { showLogos },
+        programmeImageUrl = currentProgramme?.imageUrl?.takeIf {
+            showProgrammeImages && section == DashboardSection.LIVE
+        },
         showProgrammeInfo = section == DashboardSection.LIVE && showProgrammeInfo,
         showPreviewLogo = section == DashboardSection.CHANNELS,
         channelNumberInput = channelNumberInput.takeIf { section == DashboardSection.LIVE && it.isNotEmpty() },

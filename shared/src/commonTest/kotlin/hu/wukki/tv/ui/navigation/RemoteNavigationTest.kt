@@ -8,12 +8,22 @@ import kotlin.test.assertIs
 
 class RemoteNavigationTest {
     @Test
-    fun `main menu stays in bounds and activates focused item`() {
-        val top = MainMenuNavigationState(0).reduce(RemoteKey.UP, 4)
-        val selected = top.state.reduce(RemoteKey.CONFIRM, 4)
+    fun `main menu moves horizontally stays in bounds and activates focused item`() {
+        val first = MainMenuNavigationState(0).reduce(RemoteKey.LEFT, 4)
+        val last = MainMenuNavigationState(3).reduce(RemoteKey.RIGHT, 4)
+        val selected = last.state.reduce(RemoteKey.CONFIRM, 4)
 
-        assertEquals(0, top.state.index)
-        assertEquals(0, assertIs<MainMenuNavigationEffect.Activate>(selected.effect).index)
+        assertEquals(0, first.state.index)
+        assertEquals(3, last.state.index)
+        assertEquals(3, assertIs<MainMenuNavigationEffect.Activate>(selected.effect).index)
+    }
+
+    @Test
+    fun `main menu enters content below it`() {
+        val result = MainMenuNavigationState(2).reduce(RemoteKey.DOWN, 4)
+
+        assertEquals(2, result.state.index)
+        assertIs<MainMenuNavigationEffect.EnterContent>(result.effect)
     }
 
     @Test

@@ -49,6 +49,7 @@ data class PlaybackOverlayData(
     val channelNumber: String,
     val channelName: String,
     val logoUrl: String?,
+    val programmeImageUrl: String?,
     val showProgrammeInfo: Boolean,
     val showPreviewLogo: Boolean,
     val channelNumberInput: String?,

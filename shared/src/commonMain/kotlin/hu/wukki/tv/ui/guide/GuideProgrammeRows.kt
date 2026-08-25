@@ -3,6 +3,7 @@ package hu.wukki.tv.ui.guide
 import hu.wukki.tv.AppLanguage
 import hu.wukki.tv.Channel
 import hu.wukki.tv.Programme
+import hu.wukki.tv.ui.components.ChannelLogo
 import hu.wukki.tv.ui.components.WukkiBrushes
 import hu.wukki.tv.ui.components.WukkiColors
 import hu.wukki.tv.ui.components.displayTitle
@@ -23,6 +24,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredWidth
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -62,16 +64,26 @@ internal fun GuideChannelRow(
                 color = WukkiColors.textPrimary,
                 fontSize = (24f * metrics.scale).sp,
                 fontWeight = FontWeight.Light,
-                modifier = Modifier.width(48.dp * metrics.scale)
+                modifier = Modifier.width(36.dp * metrics.scale)
             )
-            Text(
-                channel.name,
-                color = WukkiColors.textPrimary,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = (18f * metrics.scale).sp,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
+            if (data.showLogos) {
+                ChannelLogo(
+                    channel = channel,
+                    language = data.language,
+                    modifier = Modifier.padding(end = 8.dp * metrics.scale).size(38.dp * metrics.scale)
+                )
+            }
+            else {
+                Text(
+                    channel.name,
+                    color = WukkiColors.textPrimary,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = (18f * metrics.scale).sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+            }
         }
         Box(
             Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(0.dp))

@@ -9,7 +9,10 @@ import java.awt.Font
 import java.awt.Graphics2D
 import java.awt.RenderingHints
 import java.awt.geom.Arc2D
+import java.awt.geom.Path2D
+import java.awt.geom.RoundRectangle2D
 import java.awt.image.BufferedImage
+import java.net.HttpURLConnection
 import java.net.URI
 import java.time.Instant
 import java.time.ZoneId
@@ -19,40 +22,62 @@ import java.util.concurrent.Executors
 import javax.imageio.ImageIO
 import kotlin.math.min
 
-internal data class RenderedPlaybackOverlay(val data: PlaybackOverlayData, val logo: BufferedImage? = null)
+internal data class RenderedPlaybackOverlay(
+    val data: PlaybackOverlayData,
+    val logo: BufferedImage? = null,
+    val programmeImage: BufferedImage? = null
+)
 
 internal class DesktopPlaybackOverlayCoordinator(
     private val component: OverlayCallbackMediaPlayerComponent,
     private val requestRepaint: () -> Unit
 ) {
-    private val logoExecutor = Executors.newSingleThreadExecutor { runnable ->
-        Thread(runnable, "wukki-vlc-logo").apply { isDaemon = true }
+    private val imageExecutor = Executors.newSingleThreadExecutor { runnable ->
+        Thread(runnable, "wukki-vlc-overlay-image").apply { isDaemon = true }
     }
-    private val logoCache = ConcurrentHashMap<String, BufferedImage>()
-    private val pendingLogos = ConcurrentHashMap.newKeySet<String>()
-    private val failedLogos = ConcurrentHashMap.newKeySet<String>()
+    private val imageCache = ConcurrentHashMap<String, BufferedImage>()
+    private val pendingImages = ConcurrentHashMap.newKeySet<String>()
+    private val failedImages = ConcurrentHashMap.newKeySet<String>()
     @Volatile private var released = false
 
     fun update(data: PlaybackOverlayData) {
         if (released) return
-        val logo = data.logoUrl?.let(logoCache::get)
-        component.overlay = RenderedPlaybackOverlay(data, logo)
+        component.overlay = RenderedPlaybackOverlay(
+            data = data,
+            logo = data.logoUrl?.let(imageCache::get),
+            programmeImage = data.programmeImageUrl?.let(imageCache::get)
+        )
         requestRepaint()
+        listOfNotNull(data.logoUrl, data.programmeImageUrl).distinct().forEach { loadImage(it, data.channelId) }
+    }
 
-        val logoUrl = data.logoUrl ?: return
-        if (logo != null || logoUrl in failedLogos || !pendingLogos.add(logoUrl)) return
-        logoExecutor.execute {
+    private fun loadImage(imageUrl: String, channelId: String) {
+        if (imageCache.containsKey(imageUrl) || imageUrl in failedImages || !pendingImages.add(imageUrl)) return
+        imageExecutor.execute {
             val loaded = runCatching {
-                URI.create(logoUrl).toURL().openConnection().apply {
+                val connection = URI.create(imageUrl).toURL().openConnection().apply {
                     connectTimeout = 10_000
                     readTimeout = 15_000
-                }.getInputStream().use(ImageIO::read)
+                    setRequestProperty("User-Agent", "WukkiTV/1.0 (desktop; image loader)")
+                    setRequestProperty("Accept", "image/*")
+                }
+                (connection as? HttpURLConnection)?.let { http ->
+                    require(http.responseCode in 200..299) { "HTTP ${http.responseCode}" }
+                }
+                require(connection.contentType?.startsWith("image/", ignoreCase = true) != false) {
+                    "Unsupported content type: ${connection.contentType}"
+                }
+                connection.getInputStream().use(ImageIO::read)
             }.getOrNull()
-            pendingLogos.remove(logoUrl)
-            if (loaded != null) logoCache[logoUrl] = loaded else failedLogos.add(logoUrl)
-            val current = component.overlay?.data
-            if (!released && loaded != null && current?.channelId == data.channelId && current.logoUrl == logoUrl) {
-                component.overlay = RenderedPlaybackOverlay(current, loaded)
+            pendingImages.remove(imageUrl)
+            if (loaded != null) imageCache[imageUrl] = loaded else failedImages.add(imageUrl)
+            val current = component.overlay
+            val imageStillUsed = current?.data?.let { it.logoUrl == imageUrl || it.programmeImageUrl == imageUrl } == true
+            if (!released && loaded != null && current?.data?.channelId == channelId && imageStillUsed) {
+                component.overlay = current.copy(
+                    logo = current.data.logoUrl?.let(imageCache::get),
+                    programmeImage = current.data.programmeImageUrl?.let(imageCache::get)
+                )
                 requestRepaint()
             }
         }
@@ -60,7 +85,7 @@ internal class DesktopPlaybackOverlayCoordinator(
 
     fun release() {
         released = true
-        logoExecutor.shutdownNow()
+        imageExecutor.shutdownNow()
     }
 }
 
@@ -184,6 +209,16 @@ private fun drawProgrammePanel(
     val dividerX = margin + leftWidth
     graphics.drawLine(dividerX, top, dividerX, top + panelHeight)
 
+    val channelColumnCenterX = margin + leftWidth / 2
+    val arrowSize = (30 * scale).toInt().coerceAtLeast(18)
+    drawChannelNavigationChevron(
+        graphics = graphics,
+        centerX = channelColumnCenterX,
+        centerY = top + (24 * scale).toInt().coerceAtLeast(15),
+        size = arrowSize,
+        pointsUp = true,
+        scale = scale
+    )
     val numberFont = Font(Font.SANS_SERIF, Font.PLAIN, (58 * scale).toInt().coerceAtLeast(28))
     graphics.font = numberFont
     graphics.color = Color.WHITE
@@ -204,8 +239,37 @@ private fun drawProgrammePanel(
         graphics.font = Font(Font.SANS_SERIF, Font.BOLD, (21 * scale).toInt().coerceAtLeast(13))
         drawCentered(graphics, data.channelName, margin + 8, dividerX - 8, top + (145 * scale).toInt())
     }
+    drawChannelNavigationChevron(
+        graphics = graphics,
+        centerX = channelColumnCenterX,
+        centerY = top + panelHeight - (24 * scale).toInt().coerceAtLeast(15),
+        size = arrowSize,
+        pointsUp = false,
+        scale = scale
+    )
 
-    val contentLeft = dividerX + (38 * scale).toInt()
+    val artwork = content.programmeImage
+    val artworkGap = (24 * scale).toInt().coerceAtLeast(10)
+    val artworkWidth = if (artwork != null) {
+        min((220 * scale).toInt(), (panelWidth * .21f).toInt()).coerceAtLeast(80)
+    } else 0
+    if (artwork != null) {
+        val artworkHeight = (artworkWidth * 9f / 16f).toInt().coerceAtLeast(45)
+        drawCroppedImage(
+            graphics = graphics,
+            image = artwork,
+            x = dividerX + artworkGap,
+            y = top + (24 * scale).toInt().coerceAtLeast(10),
+            width = artworkWidth,
+            height = artworkHeight,
+            radius = (8 * scale).toInt().coerceAtLeast(4)
+        )
+    }
+    val contentLeft = if (artwork != null) {
+        dividerX + artworkGap + artworkWidth + artworkGap
+    } else {
+        dividerX + (38 * scale).toInt()
+    }
     val contentRight = margin + panelWidth - (30 * scale).toInt()
     val title = data.currentTitle ?: data.noEpgLabel
     graphics.font = Font(Font.SANS_SERIF, Font.BOLD, (30 * scale).toInt().coerceAtLeast(17))
@@ -268,6 +332,70 @@ private fun drawProgrammePanel(
             )
         }
     }
+}
+
+private fun drawChannelNavigationChevron(
+    graphics: Graphics2D,
+    centerX: Int,
+    centerY: Int,
+    size: Int,
+    pointsUp: Boolean,
+    scale: Float
+) {
+    val halfWidth = size / 2f
+    val halfHeight = size / 4f
+    val outerY = if (pointsUp) centerY + halfHeight else centerY - halfHeight
+    val middleY = if (pointsUp) centerY - halfHeight else centerY + halfHeight
+    val path = Path2D.Float().apply {
+        moveTo(centerX - halfWidth, outerY)
+        lineTo(centerX.toFloat(), middleY)
+        lineTo(centerX + halfWidth, outerY)
+    }
+    graphics.color = WukkiOverlayColors.accent
+    graphics.stroke = BasicStroke(
+        (3.2f * scale).coerceAtLeast(2f),
+        BasicStroke.CAP_ROUND,
+        BasicStroke.JOIN_ROUND
+    )
+    graphics.draw(path)
+}
+
+private fun drawCroppedImage(
+    graphics: Graphics2D,
+    image: BufferedImage,
+    x: Int,
+    y: Int,
+    width: Int,
+    height: Int,
+    radius: Int
+) {
+    if (image.width <= 0 || image.height <= 0 || width <= 0 || height <= 0) return
+    val targetRatio = width.toDouble() / height
+    val sourceRatio = image.width.toDouble() / image.height
+    val sourceWidth: Int
+    val sourceHeight: Int
+    val sourceX: Int
+    val sourceY: Int
+    if (sourceRatio > targetRatio) {
+        sourceHeight = image.height
+        sourceWidth = (sourceHeight * targetRatio).toInt()
+        sourceX = (image.width - sourceWidth) / 2
+        sourceY = 0
+    } else {
+        sourceWidth = image.width
+        sourceHeight = (sourceWidth / targetRatio).toInt()
+        sourceX = 0
+        sourceY = (image.height - sourceHeight) / 2
+    }
+    val previousClip = graphics.clip
+    graphics.clip(RoundRectangle2D.Float(x.toFloat(), y.toFloat(), width.toFloat(), height.toFloat(), radius.toFloat(), radius.toFloat()))
+    graphics.drawImage(
+        image,
+        x, y, x + width, y + height,
+        sourceX, sourceY, sourceX + sourceWidth, sourceY + sourceHeight,
+        null
+    )
+    graphics.clip = previousClip
 }
 
 private fun drawPlaybackStatus(

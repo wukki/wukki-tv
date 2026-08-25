@@ -59,8 +59,6 @@ class MainActivity : ComponentActivity() {
                             setKeepScreenOn(liveSectionActive)
                         },
                         androidSettingsNavigation = true,
-                        useExpandedDesktopNavigation = false,
-                        showCompactNavigationBrand = false,
                         onPlatformBackActionChange = { action -> appBackAction = action }
                     )
                 }

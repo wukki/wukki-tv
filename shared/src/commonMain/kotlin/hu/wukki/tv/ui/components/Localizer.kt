@@ -10,8 +10,6 @@ object Localizer {
         platformText(language, key, arguments.toList())
 
     fun formatTime(millis: Long): String = platformTimeLabel(millis)
-    fun formatSidebarDate(language: AppLanguage, millis: Long, pattern: String): String =
-        platformDateLabel(language, millis, pattern)
     fun legalText(path: String): String? = platformTextResource(path)
 }
 

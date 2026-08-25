@@ -3,11 +3,9 @@ package hu.wukki.tv.ui.app
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -22,7 +20,6 @@ import hu.wukki.tv.ui.channels.ChannelBrowserRowUiState
 import hu.wukki.tv.ui.channels.ChannelBrowserScreen
 import hu.wukki.tv.ui.channels.ChannelBrowserUiState
 import hu.wukki.tv.ui.channels.ChannelPreviewUiState
-import hu.wukki.tv.ui.components.formatTime
 import hu.wukki.tv.ui.components.text
 import hu.wukki.tv.ui.components.tr
 import hu.wukki.tv.ui.guide.EpgGuideScreen
@@ -36,7 +33,7 @@ import hu.wukki.tv.ui.live.LiveTvUiState
 import hu.wukki.tv.ui.navigation.ChannelRemoteFocus
 import hu.wukki.tv.ui.navigation.DashboardSection
 import hu.wukki.tv.ui.navigation.NavigationEntryUiState
-import hu.wukki.tv.ui.navigation.SideNavigation
+import hu.wukki.tv.ui.navigation.TopNavigation
 import hu.wukki.tv.ui.navigation.SideNavigationUiState
 import hu.wukki.tv.ui.settings.SettingsScreen
 import hu.wukki.tv.ui.settings.SettingsCallbacks
@@ -46,7 +43,7 @@ import hu.wukki.tv.ui.settings.SettingsUiState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
-private fun navigationState(model: WukkiModel, activeSection: DashboardSection, focusedSection: DashboardSection?, tick: Long): SideNavigationUiState {
+private fun navigationState(model: WukkiModel, activeSection: DashboardSection, focusedSection: DashboardSection?): SideNavigationUiState {
     val language = model.settings.language
     return SideNavigationUiState(
         entries = listOf(
@@ -56,9 +53,7 @@ private fun navigationState(model: WukkiModel, activeSection: DashboardSection, 
             NavigationEntryUiState(DashboardSection.SETTINGS, tr(language, "nav.settings"))
         ),
         activeSection = activeSection,
-        focusedSection = focusedSection,
-        timeLabel = formatTime(tick),
-        dateLabel = hu.wukki.tv.ui.components.Localizer.formatSidebarDate(language, tick, tr(language, "date.sidebar.pattern"))
+        focusedSection = focusedSection
     )
 }
 
@@ -79,7 +74,7 @@ private fun channelBrowserUiState(model: WukkiModel, tick: Long): ChannelBrowser
         displayMode = model.settings.display.channelListMode ?: hu.wukki.tv.ChannelListDisplayMode.NORMAL,
         showChannelProgramme = model.settings.display.showChannelProgramme,
         showMiniGuide = model.settings.display.showMiniGuide,
-        showProgrammeImages = model.settings.display.showProgrammeImages != false,
+        showLogos = model.settings.display.showLogos,
         preview = selected?.let { ChannelPreviewUiState(it, model.currentProgram(it, tick), tick) }
     )
 }
@@ -107,8 +102,6 @@ fun DashboardScreen(
     settingsDropdownOpenRequest: Int,
     settingsDropdownOptionIndex: Int,
     androidSettingsNavigation: Boolean,
-    useExpandedDesktopNavigation: Boolean,
-    showCompactNavigationBrand: Boolean,
     onSettingsCategoryFocus: (Int) -> Unit,
     onSettingsOptionFocus: (Int) -> Unit,
     guideProgrammeDetailsVisible: Boolean,
@@ -123,28 +116,25 @@ fun DashboardScreen(
 ) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val scale = minOf(maxWidth.value / 1470f, maxHeight.value / 920f).coerceIn(.70f, 1.45f)
-        val expandedDesktopNavigation = useExpandedDesktopNavigation && maxWidth >= 980.dp
-        val navigationWidth = if (expandedDesktopNavigation) (256.dp * scale).coerceIn(220.dp, 430.dp) else 80.dp
         val padding = (14.dp * scale).coerceIn(8.dp, 20.dp)
-        Row(Modifier.fillMaxSize()) {
-            SideNavigation(
-                state = navigationState(model, activeSection, mainNavigationSection.takeIf { mainNavigationFocused }, tick),
+        Column(Modifier.fillMaxSize()) {
+            TopNavigation(
+                state = navigationState(model, activeSection, mainNavigationSection.takeIf { mainNavigationFocused }),
                 onSelect = onSectionChange,
                 scale = scale,
-                expandedDesktop = expandedDesktopNavigation,
-                showCompactBrand = showCompactNavigationBrand,
-                modifier = Modifier.width(navigationWidth).fillMaxHeight()
+                modifier = Modifier.fillMaxWidth()
             )
-            when (activeSection) {
+            BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+                when (activeSection) {
                 DashboardSection.LIVE -> LiveTvScreen(
                     LiveTvUiState(model.selectedChannel() != null, tr(model.settings.language, "live.empty")),
                     scale,
                     video = { videoHost(Modifier.fillMaxSize(), liveVideoGestures) },
-                    modifier = Modifier.weight(1f).fillMaxHeight()
+                    modifier = Modifier.fillMaxSize()
                 )
                 DashboardSection.GUIDE -> EpgGuideScreen(
                     model.guideDataSource(), tick, guideState, onProgrammeClick = { _, _ -> onShowGuideProgrammeDetails() },
-                    modifier = Modifier.weight(1f).fillMaxHeight().padding(padding)
+                    modifier = Modifier.fillMaxSize().padding(padding)
                 )
                 DashboardSection.CHANNELS -> ChannelBrowserScreen(
                     state = channelBrowserUiState(model, tick),
@@ -157,7 +147,7 @@ fun DashboardScreen(
                         onToggleFavorite = model::toggleFavorite
                     ),
                     tick = tick,
-                    modifier = Modifier.weight(1f).fillMaxHeight().padding(padding),
+                    modifier = Modifier.fillMaxSize().padding(padding),
                     scale = scale.coerceAtMost(1f),
                     remoteFocus = channelRemoteFocus,
                     remoteFilterIndex = channelFilterIndex,
@@ -199,8 +189,9 @@ fun DashboardScreen(
                     androidFullScreenSubmenus = androidSettingsNavigation,
                     onCategoryFocus = onSettingsCategoryFocus,
                     onOptionFocus = onSettingsOptionFocus,
-                    modifier = Modifier.weight(1f).fillMaxHeight().padding(padding)
+                    modifier = Modifier.fillMaxSize().padding(padding)
                 )
+                }
             }
         }
         Column(Modifier.align(Alignment.BottomCenter).padding(bottom = 24.dp).widthIn(max = 720.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -214,7 +205,7 @@ fun DashboardScreen(
             focused?.let { (channel: Channel, programme) ->
                 val next = model.programmesFor(channel, programme.end, programme.end + 86_400_000L).firstOrNull()
                 GuideProgrammeDetails(
-                    GuideProgrammeDetailsUiState(model.settings.language, channel, programme, next, model.settings.display.showProgrammeImages != false),
+                    GuideProgrammeDetailsUiState(model.settings.language, channel, programme, next),
                     onDismissGuideProgrammeDetails, onOpenGuideProgrammeChannel, onGuideProgrammeDialogEvent
                 )
             }

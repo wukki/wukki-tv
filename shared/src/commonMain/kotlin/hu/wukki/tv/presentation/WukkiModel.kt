@@ -192,6 +192,7 @@ class WukkiModel(
     }
 
     fun selectedChannel(): Channel? = state.channels.firstOrNull { it.id == selectedChannelId }
+    fun channelById(id: String?): Channel? = id?.let { channelId -> state.channels.firstOrNull { it.id == channelId } }
     fun categories(): List<String> = state.channels.asSequence()
         .map(::channelCategoryName)
         .distinct()

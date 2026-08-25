@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -68,7 +67,6 @@ import hu.wukki.tv.ChannelListDisplayMode
 import hu.wukki.tv.Programme
 import hu.wukki.tv.OTHER_CATEGORY_ID
 import hu.wukki.tv.ui.components.ChannelLogo
-import hu.wukki.tv.ui.components.ProgrammeArtwork
 import hu.wukki.tv.ui.components.WukkiColors
 import hu.wukki.tv.ui.components.displayTitle
 import hu.wukki.tv.ui.components.formatTime
@@ -125,7 +123,7 @@ fun ChannelBrowserScreen(
                 modifier = Modifier.weight(.62f).fillMaxHeight()
             )
             ProgrammeInformation(
-                state.preview, state.language, state.showMiniGuide, state.showProgrammeImages, callbacks,
+                state.preview, state.language, state.showMiniGuide, callbacks,
                 scale, Modifier.weight(.38f).fillMaxHeight(), videoPreview
             )
         }
@@ -293,7 +291,7 @@ private fun ChannelListRow(
         leadingContent = {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp * scale)) {
                 Text(channel.tvgChno?.toString() ?: row.position.toString(), fontSize = ((if (compact) 18f else 22f) * scale).sp, fontWeight = FontWeight.Light)
-                ChannelLogo(channel, state.language, Modifier.size(logoSize))
+                if (state.showLogos) ChannelLogo(channel, state.language, Modifier.size(logoSize))
             }
         },
         headlineContent = { Text(channel.name, fontWeight = FontWeight.SemiBold, fontSize = ((if (compact) 16f else 18f) * scale).sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
@@ -314,9 +312,31 @@ private fun ChannelListRow(
 
 @Composable
 private fun DetailedChannelProgrammes(language: hu.wukki.tv.AppLanguage, current: Programme?, next: Programme?, scale: Float) {
-    Spacer(Modifier.height(3.dp * scale))
-    Text(current?.let { "${formatTime(it.start)}–${formatTime(it.end)}  ${it.displayTitle(language)}" } ?: tr(language, "epg.none"), fontSize = (13f * scale).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-    Text(next?.let { "${tr(language, "epg.next")}: ${formatTime(it.start)}  ${it.displayTitle(language)}" } ?: tr(language, "epg.none"), fontSize = (12f * scale).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    Column(verticalArrangement = Arrangement.spacedBy(3.dp * scale)) {
+        if (current == null) {
+            Text(
+                tr(language, "epg.none"),
+                fontSize = (13f * scale).sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        } else {
+            Text(
+                "${formatTime(current.start)}–${formatTime(current.end)}  ${current.displayTitle(language)}",
+                fontSize = (13f * scale).sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            next?.let { programme ->
+                Text(
+                    "${tr(language, "epg.next")}: ${formatTime(programme.start)}  ${programme.displayTitle(language)}",
+                    fontSize = (12f * scale).sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -328,7 +348,7 @@ private fun FavoriteButton(favorite: Boolean, scale: Float, onClick: () -> Unit)
 
 @Composable
 private fun ProgrammeInformation(
-    preview: ChannelPreviewUiState?, language: hu.wukki.tv.AppLanguage, showMiniGuide: Boolean, showProgrammeImages: Boolean,
+    preview: ChannelPreviewUiState?, language: hu.wukki.tv.AppLanguage, showMiniGuide: Boolean,
     callbacks: ChannelBrowserCallbacks, scale: Float, modifier: Modifier, videoPreview: @Composable () -> Unit
 ) {
     SurfaceCard(modifier, contentPadding = 0.dp) {
@@ -341,12 +361,7 @@ private fun ProgrammeInformation(
                 verticalArrangement = Arrangement.spacedBy(7.dp * scale)
             ) {
                 Text(preview.channel.name, fontSize = (24f * scale).sp, fontWeight = FontWeight.Bold)
-                if (preview.currentProgramme?.imageUrl != null && showProgrammeImages) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp * scale), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp * scale)) { ProgrammeTitleAndTime(language, preview.currentProgramme, scale) }
-                        ProgrammeArtwork(preview.currentProgramme, language, Modifier.width(128.dp * scale).aspectRatio(16f / 9f))
-                    }
-                } else ProgrammeTitleAndTime(language, preview.currentProgramme, scale)
+                ProgrammeTitleAndTime(language, preview.currentProgramme, scale)
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp * scale)) {
                     if (preview.currentProgramme != null) ProgrammeProgress(preview.currentProgramme, preview.now, Modifier.weight(1f))
                     else LinearProgressIndicator(progress = { 0f }, modifier = Modifier.weight(1f).height(5.dp * scale))

@@ -17,7 +17,7 @@ data class ChannelBrowserUiState(
     val displayMode: ChannelListDisplayMode,
     val showChannelProgramme: Boolean,
     val showMiniGuide: Boolean,
-    val showProgrammeImages: Boolean,
+    val showLogos: Boolean,
     val preview: ChannelPreviewUiState?
 )
 

@@ -17,6 +17,7 @@ data class GuideTimeline(
 interface GuideDataSource {
     val language: AppLanguage
     val selectedChannelId: String?
+    val showLogos: Boolean
     fun channels(): List<Channel>
     /** Latest end time of programmes belonging to the active playlist's matched channels. */
     fun latestProgrammeEnd(): Long?

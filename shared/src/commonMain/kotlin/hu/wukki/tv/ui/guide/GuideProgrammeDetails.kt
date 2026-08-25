@@ -4,7 +4,6 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Arrangement
@@ -28,7 +27,6 @@ import androidx.compose.ui.unit.dp
 import hu.wukki.tv.AppLanguage
 import hu.wukki.tv.Channel
 import hu.wukki.tv.Programme
-import hu.wukki.tv.ui.components.ProgrammeArtwork
 import hu.wukki.tv.ui.components.displayTitle
 import hu.wukki.tv.ui.components.formatTime
 import hu.wukki.tv.ui.components.tr
@@ -40,8 +38,7 @@ data class GuideProgrammeDetailsUiState(
     val language: AppLanguage,
     val channel: Channel,
     val programme: Programme,
-    val nextProgramme: Programme?,
-    val showProgrammeImages: Boolean
+    val nextProgramme: Programme?
 )
 
 @Composable
@@ -90,9 +87,6 @@ fun GuideProgrammeDetails(
             ) {
                 Text(state.channel.name, fontWeight = FontWeight.SemiBold)
                 Text("${formatTime(state.programme.start)} – ${formatTime(state.programme.end)}")
-                if (state.programme.imageUrl != null && state.showProgrammeImages) {
-                    ProgrammeArtwork(state.programme, state.language, Modifier.fillMaxWidth().aspectRatio(16f / 9f))
-                }
                 Text(state.programme.description?.takeIf { it.isNotBlank() } ?: tr(state.language, "epg.no.description"))
                 state.nextProgramme?.let { Text("${tr(state.language, "epg.next")}: ${it.displayTitle(state.language)} · ${formatTime(it.start)}") }
             }

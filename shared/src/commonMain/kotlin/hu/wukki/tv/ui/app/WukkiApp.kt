@@ -41,8 +41,6 @@ fun WukkiApp(
     playbackEngineLabel: String,
     onActiveSectionChange: (DashboardSection) -> Unit = {},
     androidSettingsNavigation: Boolean = false,
-    useExpandedDesktopNavigation: Boolean = false,
-    showCompactNavigationBrand: Boolean = true,
     onPlatformBackActionChange: ((() -> Boolean)?) -> Unit = {}
 ) {
     val model = remember { WukkiModel() }
@@ -69,13 +67,25 @@ fun WukkiApp(
     var officialSourceReady by remember { mutableStateOf(false) }
     var overlayRequest by remember { mutableIntStateOf(0) }
     var programmeOverlayVisible by remember { mutableStateOf(false) }
+    var liveChannelPreviewState by remember { mutableStateOf(LiveChannelPreviewState()) }
     var channelNumberInput by remember { mutableStateOf("") }
     var deviceInfo by remember { mutableStateOf<DeviceInfo?>(null) }
     val guideState = rememberEpgGuideState()
     val baseDensity = LocalDensity.current
     val mainSections = DashboardSection.entries
 
+    fun dismissLiveChannelPreview(hidePanel: Boolean = false) {
+        if (liveChannelPreviewState.isActive) {
+            liveChannelPreviewState = liveChannelPreviewState.copy(
+                channelId = null,
+                interactionSequence = liveChannelPreviewState.interactionSequence + 1
+            )
+        }
+        if (hidePanel) programmeOverlayVisible = false
+    }
+
     fun activateSection(section: DashboardSection) {
+        if (section != DashboardSection.LIVE) dismissLiveChannelPreview(hidePanel = true)
         if (section == DashboardSection.CHANNELS && activeSection != DashboardSection.CHANNELS) {
             val visibleChannels = model.filteredChannels()
             channelListIndex = activeChannelIndex(visibleChannels.map { it.id }, model.selectedChannelId)
@@ -118,12 +128,37 @@ fun WukkiApp(
 
     fun switchLiveChannel(delta: Int) {
         channelNumberInput = ""
+        dismissLiveChannelPreview()
         model.moveChannel(delta)
         overlayRequest++
     }
 
     fun toggleLiveProgrammeInfo() {
-        if (programmeOverlayVisible) programmeOverlayVisible = false else overlayRequest++
+        if (programmeOverlayVisible) {
+            dismissLiveChannelPreview(hidePanel = true)
+        } else {
+            dismissLiveChannelPreview()
+            overlayRequest++
+        }
+    }
+
+    fun handleLiveChannelPreview(event: LiveChannelPreviewEvent): Boolean {
+        val result = liveChannelPreviewState.reduce(
+            event = event,
+            channelIds = model.filteredChannels().map { it.id },
+            activeChannelId = model.selectedChannelId,
+            panelVisible = programmeOverlayVisible
+        )
+        liveChannelPreviewState = result.state
+        when (val effect = result.effect) {
+            LiveChannelPreviewEffect.None -> if (result.handled) overlayRequest++
+            LiveChannelPreviewEffect.Dismiss -> programmeOverlayVisible = false
+            is LiveChannelPreviewEffect.OpenChannel -> {
+                if (effect.channelId != model.selectedChannelId) model.selectChannel(effect.channelId)
+                overlayRequest++
+            }
+        }
+        return result.handled
     }
 
     val liveVideoGestures = LiveVideoGestures(
@@ -283,8 +318,13 @@ fun WukkiApp(
         if (activeSection == DashboardSection.LIVE && model.selectedChannel() != null) {
             programmeOverlayVisible = true
             delay(5_000)
-            programmeOverlayVisible = false
+            if (liveChannelPreviewState.isActive) {
+                handleLiveChannelPreview(LiveChannelPreviewEvent.TIMEOUT)
+            } else {
+                programmeOverlayVisible = false
+            }
         } else {
+            dismissLiveChannelPreview()
             programmeOverlayVisible = false
         }
     }
@@ -301,7 +341,7 @@ fun WukkiApp(
     }
     AutomaticRefreshEffects(model)
 
-    val overlayChannel = model.selectedChannel()
+    val overlayChannel = model.channelById(liveChannelPreviewState.channelId) ?: model.selectedChannel()
     val overlayCurrent = overlayChannel?.let { model.currentProgram(it, tick) }
     val overlayNext = overlayChannel?.let { channel -> overlayCurrent?.let { model.nextProgram(channel, it) } }
     LaunchedEffect(
@@ -314,6 +354,7 @@ fun WukkiApp(
         channelNumberInput,
         model.settings.language,
         model.settings.display.showLogos,
+        model.settings.display.showProgrammeImages,
         playbackController.state,
         playbackController.detail
     ) {
@@ -329,6 +370,7 @@ fun WukkiApp(
                     channelNumberInput = channelNumberInput,
                     language = model.settings.language,
                     showLogos = model.settings.display.showLogos,
+                    showProgrammeImages = model.settings.display.showProgrammeImages != false,
                     playbackState = playbackController.state,
                     playbackDetail = playbackController.detail
                 )
@@ -371,6 +413,9 @@ fun WukkiApp(
                     if (event.key.isBackKey()) {
                         when {
                             guideProgrammeDetailsVisible -> guideProgrammeDetailsVisible = false
+                            activeSection == DashboardSection.LIVE && liveChannelPreviewState.isActive -> {
+                                handleLiveChannelPreview(LiveChannelPreviewEvent.CANCEL)
+                            }
                             activeSection == DashboardSection.SETTINGS && settingsNavigation.section != null -> {
                                 settingsNavigation = settingsNavigation.copy(section = null, option = null)
                             }
@@ -399,11 +444,14 @@ fun WukkiApp(
                         }
                         if (guideState.handleKey(event.key, model.guideDataSource(), scope, guideTimeline(tick, model.guideLatestProgrammeEnd()))) return@onPreviewKeyEvent true
                     }
-                    if (activeSection == DashboardSection.LIVE && (event.key == Key.Enter || event.key == Key.NumPadEnter)) {
+                    if (activeSection == DashboardSection.LIVE && event.key.isConfirmKey()) {
                         if (channelNumberInput.isNotEmpty()) {
+                            dismissLiveChannelPreview()
                             val selected = model.selectChannelByNumber(channelNumberInput)
                             channelNumberInput = ""
                             if (selected) overlayRequest++
+                        } else if (liveChannelPreviewState.isActive) {
+                            handleLiveChannelPreview(LiveChannelPreviewEvent.CONFIRM)
                         } else {
                             overlayRequest++
                         }
@@ -456,16 +504,15 @@ fun WukkiApp(
                     }
                     if (digit != null) {
                         if (activeSection != DashboardSection.LIVE) return@onPreviewKeyEvent false
+                        dismissLiveChannelPreview(hidePanel = true)
                         channelNumberInput = (channelNumberInput + digit).take(4)
                         return@onPreviewKeyEvent true
                     }
                     when (event.key) {
-                        Key.PageDown, Key.DirectionDown -> {
-                            switchLiveChannel(1)
-                        }
-                        Key.PageUp, Key.DirectionUp -> {
-                            switchLiveChannel(-1)
-                        }
+                        Key.PageDown -> switchLiveChannel(1)
+                        Key.PageUp -> switchLiveChannel(-1)
+                        Key.DirectionDown -> handleLiveChannelPreview(LiveChannelPreviewEvent.NEXT)
+                        Key.DirectionUp -> handleLiveChannelPreview(LiveChannelPreviewEvent.PREVIOUS)
                         else -> return@onPreviewKeyEvent false
                     }
                     true
@@ -510,8 +557,6 @@ fun WukkiApp(
                 settingsDropdownOpenRequest = settingsDropdownOpenRequest,
                 settingsDropdownOptionIndex = settingsDropdownOptionIndex,
                 androidSettingsNavigation = androidSettingsNavigation,
-                useExpandedDesktopNavigation = useExpandedDesktopNavigation,
-                showCompactNavigationBrand = showCompactNavigationBrand,
                 onSettingsCategoryFocus = { index ->
                     settingsNavigation = settingsNavigation.copy(categoryIndex = index.coerceIn(0, SettingsSection.entries.lastIndex))
                 },

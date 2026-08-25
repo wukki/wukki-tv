@@ -22,11 +22,11 @@ fun MainMenuNavigationState.reduce(key: RemoteKey, itemCount: Int): MainMenuNavi
     if (itemCount <= 0) return MainMenuNavigationResult(this, handled = false)
     val safeIndex = index.coerceIn(0, itemCount - 1)
     return when (key) {
-        RemoteKey.UP -> MainMenuNavigationResult(copy(index = (safeIndex - 1).coerceAtLeast(0)))
-        RemoteKey.DOWN -> MainMenuNavigationResult(copy(index = (safeIndex + 1).coerceAtMost(itemCount - 1)))
-        RemoteKey.RIGHT -> MainMenuNavigationResult(copy(index = safeIndex), MainMenuNavigationEffect.EnterContent)
+        RemoteKey.LEFT -> MainMenuNavigationResult(copy(index = (safeIndex - 1).coerceAtLeast(0)))
+        RemoteKey.RIGHT -> MainMenuNavigationResult(copy(index = (safeIndex + 1).coerceAtMost(itemCount - 1)))
+        RemoteKey.DOWN -> MainMenuNavigationResult(copy(index = safeIndex), MainMenuNavigationEffect.EnterContent)
         RemoteKey.CONFIRM -> MainMenuNavigationResult(copy(index = safeIndex), MainMenuNavigationEffect.Activate(safeIndex))
-        RemoteKey.LEFT -> MainMenuNavigationResult(copy(index = safeIndex), handled = false)
+        RemoteKey.UP -> MainMenuNavigationResult(copy(index = safeIndex), handled = false)
     }
 }
 
