@@ -104,11 +104,15 @@ private fun TopNavigationItem(
     modifier: Modifier
 ) {
     val contentColor = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+    val itemShape = RoundedCornerShape(24.dp)
     Surface(
         color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
         contentColor = contentColor,
-        shape = RoundedCornerShape(24.dp),
-        modifier = modifier.padding(horizontal = 3.dp).clickable(onClick = onClick)
+        shape = itemShape,
+        modifier = modifier
+            .padding(horizontal = 3.dp)
+            .clip(itemShape)
+            .clickable(onClick = onClick)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp * scale),
