@@ -26,6 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -54,7 +55,10 @@ fun TopNavigation(
             modifier = Modifier.fillMaxWidth().height((72.dp * scale).coerceIn(60.dp, 90.dp)),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            WukkiTvBrand(scale)
+            WukkiTvBrand(
+                scale = scale,
+                modifier = Modifier.weight(1f).height(48.dp)
+            )
             state.entries.forEach { entry ->
                 TopNavigationItem(
                     entry = entry,
@@ -69,19 +73,24 @@ fun TopNavigation(
 }
 
 @Composable
-private fun WukkiTvBrand(scale: Float) {
-    Row(
-        modifier = Modifier.width((130.dp * scale).coerceIn(92.dp, 190.dp)).padding(start = 16.dp * scale),
-        verticalAlignment = Alignment.CenterVertically
+private fun WukkiTvBrand(scale: Float, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier.clipToBounds(),
+        contentAlignment = Alignment.Center
     ) {
-        Text("Wukki", fontWeight = FontWeight.Black, fontSize = (25f * scale).sp, letterSpacing = (-1).sp)
-        Spacer(Modifier.width(5.dp * scale))
-        Box(
-            modifier = Modifier.clip(RoundedCornerShape(5.dp * scale)).background(WukkiBrushes.brandAccent())
-                .padding(horizontal = 5.dp * scale, vertical = 3.dp * scale),
-            contentAlignment = Alignment.Center
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
         ) {
-            Text("TV", color = WukkiColors.textPrimary, fontSize = (13f * scale).sp, fontWeight = FontWeight.Bold)
+            Text("Wukki", fontWeight = FontWeight.Black, fontSize = (36f * scale).sp, letterSpacing = (-1.2).sp, maxLines = 1)
+            Spacer(Modifier.width(7.dp * scale))
+            Box(
+                modifier = Modifier.clip(RoundedCornerShape(5.dp * scale)).background(WukkiBrushes.brandAccent())
+                    .padding(horizontal = 7.dp * scale, vertical = 4.dp * scale),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("TV", color = WukkiColors.textPrimary, fontSize = (17f * scale).sp, fontWeight = FontWeight.Bold)
+            }
         }
     }
 }
