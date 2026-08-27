@@ -246,6 +246,7 @@ fun WukkiApp(
     }
     LaunchedEffect(activeSection) {
         onActiveSectionChange(activeSection)
+        if (activeSection == DashboardSection.LIVE) focusRequester.requestFocus()
     }
     LaunchedEffect(activeSection, settingsNavigation.section) {
         if (activeSection == DashboardSection.SETTINGS && settingsNavigation.section == SettingsSection.ABOUT && deviceInfo == null) {

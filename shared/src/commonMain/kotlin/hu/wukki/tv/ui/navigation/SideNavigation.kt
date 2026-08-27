@@ -27,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -48,12 +49,20 @@ fun TopNavigation(
     state: SideNavigationUiState,
     scale: Float,
     onSelect: (DashboardSection) -> Unit,
+    overlay: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    Surface(modifier = modifier.fillMaxWidth().heightIn(min = 60.dp, max = 90.dp)) {
+    val navigationHeight = if (overlay) 48.dp else (32.dp * scale).coerceIn(60.dp, 90.dp)
+    Surface(
+        color = if (overlay) Color.Black.copy(alpha = .0f) else MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        modifier = modifier
+            .fillMaxWidth()
+            .then(if (overlay) Modifier.height(navigationHeight) else Modifier.heightIn(min = 60.dp, max = 90.dp))
+    ) {
         Row(
-            modifier = Modifier.fillMaxWidth().height((72.dp * scale).coerceIn(60.dp, 90.dp)),
-            verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier.fillMaxWidth().height(navigationHeight),
+            verticalAlignment = Alignment.Top
         ) {
             WukkiTvBrand(
                 scale = scale,
@@ -104,7 +113,7 @@ private fun TopNavigationItem(
     modifier: Modifier
 ) {
     val contentColor = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
-    val itemShape = RoundedCornerShape(24.dp)
+    val itemShape = RoundedCornerShape(topStart = 0.dp, topEnd = 0.dp, bottomEnd = 24.dp, bottomStart = 24.dp)
     Surface(
         color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
         contentColor = contentColor,

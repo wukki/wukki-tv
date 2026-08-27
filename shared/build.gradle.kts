@@ -45,27 +45,35 @@ object WukkiBuildInfo {
 }
 
 kotlin {
+    // Keep compilation and the desktop runtime on the supported Java 21 toolchain.
+    jvmToolchain(21)
+    compilerOptions {
+        // `expect`/`actual` platform classes are intentional in this KMP module.
+        freeCompilerArgs.add("-Xexpect-actual-classes")
+    }
+
     jvm("desktop")
-    androidLibrary {
+    android {
         namespace = "hu.wukki.tv.shared"
         compileSdk = 36
         minSdk = 26
         androidResources { enable = true }
+        withHostTest {}
     }
 
     sourceSets {
         val commonMain by getting {
             kotlin.srcDir(generatedBuildInfo)
             dependencies {
-                implementation(compose.runtime)
-                implementation(compose.foundation)
-                implementation(compose.material3)
-                implementation(compose.materialIconsExtended)
+                implementation("org.jetbrains.compose.runtime:runtime:1.12.0")
+                implementation("org.jetbrains.compose.foundation:foundation:1.12.0")
+                implementation("org.jetbrains.compose.material3:material3:1.12.0-alpha03")
+                implementation("org.jetbrains.compose.material:material-icons-extended:1.7.3")
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
                 implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0")
-                implementation("io.coil-kt.coil3:coil-compose:3.0.4")
-                implementation("io.coil-kt.coil3:coil-network-ktor3:3.0.4")
-                implementation("io.coil-kt.coil3:coil-svg:3.0.4")
+                implementation("io.coil-kt.coil3:coil-compose:3.6.0")
+                implementation("io.coil-kt.coil3:coil-network-ktor3:3.6.0")
+                implementation("io.coil-kt.coil3:coil-svg:3.6.0")
             }
         }
         val commonTest by getting {

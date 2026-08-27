@@ -117,13 +117,17 @@ fun DashboardScreen(
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val scale = minOf(maxWidth.value / 1470f, maxHeight.value / 920f).coerceIn(.70f, 1.45f)
         val padding = (14.dp * scale).coerceIn(8.dp, 20.dp)
+        val navigationState = navigationState(model, activeSection, mainNavigationSection.takeIf { mainNavigationFocused })
         Column(Modifier.fillMaxSize()) {
-            TopNavigation(
-                state = navigationState(model, activeSection, mainNavigationSection.takeIf { mainNavigationFocused }),
-                onSelect = onSectionChange,
-                scale = scale,
-                modifier = Modifier.fillMaxWidth()
-            )
+            if (activeSection != DashboardSection.LIVE) {
+                TopNavigation(
+                    state = navigationState,
+                    onSelect = onSectionChange,
+                    scale = scale,
+                    overlay = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
             BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
                 when (activeSection) {
                 DashboardSection.LIVE -> LiveTvScreen(
@@ -193,6 +197,15 @@ fun DashboardScreen(
                 )
                 }
             }
+        }
+        if (activeSection == DashboardSection.LIVE) {
+            TopNavigation(
+                state = navigationState,
+                onSelect = onSectionChange,
+                scale = scale,
+                overlay = true,
+                modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter)
+            )
         }
         Column(Modifier.align(Alignment.BottomCenter).padding(bottom = 24.dp).widthIn(max = 720.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             model.error?.let { AppFeedback(tr(model.settings.language, "app.error.prefix", it.text(model.settings.language))) }

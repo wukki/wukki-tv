@@ -21,6 +21,9 @@ import java.awt.Frame
 import java.awt.event.WindowFocusListener
 import java.awt.event.WindowStateListener
 
+// Lets Compose render the live-navigation overlay above the VLC SwingPanel.
+private val enableComposeInteropBlending = System.setProperty("compose.interop.blending", "true")
+
 fun main() = application {
     val windowState = rememberWindowState(size = DpSize(1470.dp, 920.dp), placement = WindowPlacement.Maximized)
     val screenWakeCoordinator = remember { ScreenWakeCoordinator(createDesktopScreenWakeController()) }

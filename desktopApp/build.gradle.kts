@@ -1,9 +1,16 @@
 import org.gradle.api.tasks.Sync
+import org.gradle.api.tasks.JavaExec
+import org.gradle.jvm.toolchain.JavaLanguageVersion
+import org.gradle.jvm.toolchain.JavaToolchainService
 
 plugins {
     kotlin("jvm")
     id("org.jetbrains.compose")
     id("org.jetbrains.kotlin.plugin.compose")
+}
+
+kotlin {
+    jvmToolchain(21)
 }
 
 val generatedAppResources = layout.buildDirectory.dir("generated/wukkiAppResources")
@@ -15,11 +22,15 @@ val wukkiVersion = providers.gradleProperty("wukkiVersion")
 dependencies {
     implementation(project(":shared"))
     implementation(compose.desktop.currentOs)
-    implementation(compose.material3)
+    implementation("org.jetbrains.compose.material3:material3:1.12.0-alpha03")
 }
 
 tasks.withType<org.gradle.api.tasks.compile.JavaCompile>().configureEach {
-    options.release.set(24)
+    options.release.set(21)
+}
+
+val java21Launcher = extensions.getByType<JavaToolchainService>().launcherFor {
+    languageVersion.set(JavaLanguageVersion.of(21))
 }
 
 val prepareVlcRuntime by tasks.registering(Sync::class) {
@@ -77,6 +88,13 @@ compose.desktop {
             linux { iconFile.set(rootProject.file("packaging/icons/wukki-tv.png")) }
             appResourcesRootDir.set(generatedAppResources)
         }
+    }
+}
+
+afterEvaluate {
+    tasks.named<JavaExec>("run") {
+        setExecutable(java21Launcher.get().executablePath.asFile.absolutePath)
+        jvmArgs("--enable-native-access=ALL-UNNAMED")
     }
 }
 
