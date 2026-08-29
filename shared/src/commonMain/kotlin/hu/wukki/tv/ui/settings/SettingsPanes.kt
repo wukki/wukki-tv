@@ -15,6 +15,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -255,34 +256,61 @@ internal fun LanguageSettingsPane(
 }
 
 @Composable
-internal fun ParentalSettingsPane(language: AppLanguage, scale: Float) {
-    SettingsOptionRow(language, "settings.parental.coming", "settings.parental.description", scale = scale) { }
+internal fun ParentalSettingsPane(
+    language: AppLanguage,
+    remoteOptionIndex: Int,
+    onOptionFocus: (Int) -> Unit,
+    scale: Float
+) {
+    SettingsOptionRow(
+        language,
+        "settings.parental.coming",
+        "settings.parental.description",
+        selected = remoteOptionIndex == 0,
+        onFocus = { onOptionFocus(0) },
+        scale = scale
+    ) { }
 }
 
 @Composable
-internal fun AboutSettingsPane(state: SettingsUiState, scale: Float) {
+internal fun AboutSettingsPane(
+    state: SettingsUiState,
+    remoteOptionIndex: Int,
+    openRequest: Int,
+    onOptionFocus: (Int) -> Unit,
+    scale: Float
+) {
     var legalDocument by remember { mutableStateOf<LegalDocument?>(null) }
     val language = state.language
     val deviceInfo = state.deviceInfo
+    LaunchedEffect(openRequest) {
+        if (openRequest > 0) {
+            legalDocument = when (remoteOptionIndex) {
+                8 -> LegalDocument.PRIVACY
+                9 -> LegalDocument.LICENSES
+                else -> null
+            }
+        }
+    }
     Column {
-        SettingsOptionRow(language, "settings.about", "settings.about.licenses", scale = scale) { Text("Wukki TV", fontWeight = FontWeight.SemiBold) }
-        SettingsOptionRow(language, "settings.about.version", scale = scale) { Text(WukkiBuildInfo.VERSION, fontWeight = FontWeight.SemiBold) }
-        SettingsOptionRow(language, "settings.about.build", scale = scale) { Text(WukkiBuildInfo.BUILD, fontWeight = FontWeight.SemiBold) }
-        SettingsOptionRow(language, "settings.about.engine", scale = scale) { Text(state.playbackEngineLabel, fontWeight = FontWeight.SemiBold) }
-        SettingsOptionRow(language, "settings.about.platform", scale = scale) { Text(deviceInfo?.platform ?: tr(language, "settings.about.loading"), fontWeight = FontWeight.SemiBold) }
-        SettingsOptionRow(language, "settings.about.os", scale = scale) { Text(deviceInfo?.osVersion ?: tr(language, "settings.about.loading"), fontWeight = FontWeight.SemiBold) }
-        SettingsOptionRow(language, "settings.about.device.id", scale = scale) { Text(deviceInfo?.installationId ?: tr(language, "settings.about.loading"), fontWeight = FontWeight.SemiBold) }
-        SettingsOptionRow(language, "settings.about.storage", scale = scale) {
+        SettingsOptionRow(language, "settings.about", "settings.about.licenses", selected = remoteOptionIndex == 0, onFocus = { onOptionFocus(0) }, scale = scale) { Text("Wukki TV", fontWeight = FontWeight.SemiBold) }
+        SettingsOptionRow(language, "settings.about.version", selected = remoteOptionIndex == 1, onFocus = { onOptionFocus(1) }, scale = scale) { Text(WukkiBuildInfo.VERSION, fontWeight = FontWeight.SemiBold) }
+        SettingsOptionRow(language, "settings.about.build", selected = remoteOptionIndex == 2, onFocus = { onOptionFocus(2) }, scale = scale) { Text(WukkiBuildInfo.BUILD, fontWeight = FontWeight.SemiBold) }
+        SettingsOptionRow(language, "settings.about.engine", selected = remoteOptionIndex == 3, onFocus = { onOptionFocus(3) }, scale = scale) { Text(state.playbackEngineLabel, fontWeight = FontWeight.SemiBold) }
+        SettingsOptionRow(language, "settings.about.platform", selected = remoteOptionIndex == 4, onFocus = { onOptionFocus(4) }, scale = scale) { Text(deviceInfo?.platform ?: tr(language, "settings.about.loading"), fontWeight = FontWeight.SemiBold) }
+        SettingsOptionRow(language, "settings.about.os", selected = remoteOptionIndex == 5, onFocus = { onOptionFocus(5) }, scale = scale) { Text(deviceInfo?.osVersion ?: tr(language, "settings.about.loading"), fontWeight = FontWeight.SemiBold) }
+        SettingsOptionRow(language, "settings.about.device.id", selected = remoteOptionIndex == 6, onFocus = { onOptionFocus(6) }, scale = scale) { Text(deviceInfo?.installationId ?: tr(language, "settings.about.loading"), fontWeight = FontWeight.SemiBold) }
+        SettingsOptionRow(language, "settings.about.storage", selected = remoteOptionIndex == 7, onFocus = { onOptionFocus(7) }, scale = scale) {
             Text(
                 deviceInfo?.let { info -> tr(language, "settings.about.storage.value", formatByteSize(info.appDataBytes), formatByteSize(info.availableStorageBytes)) }
                     ?: tr(language, "settings.about.loading"),
                 fontWeight = FontWeight.SemiBold
             )
         }
-        SettingsOptionRow(language, "settings.about.privacy", onSelect = { legalDocument = LegalDocument.PRIVACY }, scale = scale) {
+        SettingsOptionRow(language, "settings.about.privacy", selected = remoteOptionIndex == 8, onFocus = { onOptionFocus(8) }, onSelect = { legalDocument = LegalDocument.PRIVACY }, scale = scale) {
             Text(tr(language, "action.open"), fontWeight = FontWeight.SemiBold)
         }
-        SettingsOptionRow(language, "settings.about.licenses.title", onSelect = { legalDocument = LegalDocument.LICENSES }, scale = scale) {
+        SettingsOptionRow(language, "settings.about.licenses.title", selected = remoteOptionIndex == 9, onFocus = { onOptionFocus(9) }, onSelect = { legalDocument = LegalDocument.LICENSES }, scale = scale) {
             Text(tr(language, "action.open"), fontWeight = FontWeight.SemiBold)
         }
     }

@@ -129,6 +129,11 @@ data class AppState(
             listOf(EpgSource(id = "legacy-epg", name = "EPG", url = it, lastUpdatedAt = null))
         }.orEmpty()
         val migratedCache = epgProgrammesBySource ?: migratedSources.firstOrNull()?.let { mapOf(it.id to programmes) }.orEmpty()
-        return copy(settings = migratedSettings, epgSources = migratedSources, epgProgrammesBySource = migratedCache)
+        return copy(
+            settings = migratedSettings,
+            programmes = emptyList(),
+            epgSources = migratedSources,
+            epgProgrammesBySource = migratedCache
+        )
     }
 }

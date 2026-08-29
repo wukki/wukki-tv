@@ -37,6 +37,7 @@ fun SettingsScreen(
     remoteOptionIndex: Int = 0,
     settingsDropdownOpenRequest: Int = 0,
     settingsDropdownOptionIndex: Int = -1,
+    settingsAboutOpenRequest: Int = 0,
     androidFullScreenSubmenus: Boolean = false,
     onCategoryFocus: (Int) -> Unit = {},
     onOptionFocus: (Int) -> Unit = {},
@@ -58,6 +59,7 @@ fun SettingsScreen(
                 remoteOptionIndex = remoteOptionIndex,
                 settingsDropdownOpenRequest = settingsDropdownOpenRequest,
                 settingsDropdownOptionIndex = settingsDropdownOptionIndex,
+                settingsAboutOpenRequest = settingsAboutOpenRequest,
                 onCategoryFocus = onCategoryFocus,
                 onOptionFocus = onOptionFocus,
                 scale = scale
@@ -94,6 +96,7 @@ fun SettingsScreen(
                         remoteOptionIndex = remoteOptionIndex,
                         settingsDropdownOpenRequest = settingsDropdownOpenRequest,
                         settingsDropdownOptionIndex = settingsDropdownOptionIndex,
+                        settingsAboutOpenRequest = settingsAboutOpenRequest,
                         onOptionFocus = onOptionFocus,
                         modifier = Modifier.weight(1f).fillMaxHeight()
                     )
@@ -125,13 +128,14 @@ private fun SettingsNavigation(
         LazyColumn(state = listState) {
             itemsIndexed(SettingsSection.entries) { index, item ->
                 val active = item == selected
+                val focused = selected == null && remoteNavigationActive && index == remoteCategoryIndex
                 SettingsListRow(
                     title = item.title(state.language),
-                    selected = active,
+                    selected = active || focused,
                     onClick = { onCategoryFocus(index); onSelect(item) },
                     scale = scale,
                     titleFontSize = 19.sp,
-                    titleWeight = if (active) FontWeight.SemiBold else FontWeight.Normal
+                    titleWeight = if (active || focused) FontWeight.SemiBold else FontWeight.Normal
                 ) {
                     Row(
                         modifier = Modifier.width((if (scrollable) 116.dp else 148.dp) * scale),
@@ -168,6 +172,7 @@ private fun AndroidSettingsLayout(
     remoteOptionIndex: Int,
     settingsDropdownOpenRequest: Int,
     settingsDropdownOptionIndex: Int,
+    settingsAboutOpenRequest: Int,
     onCategoryFocus: (Int) -> Unit,
     onOptionFocus: (Int) -> Unit,
     scale: Float
@@ -211,6 +216,7 @@ private fun AndroidSettingsLayout(
                 remoteOptionIndex = remoteOptionIndex,
                 settingsDropdownOpenRequest = settingsDropdownOpenRequest,
                 settingsDropdownOptionIndex = settingsDropdownOptionIndex,
+                settingsAboutOpenRequest = settingsAboutOpenRequest,
                 onOptionFocus = onOptionFocus,
                 modifier = Modifier.fillMaxWidth().weight(1f)
             )
@@ -250,6 +256,7 @@ private fun SettingsDetail(
     remoteOptionIndex: Int,
     settingsDropdownOpenRequest: Int,
     settingsDropdownOptionIndex: Int,
+    settingsAboutOpenRequest: Int,
     onOptionFocus: (Int) -> Unit,
     modifier: Modifier
 ) {
@@ -269,7 +276,12 @@ private fun SettingsDetail(
                     )
                     SettingsSection.EPG -> EpgSettingsPane(state, callbacks, remoteOptionIndex, onOptionFocus, scale)
                     SettingsSection.DISPLAY -> DisplaySettingsPane(state, callbacks, remoteOptionIndex, onOptionFocus, scale)
-                    SettingsSection.PARENTAL -> ParentalSettingsPane(state.language, scale)
+                    SettingsSection.PARENTAL -> ParentalSettingsPane(
+                        state.language,
+                        remoteOptionIndex,
+                        onOptionFocus,
+                        scale
+                    )
                     SettingsSection.PLAYLISTS -> PlaylistSettingsPane(state, callbacks, remoteOptionIndex, onOptionFocus, scale)
                     SettingsSection.LANGUAGE -> LanguageSettingsPane(
                         state = state,
@@ -280,7 +292,13 @@ private fun SettingsDetail(
                         onOptionFocus = onOptionFocus,
                         scale = scale
                     )
-                    SettingsSection.ABOUT -> AboutSettingsPane(state, scale)
+                    SettingsSection.ABOUT -> AboutSettingsPane(
+                        state,
+                        remoteOptionIndex,
+                        settingsAboutOpenRequest,
+                        onOptionFocus,
+                        scale
+                    )
                 }
         }
     }

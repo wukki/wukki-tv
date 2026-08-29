@@ -55,7 +55,7 @@ kotlin {
     jvm("desktop")
     android {
         namespace = "hu.wukki.tv.shared"
-        compileSdk = 36
+        compileSdk = 37
         minSdk = 26
         androidResources { enable = true }
         withHostTest {}

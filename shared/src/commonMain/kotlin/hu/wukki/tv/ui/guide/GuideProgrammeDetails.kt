@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -38,7 +39,8 @@ data class GuideProgrammeDetailsUiState(
     val language: AppLanguage,
     val channel: Channel,
     val programme: Programme,
-    val nextProgramme: Programme?
+    val nextProgramme: Programme?,
+    val focusedAction: GuideProgrammeDialogAction
 )
 
 @Composable
@@ -46,7 +48,8 @@ fun GuideProgrammeDetails(
     state: GuideProgrammeDetailsUiState,
     onDismiss: () -> Unit,
     onOpenChannel: (String) -> Unit,
-    onRemoteEvent: (GuideProgrammeDialogEvent) -> Unit
+    onRemoteEvent: (GuideProgrammeDialogEvent) -> Unit,
+    handleSystemBackKey: Boolean = true
 ) {
     val dialogFocusRequester = remember { FocusRequester() }
     val detailsScrollState = rememberScrollState()
@@ -56,6 +59,7 @@ fun GuideProgrammeDetails(
         onDismissRequest = onDismiss,
         modifier = Modifier.focusRequester(dialogFocusRequester).focusable().onPreviewKeyEvent { event ->
             if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+            if (!handleSystemBackKey && event.key == Key.Back) return@onPreviewKeyEvent false
             val dialogEvent = when {
                 event.key.isBackKey() -> GuideProgrammeDialogEvent.BACK
                 event.key == Key.DirectionLeft -> GuideProgrammeDialogEvent.LEFT
@@ -92,10 +96,18 @@ fun GuideProgrammeDetails(
             }
         },
         confirmButton = {
-            Button(onClick = { onOpenChannel(state.channel.id) }) { Text(tr(state.language, "action.open")) }
+            if (state.focusedAction == GuideProgrammeDialogAction.OPEN) {
+                Button(onClick = { onOpenChannel(state.channel.id) }) { Text(tr(state.language, "action.open")) }
+            } else {
+                TextButton(onClick = { onOpenChannel(state.channel.id) }) { Text(tr(state.language, "action.open")) }
+            }
         },
         dismissButton = {
-            Button(onClick = onDismiss) { Text(tr(state.language, "action.cancel")) }
+            if (state.focusedAction == GuideProgrammeDialogAction.CANCEL) {
+                Button(onClick = onDismiss) { Text(tr(state.language, "action.cancel")) }
+            } else {
+                TextButton(onClick = onDismiss) { Text(tr(state.language, "action.cancel")) }
+            }
         }
     )
 }

@@ -71,4 +71,41 @@ class RemoteNavigationTest {
             assertIs<SettingsNavigationEffect.Activate>(state.reduce(RemoteKey.CONFIRM).effect).option
         )
     }
+
+    @Test
+    fun `back closes transient UI before returning to navigation and exiting`() {
+        assertEquals(
+            AppBackNavigationEffect.DISMISS_GUIDE_DIALOG,
+            AppBackNavigationState(true, true, true, true, TvFocusZone.CONTENT).reduce()
+        )
+        assertEquals(
+            AppBackNavigationEffect.CLOSE_CHANNEL_SEARCH,
+            AppBackNavigationState(false, true, true, true, TvFocusZone.CONTENT).reduce()
+        )
+        assertEquals(
+            AppBackNavigationEffect.FOCUS_MAIN_NAVIGATION,
+            AppBackNavigationState(false, false, false, false, TvFocusZone.CONTENT).reduce()
+        )
+        assertEquals(
+            AppBackNavigationEffect.EXIT_APPLICATION,
+            AppBackNavigationState(false, false, false, false, TvFocusZone.MAIN_NAVIGATION).reduce()
+        )
+    }
+
+    @Test
+    fun `about settings exposes every row to remote navigation`() {
+        val opened = SettingsNavigationState(
+            section = SettingsSection.ABOUT,
+            categoryIndex = SettingsSection.entries.indexOf(SettingsSection.ABOUT),
+            option = AboutSettingsOption.APPLICATION
+        )
+        var state = opened
+        repeat(9) { state = state.reduce(RemoteKey.DOWN).state }
+
+        assertEquals(AboutSettingsOption.LICENSES, state.option)
+        assertEquals(
+            AboutSettingsOption.LICENSES,
+            assertIs<SettingsNavigationEffect.Activate>(state.reduce(RemoteKey.CONFIRM).effect).option
+        )
+    }
 }

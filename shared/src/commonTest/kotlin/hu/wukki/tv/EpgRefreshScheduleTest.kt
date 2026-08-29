@@ -53,4 +53,18 @@ class EpgRefreshScheduleTest {
 
         assertEquals(RefreshInterval.MANUAL, state.settings?.playlistRefresh)
     }
+
+    @Test
+    fun `legacy programmes migrate to the source cache without remaining duplicated`() {
+        val programme = Programme("rtl", "Híradó", 100L, 200L)
+        val state = AppState(
+            programmes = listOf(programme),
+            epgUrl = "https://example.test/epg.xml",
+            epgSources = null,
+            epgProgrammesBySource = null
+        ).normalized()
+
+        assertTrue(state.programmes.isEmpty())
+        assertEquals(listOf(programme), state.epgProgrammesBySource.orEmpty()["legacy-epg"])
+    }
 }

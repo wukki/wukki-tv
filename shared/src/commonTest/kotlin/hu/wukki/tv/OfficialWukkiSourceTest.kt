@@ -105,7 +105,10 @@ class OfficialWukkiSourceTest {
         playlist = m3u("https://epg.example/second.xml")
         assertTrue(model.refreshOfficialPlaylist())
         assertEquals("https://epg.example/second.xml", model.officialEpgSource?.url)
-        assertEquals("Második", model.state.programmes.single().title)
+        assertEquals(
+            "Második",
+            model.state.epgProgrammesBySource.orEmpty()[OfficialWukkiSource.EPG_SOURCE_ID]?.single()?.title
+        )
 
         playlist = m3u(null)
         assertTrue(model.refreshOfficialPlaylist())

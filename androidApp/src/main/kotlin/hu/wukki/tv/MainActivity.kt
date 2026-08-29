@@ -44,6 +44,9 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val player = remember { AndroidPlaybackController(applicationContext).also { playbackController = it } }
+            val backRegistrar = remember {
+                { action: (() -> Boolean)? -> appBackAction = action }
+            }
             MaterialTheme(colorScheme = WukkiColorScheme) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
@@ -59,7 +62,7 @@ class MainActivity : ComponentActivity() {
                             setKeepScreenOn(liveSectionActive)
                         },
                         androidSettingsNavigation = true,
-                        onPlatformBackActionChange = { action -> appBackAction = action }
+                        onPlatformBackActionChange = backRegistrar
                     )
                 }
             }

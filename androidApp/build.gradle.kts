@@ -13,7 +13,7 @@ val releaseSigningProperties = Properties().apply {
 
 android {
     namespace = "hu.wukki.tv"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "hu.wukki.tv"

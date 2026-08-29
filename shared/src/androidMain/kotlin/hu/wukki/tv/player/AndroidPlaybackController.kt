@@ -142,6 +142,9 @@ class AndroidPlaybackController(private val context: Context) : PlaybackEngine {
                 factory = { viewContext ->
                     PlayerView(viewContext).apply {
                         useController = false
+                        isFocusable = false
+                        isFocusableInTouchMode = false
+                        descendantFocusability = android.view.ViewGroup.FOCUS_BLOCK_DESCENDANTS
                         setShowBuffering(PlayerView.SHOW_BUFFERING_NEVER)
                         player = activePlayer
                         resizeMode = ratio.resizeMode()

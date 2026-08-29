@@ -119,7 +119,7 @@ fun ChannelBrowserScreen(
             horizontalArrangement = Arrangement.spacedBy(20.dp * scale)
         ) {
             ChannelDirectory(
-                state, callbacks, scale, remoteListIndex, listOpenRequest,
+                state, callbacks, scale, remoteFocus, remoteListIndex, listOpenRequest,
                 modifier = Modifier.weight(.62f).fillMaxHeight()
             )
             ProgrammeInformation(
@@ -243,7 +243,7 @@ private fun ChannelHeaderIcon(close: Boolean, scale: Float, onClick: () -> Unit)
 @Composable
 private fun ChannelDirectory(
     state: ChannelBrowserUiState, callbacks: ChannelBrowserCallbacks, scale: Float,
-    remoteListIndex: Int, listOpenRequest: Int, modifier: Modifier
+    remoteFocus: ChannelRemoteFocus, remoteListIndex: Int, listOpenRequest: Int, modifier: Modifier
 ) {
     val listState = rememberLazyListState()
     val density = LocalDensity.current
@@ -264,7 +264,9 @@ private fun ChannelDirectory(
         if (state.channels.isEmpty()) Text(tr(state.language, "channels.empty"), modifier = Modifier.align(Alignment.CenterHorizontally))
         else LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
             itemsIndexed(state.channels, key = { _, row -> row.channel.id }) { index, row ->
-                ChannelListRow(state, row, rowHeight, scale, callbacks)
+                val focused = index == remoteListIndex &&
+                    (remoteFocus == ChannelRemoteFocus.LIST || remoteFocus == ChannelRemoteFocus.FAVORITE)
+                ChannelListRow(state, row, rowHeight, scale, focused, callbacks)
                 if (index < state.channels.lastIndex) HorizontalDivider()
             }
         }
@@ -280,7 +282,7 @@ private fun rowHeight(mode: ChannelListDisplayMode, scale: Float): Dp = when (mo
 @Composable
 private fun ChannelListRow(
     state: ChannelBrowserUiState, row: ChannelBrowserRowUiState, height: Dp, scale: Float,
-    callbacks: ChannelBrowserCallbacks
+    focused: Boolean, callbacks: ChannelBrowserCallbacks
 ) {
     val channel = row.channel
     val compact = state.displayMode == ChannelListDisplayMode.COMPACT
@@ -306,7 +308,14 @@ private fun ChannelListRow(
                 if (!compact) Icon(Icons.Outlined.SignalCellularAlt, null, modifier = Modifier.size(24.dp * scale))
                 FavoriteButton(channel.favorite, if (compact) scale * .85f else scale) { callbacks.onToggleFavorite(channel.id) }
             }
-        }
+        },
+        colors = if (focused) androidx.compose.material3.ListItemDefaults.colors(
+            containerColor = androidx.compose.material3.MaterialTheme.colorScheme.primary,
+            headlineColor = androidx.compose.material3.MaterialTheme.colorScheme.onPrimary,
+            supportingColor = androidx.compose.material3.MaterialTheme.colorScheme.onPrimary,
+            leadingIconColor = androidx.compose.material3.MaterialTheme.colorScheme.onPrimary,
+            trailingIconColor = androidx.compose.material3.MaterialTheme.colorScheme.onPrimary
+        ) else androidx.compose.material3.ListItemDefaults.colors()
     )
 }
 

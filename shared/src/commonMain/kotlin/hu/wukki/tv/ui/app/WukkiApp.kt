@@ -17,6 +17,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -60,6 +61,7 @@ fun WukkiApp(
     var channelListOpenRequest by remember { mutableIntStateOf(if (activeSection == DashboardSection.CHANNELS) 1 else 0) }
     var settingsDropdownOpenRequest by remember { mutableIntStateOf(0) }
     var settingsDropdownOptionIndex by remember { mutableIntStateOf(-1) }
+    var settingsAboutOpenRequest by remember { mutableIntStateOf(0) }
     var guideProgrammeDetailsVisible by remember { mutableStateOf(false) }
     var guideProgrammeDialogState by remember { mutableStateOf(GuideProgrammeDialogState()) }
     var automaticLaunchPending by remember { mutableStateOf(autoPlayOnLaunch) }
@@ -216,6 +218,7 @@ fun WukkiApp(
                 PlaylistSettingsOption.SCHEDULE -> cycleRefresh(SettingsSection.PLAYLISTS, effect.delta)
                 LanguageSettingsOption.LANGUAGE -> model.setLanguage(if (model.settings.language == AppLanguage.HUNGARIAN) AppLanguage.ENGLISH else AppLanguage.HUNGARIAN)
                 EpgSettingsOption.REFRESH, PlaylistSettingsOption.REFRESH -> Unit
+                is ParentalSettingsOption, is AboutSettingsOption -> Unit
             }
             is SettingsNavigationEffect.Activate -> when (val option = effect.option) {
                 PlaybackSettingsOption.AUTOPLAY -> model.updatePlayback { it.copy(autoPlayOnLaunch = !(it.autoPlayOnLaunch != false)) }
@@ -231,7 +234,48 @@ fun WukkiApp(
                 EpgSettingsOption.REFRESH -> scope.launch { model.refreshOfficialEpg() }
                 PlaylistSettingsOption.SCHEDULE -> cycleRefresh(SettingsSection.PLAYLISTS, 1)
                 PlaylistSettingsOption.REFRESH -> scope.launch { model.refreshOfficialPlaylist() }
+                is AboutSettingsOption -> if (
+                    option == AboutSettingsOption.PRIVACY || option == AboutSettingsOption.LICENSES
+                ) settingsAboutOpenRequest++
+                is ParentalSettingsOption -> Unit
             }
+        }
+    }
+
+    fun handleBackNavigation(): Boolean {
+        val effect = AppBackNavigationState(
+            guideDialogVisible = guideProgrammeDetailsVisible,
+            channelSearchOpen = activeSection == DashboardSection.CHANNELS && channelSearchOpen,
+            liveOverlayVisible = activeSection == DashboardSection.LIVE &&
+                (liveChannelPreviewState.isActive || programmeOverlayVisible),
+            settingsDetailOpen = activeSection == DashboardSection.SETTINGS && settingsNavigation.section != null,
+            focusZone = focusZone
+        ).reduce()
+        return when (effect) {
+            AppBackNavigationEffect.DISMISS_GUIDE_DIALOG -> {
+                guideProgrammeDetailsVisible = false
+                true
+            }
+            AppBackNavigationEffect.CLOSE_CHANNEL_SEARCH -> {
+                model.setChannelQuery("")
+                channelSearchOpen = false
+                channelRemoteFocus = ChannelRemoteFocus.LIST
+                true
+            }
+            AppBackNavigationEffect.DISMISS_LIVE_OVERLAY -> {
+                dismissLiveChannelPreview(hidePanel = true)
+                true
+            }
+            AppBackNavigationEffect.CLOSE_SETTINGS_DETAIL -> {
+                settingsNavigation = settingsNavigation.copy(section = null, option = null)
+                true
+            }
+            AppBackNavigationEffect.FOCUS_MAIN_NAVIGATION -> {
+                mainNavigationIndex = mainSections.indexOf(activeSection).coerceAtLeast(0)
+                focusZone = TvFocusZone.MAIN_NAVIGATION
+                true
+            }
+            AppBackNavigationEffect.EXIT_APPLICATION -> false
         }
     }
 
@@ -253,15 +297,11 @@ fun WukkiApp(
             deviceInfo = withContext(Dispatchers.Default) { DeviceInfoProvider.collect() }
         }
     }
-    DisposableEffect(activeSection, settingsNavigation.section, onPlatformBackActionChange) {
-        onPlatformBackActionChange(
-            if (activeSection == DashboardSection.SETTINGS && settingsNavigation.section != null) {
-                { settingsNavigation = settingsNavigation.copy(section = null, option = null); true }
-            } else {
-                null
-            }
-        )
-        onDispose { onPlatformBackActionChange(null) }
+    val currentBackHandler = rememberUpdatedState { handleBackNavigation() }
+    val currentBackRegistrar = rememberUpdatedState(onPlatformBackActionChange)
+    DisposableEffect(Unit) {
+        currentBackRegistrar.value { currentBackHandler.value() }
+        onDispose { currentBackRegistrar.value(null) }
     }
     DisposableEffect(playbackController) {
         onDispose { playbackController.release() }
@@ -384,6 +424,9 @@ fun WukkiApp(
             modifier = Modifier.fillMaxSize().focusRequester(focusRequester).focusable()
                 .onPreviewKeyEvent { event ->
                     if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                    // Android forwards the system Back key to OnBackPressedDispatcher.
+                    // Consuming it here too would advance the back hierarchy twice.
+                    if (androidSettingsNavigation && event.key == Key.Back) return@onPreviewKeyEvent false
                     if (guideProgrammeDetailsVisible) {
                         val dialogEvent = when {
                             event.key.isBackKey() -> GuideProgrammeDialogEvent.BACK
@@ -412,20 +455,7 @@ fun WukkiApp(
                         }
                     }
                     if (event.key.isBackKey()) {
-                        when {
-                            guideProgrammeDetailsVisible -> guideProgrammeDetailsVisible = false
-                            activeSection == DashboardSection.LIVE && liveChannelPreviewState.isActive -> {
-                                handleLiveChannelPreview(LiveChannelPreviewEvent.CANCEL)
-                            }
-                            activeSection == DashboardSection.SETTINGS && settingsNavigation.section != null -> {
-                                settingsNavigation = settingsNavigation.copy(section = null, option = null)
-                            }
-                            else -> {
-                                mainNavigationIndex = mainSections.indexOf(activeSection).coerceAtLeast(0)
-                                focusZone = TvFocusZone.MAIN_NAVIGATION
-                            }
-                        }
-                        return@onPreviewKeyEvent true
+                        return@onPreviewKeyEvent handleBackNavigation()
                     }
                     if (focusZone == TvFocusZone.MAIN_NAVIGATION) {
                         val remoteKey = event.key.toRemoteKey() ?: return@onPreviewKeyEvent false
@@ -557,6 +587,7 @@ fun WukkiApp(
                 settingsOptionIndex = settingsNavigation.optionIndex,
                 settingsDropdownOpenRequest = settingsDropdownOpenRequest,
                 settingsDropdownOptionIndex = settingsDropdownOptionIndex,
+                settingsAboutOpenRequest = settingsAboutOpenRequest,
                 androidSettingsNavigation = androidSettingsNavigation,
                 onSettingsCategoryFocus = { index ->
                     settingsNavigation = settingsNavigation.copy(categoryIndex = index.coerceIn(0, SettingsSection.entries.lastIndex))
@@ -571,6 +602,7 @@ fun WukkiApp(
                 onDismissGuideProgrammeDetails = { guideProgrammeDetailsVisible = false },
                 onOpenGuideProgrammeChannel = ::openGuideProgrammeChannel,
                 onGuideProgrammeDialogEvent = ::handleGuideProgrammeDialogEvent,
+                guideProgrammeDialogAction = guideProgrammeDialogState.focusedAction,
                 videoHost = videoHost,
                 liveVideoGestures = liveVideoGestures,
                 playbackEngineLabel = playbackEngineLabel,

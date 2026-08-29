@@ -67,6 +67,7 @@ internal fun SettingsOptionRow(
     SettingsListRow(
         title = tr(language, titleKey),
         description = descriptionKey?.let { tr(language, it) },
+        selected = selected,
         onClick = if (onFocus != null || onSelect != null) ({ onFocus?.invoke(); onSelect?.invoke() }) else null,
         scale = scale,
         modifier = Modifier.bringIntoViewRequester(bringIntoViewRequester),

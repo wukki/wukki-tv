@@ -64,7 +64,7 @@ object OfficialWukkiSource {
                 )
             ),
             channels = migratedChannels,
-            programmes = cachedProgrammes,
+            programmes = emptyList(),
             epgUrl = officialEpg?.url.orEmpty(),
             lastChannelId = lastChannelId,
             epgSources = officialEpg?.let(::listOf).orEmpty(),

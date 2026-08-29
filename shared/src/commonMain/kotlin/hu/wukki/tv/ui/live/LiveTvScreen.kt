@@ -20,7 +20,6 @@ fun LiveTvScreen(state: LiveTvUiState, scale: Float, video: @Composable () -> Un
     Box(
         modifier = modifier
             .clip(RoundedCornerShape((8.dp * scale).coerceAtLeast(5.dp))).background(WukkiColors.video)
-            .border(1.dp, WukkiColors.border, RoundedCornerShape((8.dp * scale).coerceAtLeast(5.dp)))
     ) {
         if (state.hasChannel) video() else Text(state.emptyMessage, color = WukkiColors.textMuted, modifier = Modifier.align(Alignment.Center))
     }

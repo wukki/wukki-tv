@@ -4,6 +4,32 @@ import hu.wukki.tv.ui.settings.SettingsSection
 
 enum class RemoteKey { UP, DOWN, LEFT, RIGHT, CONFIRM }
 
+data class AppBackNavigationState(
+    val guideDialogVisible: Boolean,
+    val channelSearchOpen: Boolean,
+    val liveOverlayVisible: Boolean,
+    val settingsDetailOpen: Boolean,
+    val focusZone: TvFocusZone
+)
+
+enum class AppBackNavigationEffect {
+    DISMISS_GUIDE_DIALOG,
+    CLOSE_CHANNEL_SEARCH,
+    DISMISS_LIVE_OVERLAY,
+    CLOSE_SETTINGS_DETAIL,
+    FOCUS_MAIN_NAVIGATION,
+    EXIT_APPLICATION
+}
+
+fun AppBackNavigationState.reduce(): AppBackNavigationEffect = when {
+    guideDialogVisible -> AppBackNavigationEffect.DISMISS_GUIDE_DIALOG
+    channelSearchOpen -> AppBackNavigationEffect.CLOSE_CHANNEL_SEARCH
+    liveOverlayVisible -> AppBackNavigationEffect.DISMISS_LIVE_OVERLAY
+    settingsDetailOpen -> AppBackNavigationEffect.CLOSE_SETTINGS_DETAIL
+    focusZone != TvFocusZone.MAIN_NAVIGATION -> AppBackNavigationEffect.FOCUS_MAIN_NAVIGATION
+    else -> AppBackNavigationEffect.EXIT_APPLICATION
+}
+
 data class MainMenuNavigationState(val index: Int)
 
 sealed interface MainMenuNavigationEffect {
@@ -130,13 +156,24 @@ enum class LanguageSettingsOption : SettingsOptionId {
     override val section = SettingsSection.LANGUAGE
 }
 
+enum class ParentalSettingsOption : SettingsOptionId {
+    INFORMATION;
+    override val section = SettingsSection.PARENTAL
+}
+
+enum class AboutSettingsOption : SettingsOptionId {
+    APPLICATION, VERSION, BUILD, ENGINE, PLATFORM, OS, DEVICE_ID, STORAGE, PRIVACY, LICENSES;
+    override val section = SettingsSection.ABOUT
+}
+
 fun SettingsSection.options(): List<SettingsOptionId> = when (this) {
     SettingsSection.PLAYBACK -> PlaybackSettingsOption.entries
     SettingsSection.EPG -> EpgSettingsOption.entries
     SettingsSection.DISPLAY -> DisplaySettingsOption.entries
     SettingsSection.PLAYLISTS -> PlaylistSettingsOption.entries
     SettingsSection.LANGUAGE -> LanguageSettingsOption.entries
-    SettingsSection.PARENTAL, SettingsSection.ABOUT -> emptyList()
+    SettingsSection.PARENTAL -> ParentalSettingsOption.entries
+    SettingsSection.ABOUT -> AboutSettingsOption.entries
 }
 
 data class SettingsNavigationState(

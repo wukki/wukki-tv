@@ -26,6 +26,7 @@ import hu.wukki.tv.ui.guide.EpgGuideScreen
 import hu.wukki.tv.ui.guide.EpgGuideState
 import hu.wukki.tv.ui.guide.GuideProgrammeDetails
 import hu.wukki.tv.ui.guide.GuideProgrammeDetailsUiState
+import hu.wukki.tv.ui.guide.GuideProgrammeDialogAction
 import hu.wukki.tv.ui.guide.GuideProgrammeDialogEvent
 import hu.wukki.tv.ui.guide.guideTimeline
 import hu.wukki.tv.ui.live.LiveTvScreen
@@ -101,6 +102,7 @@ fun DashboardScreen(
     settingsOptionIndex: Int,
     settingsDropdownOpenRequest: Int,
     settingsDropdownOptionIndex: Int,
+    settingsAboutOpenRequest: Int,
     androidSettingsNavigation: Boolean,
     onSettingsCategoryFocus: (Int) -> Unit,
     onSettingsOptionFocus: (Int) -> Unit,
@@ -109,6 +111,7 @@ fun DashboardScreen(
     onDismissGuideProgrammeDetails: () -> Unit,
     onOpenGuideProgrammeChannel: (String) -> Unit,
     onGuideProgrammeDialogEvent: (GuideProgrammeDialogEvent) -> Unit,
+    guideProgrammeDialogAction: GuideProgrammeDialogAction,
     videoHost: @Composable (Modifier, LiveVideoGestures?) -> Unit,
     liveVideoGestures: LiveVideoGestures,
     playbackEngineLabel: String,
@@ -124,6 +127,7 @@ fun DashboardScreen(
                     state = navigationState,
                     onSelect = onSectionChange,
                     scale = scale,
+                    showLabels = !androidSettingsNavigation,
                     overlay = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -190,6 +194,7 @@ fun DashboardScreen(
                     remoteNavigationActive = !mainNavigationFocused, remoteOptionIndex = settingsOptionIndex,
                     settingsDropdownOpenRequest = settingsDropdownOpenRequest,
                     settingsDropdownOptionIndex = settingsDropdownOptionIndex,
+                    settingsAboutOpenRequest = settingsAboutOpenRequest,
                     androidFullScreenSubmenus = androidSettingsNavigation,
                     onCategoryFocus = onSettingsCategoryFocus,
                     onOptionFocus = onSettingsOptionFocus,
@@ -203,6 +208,7 @@ fun DashboardScreen(
                 state = navigationState,
                 onSelect = onSectionChange,
                 scale = scale,
+                showLabels = !androidSettingsNavigation,
                 overlay = true,
                 modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter)
             )
@@ -218,8 +224,17 @@ fun DashboardScreen(
             focused?.let { (channel: Channel, programme) ->
                 val next = model.programmesFor(channel, programme.end, programme.end + 86_400_000L).firstOrNull()
                 GuideProgrammeDetails(
-                    GuideProgrammeDetailsUiState(model.settings.language, channel, programme, next),
-                    onDismissGuideProgrammeDetails, onOpenGuideProgrammeChannel, onGuideProgrammeDialogEvent
+                    GuideProgrammeDetailsUiState(
+                        model.settings.language,
+                        channel,
+                        programme,
+                        next,
+                        guideProgrammeDialogAction
+                    ),
+                    onDismissGuideProgrammeDetails,
+                    onOpenGuideProgrammeChannel,
+                    onGuideProgrammeDialogEvent,
+                    handleSystemBackKey = !androidSettingsNavigation
                 )
             }
         }

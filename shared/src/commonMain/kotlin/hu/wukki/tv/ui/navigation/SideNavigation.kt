@@ -49,6 +49,7 @@ fun TopNavigation(
     state: SideNavigationUiState,
     scale: Float,
     onSelect: (DashboardSection) -> Unit,
+    showLabels: Boolean = true,
     overlay: Boolean = false,
     modifier: Modifier = Modifier
 ) {
@@ -73,6 +74,7 @@ fun TopNavigation(
                     entry = entry,
                     selected = entry.section == state.activeSection || entry.section == state.focusedSection,
                     scale = scale,
+                    showLabel = showLabels,
                     onClick = { onSelect(entry.section) },
                     modifier = Modifier.weight(1f).height(48.dp)
                 )
@@ -109,6 +111,7 @@ private fun TopNavigationItem(
     entry: NavigationEntryUiState,
     selected: Boolean,
     scale: Float,
+    showLabel: Boolean,
     onClick: () -> Unit,
     modifier: Modifier
 ) {
@@ -128,20 +131,22 @@ private fun TopNavigationItem(
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            NavigationIcon(entry.section, Modifier.size((23.dp * scale).coerceIn(18.dp, 30.dp)))
-            Spacer(Modifier.width((7.dp * scale).coerceIn(4.dp, 10.dp)))
-            Text(entry.label, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = (14f * scale).sp)
+            NavigationIcon(entry.section, entry.label, Modifier.size((23.dp * scale).coerceIn(18.dp, 30.dp)))
+            if (showLabel) {
+                Spacer(Modifier.width((7.dp * scale).coerceIn(4.dp, 10.dp)))
+                Text(entry.label, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = (14f * scale).sp)
+            }
         }
     }
 }
 
 @Composable
-private fun NavigationIcon(section: DashboardSection, modifier: Modifier) {
+private fun NavigationIcon(section: DashboardSection, contentDescription: String, modifier: Modifier) {
     val icon = when (section) {
         DashboardSection.LIVE -> Icons.Outlined.LiveTv
         DashboardSection.GUIDE -> Icons.Outlined.CalendarMonth
         DashboardSection.CHANNELS -> Icons.AutoMirrored.Outlined.FormatListBulleted
         DashboardSection.SETTINGS -> Icons.Outlined.Settings
     }
-    Icon(imageVector = icon, contentDescription = null, modifier = modifier)
+    Icon(imageVector = icon, contentDescription = contentDescription, modifier = modifier)
 }

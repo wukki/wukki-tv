@@ -143,7 +143,7 @@ class WukkiModel(
             state = state.copy(
                 epgSources = listOf(source.copy(lastUpdatedAt = System.currentTimeMillis())),
                 epgProgrammesBySource = mapOf(OfficialWukkiSource.EPG_SOURCE_ID to programmes),
-                programmes = programmes,
+                programmes = emptyList(),
                 epgUrl = source.url
             )
             rematchChannels()
@@ -265,7 +265,7 @@ class WukkiModel(
         state = state.copy(
             epgSources = listOf(source),
             epgProgrammesBySource = mapOf(OfficialWukkiSource.EPG_SOURCE_ID to cachedProgrammes),
-            programmes = cachedProgrammes,
+            programmes = emptyList(),
             epgUrl = url
         )
         rematchChannels()
