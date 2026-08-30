@@ -5,8 +5,8 @@ object DesktopAppGraph {
     val dependencies: WukkiAppDependencies by lazy {
         WukkiAppDependencies(
             stateStore = LocalStore,
-            remoteTextLoader = RemoteTextLoader(::readRemoteText),
-            xmlTvParser = EpgParser,
+            remoteTextLoader = JvmRemoteTextLoader,
+            xmlTvParser = JvmXmlTvParser,
             deviceInfoProvider = DesktopDeviceInfoProvider
         )
     }

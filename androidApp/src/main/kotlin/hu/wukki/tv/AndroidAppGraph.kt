@@ -13,8 +13,8 @@ object AndroidAppGraph {
             LocalStore.install(appContext)
             WukkiAppDependencies(
                 stateStore = LocalStore,
-                remoteTextLoader = RemoteTextLoader(::readRemoteText),
-                xmlTvParser = EpgParser,
+                remoteTextLoader = JvmRemoteTextLoader,
+                xmlTvParser = JvmXmlTvParser,
                 deviceInfoProvider = AndroidDeviceInfoProvider(appContext)
             ).also { installedDependencies = it }
         }

@@ -9,3 +9,5 @@ local.properties
 *.keystore
 *.jks
 androidApp/keystore.properties
+.DS_Store
+*.swp

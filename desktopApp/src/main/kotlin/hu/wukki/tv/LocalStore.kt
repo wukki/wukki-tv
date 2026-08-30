@@ -39,17 +39,3 @@ internal class DesktopStateStore(private val directory: Path) : AppStateStore {
 }
 
 object LocalStore : AppStateStore by DesktopStateStore(Path.of(System.getProperty("user.home"), ".wukki-tv"))
-
-internal fun readRemoteText(url: String): String {
-    val connection = java.net.URI(url).toURL().openConnection().apply {
-        connectTimeout = 15_000
-        readTimeout = 30_000
-    }
-    BufferedInputStream(connection.getInputStream()).use { buffered ->
-        buffered.mark(2)
-        val gzip = buffered.read() == 0x1f && buffered.read() == 0x8b
-        buffered.reset()
-        val decoded = if (gzip) java.util.zip.GZIPInputStream(buffered) else buffered
-        return decoded.bufferedReader(Charsets.UTF_8).use { it.readText() }
-    }
-}

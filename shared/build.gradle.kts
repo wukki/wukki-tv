@@ -79,10 +79,17 @@ kotlin {
         val commonTest by getting {
             dependencies { implementation(kotlin("test")) }
         }
-        val androidMain by getting
-        val desktopMain by getting
+        val androidMain by getting {
+            kotlin.srcDir("src/jvmCommon/kotlin")
+        }
+        val desktopMain by getting {
+            kotlin.srcDir("src/jvmCommon/kotlin")
+        }
+        val androidHostTest by getting {
+            kotlin.srcDir("src/jvmCommonTest/kotlin")
+        }
         val desktopTest by getting {
-            dependencies { implementation(kotlin("test")) }
+            kotlin.srcDir("src/jvmCommonTest/kotlin")
         }
     }
 }

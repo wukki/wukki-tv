@@ -12,7 +12,8 @@ class LegalResourcesTest {
             "legal/vlc_notice_hu.txt",
             "legal/vlc_notice_en.txt"
         ).forEach { resource ->
-            val content = javaClass.classLoader.getResourceAsStream(resource)
+            val content = javaClass.classLoader
+                ?.getResourceAsStream(resource)
                 ?.bufferedReader(Charsets.UTF_8)
                 ?.use { it.readText() }
                 .orEmpty()

@@ -10,7 +10,7 @@ import org.xml.sax.Attributes
 import org.xml.sax.InputSource
 import org.xml.sax.helpers.DefaultHandler
 
-object EpgParser : XmlTvParser {
+object JvmXmlTvParser : XmlTvParser {
     override fun parse(xml: String): List<Programme> {
         val programmes = mutableListOf<Programme>()
         val factory = SAXParserFactory.newInstance().apply {
@@ -29,20 +29,15 @@ object EpgParser : XmlTvParser {
     private fun parseTime(raw: String): Long? = try {
         val base = raw.trim().take(14)
         val offset = raw.trim().drop(14).trim().ifBlank { "+0000" }
-        OffsetDateTime.parse("$base $offset", DateTimeFormatter.ofPattern("yyyyMMddHHmmss Z")).toInstant().toEpochMilli()
+        OffsetDateTime.parse("$base $offset", DateTimeFormatter.ofPattern("yyyyMMddHHmmss Z"))
+            .toInstant().toEpochMilli()
     } catch (_: Exception) {
-        try {
+        runCatching {
             LocalDateTime.parse(raw.trim().take(14), DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))
                 .atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-        } catch (_: Exception) {
-            null
-        }
+        }.getOrNull()
     }
 
-    /**
-     * A streaming parser avoids building a large in-memory DOM for multi-megabyte XMLTV files.
-     * This is particularly important on Android TV devices with constrained application heaps.
-     */
     private class ProgrammeHandler(private val programmes: MutableList<Programme>) : DefaultHandler() {
         private var programme: MutableProgramme? = null
         private var activeTextTag: String? = null
@@ -90,7 +85,9 @@ object EpgParser : XmlTvParser {
                 "programme" -> {
                     programme = null
                     activeTextTag = null
-                    if (current != null && current.channelId.isNotBlank() && current.start != null && current.end != null && current.end > current.start) {
+                    if (current != null && current.channelId.isNotBlank() && current.start != null &&
+                        current.end != null && current.end > current.start
+                    ) {
                         programmes += Programme(
                             channelId = current.channelId,
                             title = current.title,
@@ -104,7 +101,8 @@ object EpgParser : XmlTvParser {
             }
         }
 
-        private fun tagName(localName: String?, qName: String): String = localName?.ifBlank { qName }.orEmpty().lowercase()
+        private fun tagName(localName: String?, qName: String): String =
+            localName?.ifBlank { qName }.orEmpty().lowercase()
     }
 
     private data class MutableProgramme(
@@ -116,7 +114,6 @@ object EpgParser : XmlTvParser {
         var imageUrl: String? = null
     )
 
-    /** XMLTV uses `<icon src>`; `image` remains a provider-specific fallback. */
     private fun validImageUrl(value: String?): String? = value
         ?.trim()
         ?.replace("&amp;", "&")

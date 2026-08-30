@@ -117,17 +117,3 @@ object LocalStore : AppStateStore {
     override fun load(): AppState = store?.load() ?: AppState()
     override fun save(state: AppState) = store?.save(state) ?: Unit
 }
-
-internal fun readRemoteText(url: String): String {
-    val connection = java.net.URI(url).toURL().openConnection().apply {
-        connectTimeout = 15_000
-        readTimeout = 30_000
-    }
-    java.io.BufferedInputStream(connection.getInputStream()).use { buffered ->
-        buffered.mark(2)
-        val gzip = buffered.read() == 0x1f && buffered.read() == 0x8b
-        buffered.reset()
-        val decoded = if (gzip) java.util.zip.GZIPInputStream(buffered) else buffered
-        return decoded.bufferedReader(Charsets.UTF_8).use { it.readText() }
-    }
-}

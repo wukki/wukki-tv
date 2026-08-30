@@ -34,7 +34,8 @@ actual fun platformStartOfDay(millis: Long): Long = Instant.ofEpochMilli(millis)
 actual fun platformStartOfNextDay(millis: Long): Long = Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault())
     .toLocalDate().plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
 
-actual fun platformGuideDateLabel(language: AppLanguage, millis: Long, pattern: String): String = platformDateLabel(language, millis, pattern)
+actual fun platformGuideDateLabel(language: AppLanguage, millis: Long, pattern: String): String =
+    platformDateLabel(language, millis, pattern)
 
 private fun AppLanguage.locale(): Locale = if (this == AppLanguage.HUNGARIAN) Locale.forLanguageTag("hu") else Locale.ENGLISH
 private object PlatformLocalizationAnchor

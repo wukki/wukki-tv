@@ -4,19 +4,31 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
-class EpgParserImageTest {
+class JvmXmlTvParserTest {
     @Test
-    fun `parses a standard XMLTV programme icon`() {
-        val programme = EpgParser.parse(
-            """<tv><programme channel="rtl" start="20260816180000 +0000" stop="20260816183000 +0000"><title>Híradó</title><icon src="https://images.example/rtl.jpg"/></programme></tv>"""
+    fun `preserves programme metadata image and timezone`() {
+        val programme = JvmXmlTvParser.parse(
+            """
+            <tv>
+              <programme channel="rtl" start="20260820180000 +0200" stop="20260820183000 +0200">
+                <title>Híradó</title>
+                <desc>Esti hírek</desc>
+                <icon src="https://example.test/news.jpg"/>
+              </programme>
+            </tv>
+            """.trimIndent()
         ).single()
 
-        assertEquals("https://images.example/rtl.jpg", programme.imageUrl)
+        assertEquals("rtl", programme.channelId)
+        assertEquals("Híradó", programme.title)
+        assertEquals("Esti hírek", programme.description)
+        assertEquals("https://example.test/news.jpg", programme.imageUrl)
+        assertEquals(30L * 60L * 1000L, programme.end - programme.start)
     }
 
     @Test
     fun `uses image fallback and ignores unsafe artwork URLs`() {
-        val programmes = EpgParser.parse(
+        val programmes = JvmXmlTvParser.parse(
             """<tv>
                 <programme channel="rtl" start="20260816180000 +0000" stop="20260816183000 +0000"><title>Fallback</title><icon src="file:///private.jpg"/><image>https://images.example/fallback.jpg</image></programme>
                 <programme channel="tv2" start="20260816180000 +0000" stop="20260816183000 +0000"><title>Unsafe</title><icon src="file:///private.jpg"/></programme>
