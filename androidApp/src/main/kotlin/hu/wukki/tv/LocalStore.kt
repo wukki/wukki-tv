@@ -21,7 +21,10 @@ import java.util.zip.GZIPOutputStream
 private val Context.wukkiStateDataStore by preferencesDataStore(name = "wukki_tv_state")
 
 /** Android state store: compact preferences plus a separately compressed, atomic EPG cache. */
-private class AndroidStateStore(context: Context) {
+internal class AndroidStateStore(
+    context: Context,
+    private val onSettingsSaved: (AppSettings) -> Unit = {}
+) {
     private val appContext = context.applicationContext
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val json = Json { encodeDefaults = true; ignoreUnknownKeys = true }
@@ -52,7 +55,7 @@ private class AndroidStateStore(context: Context) {
     }
 
     fun save(state: AppState) {
-        AndroidRefreshScheduler.sync(appContext, state.settings ?: AppSettings())
+        onSettingsSaved(state.settings ?: AppSettings())
         pendingStates.trySend(state)
     }
 
@@ -105,19 +108,17 @@ object LocalStore : AppStateStore {
     private var store: AndroidStateStore? = null
 
     fun install(context: Context) {
-        if (store == null) store = AndroidStateStore(context)
+        if (store == null) {
+            val appContext = context.applicationContext
+            store = AndroidStateStore(appContext) { settings -> AndroidRefreshScheduler.sync(appContext, settings) }
+        }
     }
 
     override fun load(): AppState = store?.load() ?: AppState()
     override fun save(state: AppState) = store?.save(state) ?: Unit
 }
 
-actual object PlatformAppServices {
-    actual val stateStore: AppStateStore = LocalStore
-    actual val remoteTextLoader: RemoteTextLoader = RemoteTextLoader(::readRemoteText)
-}
-
-private fun readRemoteText(url: String): String {
+internal fun readRemoteText(url: String): String {
     val connection = java.net.URI(url).toURL().openConnection().apply {
         connectTimeout = 15_000
         readTimeout = 30_000

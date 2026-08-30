@@ -23,9 +23,9 @@ data class LiveVideoGestures(
     val onPreviousChannel: () -> Unit
 )
 
-internal enum class LiveTouchAction { TAP, NEXT_CHANNEL, PREVIOUS_CHANNEL, NONE }
+enum class LiveTouchAction { TAP, NEXT_CHANNEL, PREVIOUS_CHANNEL, NONE }
 
-internal fun classifyLiveTouch(
+fun classifyLiveTouch(
     deltaX: Float,
     deltaY: Float,
     durationMillis: Long,

@@ -10,8 +10,8 @@ import org.xml.sax.Attributes
 import org.xml.sax.InputSource
 import org.xml.sax.helpers.DefaultHandler
 
-actual object EpgParser {
-    actual fun parse(xml: String): List<Programme> {
+object EpgParser : XmlTvParser {
+    override fun parse(xml: String): List<Programme> {
         val programmes = mutableListOf<Programme>()
         val factory = SAXParserFactory.newInstance().apply {
             isNamespaceAware = false

@@ -38,9 +38,8 @@ class MainActivity : ComponentActivity() {
             hide(WindowInsetsCompat.Type.systemBars())
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
-        LocalStore.install(applicationContext)
-        DeviceInfoProvider.install(applicationContext)
-        AndroidRefreshScheduler.sync(applicationContext, LocalStore.load().settings ?: AppSettings())
+        val dependencies = AndroidAppGraph.install(applicationContext)
+        AndroidRefreshScheduler.sync(applicationContext, dependencies.stateStore.load().settings ?: AppSettings())
 
         setContent {
             val player = remember { AndroidPlaybackController(applicationContext).also { playbackController = it } }
@@ -54,6 +53,7 @@ class MainActivity : ComponentActivity() {
                     contentColor = WukkiColors.textPrimary
                 ) {
                     WukkiApp(
+                        dependencies = dependencies,
                         playbackController = player,
                         videoHost = player::VideoSurface,
                         playbackEngineLabel = "Media3 / ExoPlayer",

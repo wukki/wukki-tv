@@ -55,21 +55,23 @@ internal fun AndroidPlaybackOverlay(data: PlaybackOverlayData?, modifier: Modifi
                 overlay.bufferingLabel?.let { label -> Spacer(Modifier.height(12.dp)); Text(label, color = WukkiColors.textPrimary) }
             }
         }
-        if (overlay.channelNumberInput != null) {
+        overlay.channelNumberInput?.let { channelNumberInput ->
             Text(
-                overlay.channelNumberInput,
+                channelNumberInput,
                 color = WukkiColors.textPrimary,
                 fontWeight = FontWeight.Black,
                 fontSize = 28.sp,
                 modifier = Modifier.align(Alignment.TopEnd).padding(24.dp).background(WukkiColors.surfaceOverlay).padding(horizontal = 16.dp, vertical = 8.dp)
             )
         }
-        if (overlay.showPreviewLogo && overlay.logoUrl != null) {
-            OverlayChannelLogo(
-                channelName = overlay.channelName,
-                logoUrl = overlay.logoUrl,
-                modifier = Modifier.align(Alignment.TopStart).padding(16.dp).width(88.dp).height(42.dp)
-            )
+        if (overlay.showPreviewLogo) {
+            overlay.logoUrl?.let { logoUrl ->
+                OverlayChannelLogo(
+                    channelName = overlay.channelName,
+                    logoUrl = logoUrl,
+                    modifier = Modifier.align(Alignment.TopStart).padding(16.dp).width(88.dp).height(42.dp)
+                )
+            }
         }
         if (overlay.showProgrammeInfo) ProgrammePanel(overlay, Modifier.align(Alignment.BottomCenter).padding(28.dp))
         overlay.playbackStatus?.let { status ->
@@ -102,13 +104,13 @@ private fun ProgrammePanel(data: PlaybackOverlayData, modifier: Modifier) {
                 modifier = Modifier.size(26.dp)
             )
             Text(data.channelNumber, color = WukkiColors.textPrimary, fontSize = 30.sp, fontWeight = FontWeight.Black)
-            if (data.logoUrl != null) {
+            data.logoUrl?.let { logoUrl ->
                 OverlayChannelLogo(
                     channelName = data.channelName,
-                    logoUrl = data.logoUrl,
+                    logoUrl = logoUrl,
                     modifier = Modifier.width(64.dp).height(32.dp)
                 )
-            } else Text(data.channelName, color = WukkiColors.textSecondary, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            } ?: Text(data.channelName, color = WukkiColors.textSecondary, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Icon(
                 imageVector = Icons.Outlined.KeyboardArrowDown,
                 contentDescription = null,
@@ -127,9 +129,11 @@ private fun ProgrammePanel(data: PlaybackOverlayData, modifier: Modifier) {
         }
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Text(data.currentTitle ?: data.noEpgLabel, color = WukkiColors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 19.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            val progress = data.currentStart?.let { start -> data.currentEnd?.let { end -> ((data.now - start).toFloat() / max(1L, end - start)).coerceIn(0f, 1f) } }
-            if (progress != null) {
-                Text("${formatTime(data.currentStart)} – ${formatTime(data.currentEnd!!)}", color = WukkiColors.textSecondary, fontSize = 12.sp)
+            val currentStart = data.currentStart
+            val currentEnd = data.currentEnd
+            if (currentStart != null && currentEnd != null) {
+                val progress = ((data.now - currentStart).toFloat() / max(1L, currentEnd - currentStart)).coerceIn(0f, 1f)
+                Text("${formatTime(currentStart)} – ${formatTime(currentEnd)}", color = WukkiColors.textSecondary, fontSize = 12.sp)
                 LinearProgressIndicator(progress = { progress }, color = WukkiColors.primary, trackColor = WukkiColors.border, modifier = Modifier.fillMaxWidth().height(5.dp))
             }
             data.nextTitle?.let { next ->

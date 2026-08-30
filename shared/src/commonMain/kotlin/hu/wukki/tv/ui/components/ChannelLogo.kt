@@ -44,7 +44,7 @@ private val WukkiImageHeaders = NetworkHeaders.Builder().apply {
 }.build()
 
 @Composable
-internal fun rememberWukkiImageRequest(url: String): ImageRequest {
+fun rememberWukkiImageRequest(url: String): ImageRequest {
     val context = LocalPlatformContext.current
     return remember(context, url) {
         ImageRequest.Builder(context)

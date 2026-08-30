@@ -5,11 +5,11 @@ import java.nio.file.Path
 import java.util.UUID
 
 /** Locally available support information; it never reads hardware or network identifiers. */
-actual object DeviceInfoProvider {
+object DesktopDeviceInfoProvider : DeviceInfoProvider {
     private val appDirectory: Path
         get() = Path.of(System.getProperty("user.home"), ".wukki-tv")
 
-    actual fun collect(): DeviceInfo {
+    override fun collect(): DeviceInfo {
         val directory = appDirectory
         runCatching { Files.createDirectories(directory) }
         return DeviceInfo(

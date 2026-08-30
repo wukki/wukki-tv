@@ -55,7 +55,7 @@ class OfficialWukkiSourceTest {
                 else -> error("Unexpected URL: $url")
             }
         }
-        val model = WukkiModel(initial, loader, stateSaver = {})
+        val model = WukkiModel(initial, loader, xmlTvParser, stateSaver = {})
 
         assertTrue(model.refreshOfficialPlaylist())
 
@@ -76,7 +76,7 @@ class OfficialWukkiSourceTest {
                 else -> error("Unexpected URL: $url")
             }
         }
-        val model = WukkiModel(AppState(), loader, stateSaver = {})
+        val model = WukkiModel(AppState(), loader, xmlTvParser, stateSaver = {})
 
         assertTrue(model.refreshOfficialPlaylist(showFeedback = false))
 
@@ -99,7 +99,7 @@ class OfficialWukkiSourceTest {
                 else -> error("Unexpected URL: $url")
             }
         }
-        val model = WukkiModel(AppState(), loader, stateSaver = {})
+        val model = WukkiModel(AppState(), loader, xmlTvParser, stateSaver = {})
 
         assertTrue(model.refreshOfficialPlaylist())
         playlist = m3u("https://epg.example/second.xml")
@@ -124,7 +124,7 @@ class OfficialWukkiSourceTest {
             playlists = listOf(PlaylistDefinition(OfficialWukkiSource.PLAYLIST_ID, OfficialWukkiSource.PLAYLIST_NAME, OfficialWukkiSource.PLAYLIST_URL, PlaylistSource.URL, 1)),
             channels = listOf(cached)
         )
-        val model = WukkiModel(initial, RemoteTextLoader { error("offline") }, stateSaver = {})
+        val model = WukkiModel(initial, RemoteTextLoader { error("offline") }, xmlTvParser, stateSaver = {})
 
         assertFalse(model.refreshOfficialPlaylist(showFeedback = false))
         assertEquals(listOf(cached.id), model.state.channels.map { it.id })
@@ -142,7 +142,7 @@ class OfficialWukkiSourceTest {
                 else -> error("Unexpected URL: $url")
             }
         }
-        val model = WukkiModel(AppState(), loader, stateSaver = {})
+        val model = WukkiModel(AppState(), loader, xmlTvParser, stateSaver = {})
 
         assertTrue(model.refreshOfficialPlaylist(showFeedback = false))
         assertNull(model.status)
@@ -152,7 +152,7 @@ class OfficialWukkiSourceTest {
 
     @Test
     fun `only the current feedback token can dismiss a message`() {
-        val model = WukkiModel(AppState(), RemoteTextLoader { error("unused") }, stateSaver = {})
+        val model = WukkiModel(AppState(), RemoteTextLoader { error("unused") }, xmlTvParser, stateSaver = {})
         model.showRawError("Első hiba")
         val staleToken = model.feedbackToken
         model.showRawError("Második hiba")
@@ -211,4 +211,10 @@ class OfficialWukkiSourceTest {
           </programme>
         </tv>
     """.trimIndent()
+
+    private val xmlTvParser = XmlTvParser { source ->
+        val channelId = Regex("channel=\"([^\"]+)\"").find(source)?.groupValues?.get(1) ?: return@XmlTvParser emptyList()
+        val title = Regex("<title>([^<]+)</title>").find(source)?.groupValues?.get(1) ?: return@XmlTvParser emptyList()
+        listOf(Programme(channelId, title, 1_787_248_800_000L, 1_787_252_400_000L))
+    }
 }

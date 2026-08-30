@@ -79,27 +79,8 @@ kotlin {
         val commonTest by getting {
             dependencies { implementation(kotlin("test")) }
         }
-        val androidMain by getting {
-            dependencies {
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
-                implementation("io.ktor:ktor-client-okhttp:3.0.1")
-                implementation("androidx.datastore:datastore-preferences:1.2.1")
-                implementation("androidx.work:work-runtime-ktx:2.10.0")
-                implementation("androidx.media3:media3-exoplayer:1.10.1")
-                implementation("androidx.media3:media3-exoplayer-hls:1.10.1")
-                implementation("androidx.media3:media3-ui:1.10.1")
-            }
-        }
-        val desktopMain by getting {
-            dependencies {
-                implementation(compose.desktop.currentOs)
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.9.0")
-                implementation("io.ktor:ktor-client-java:3.0.1")
-                implementation("uk.co.caprica:vlcj:4.8.3")
-                implementation("net.java.dev.jna:jna-jpms:5.14.0")
-                implementation("net.java.dev.jna:jna-platform-jpms:5.14.0")
-            }
-        }
+        val androidMain by getting
+        val desktopMain by getting
         val desktopTest by getting {
             dependencies { implementation(kotlin("test")) }
         }

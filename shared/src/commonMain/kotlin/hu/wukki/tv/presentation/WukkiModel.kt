@@ -10,10 +10,18 @@ import kotlin.math.roundToLong
 
 private const val MILLIS_PER_HOUR = 60L * 60L * 1000L
 
+fun WukkiAppDependencies.createModel(): WukkiModel = WukkiModel(
+    initialState = stateStore.load(),
+    sourceLoader = remoteTextLoader,
+    xmlTvParser = xmlTvParser,
+    stateSaver = stateStore::save
+)
+
 class WukkiModel(
-    initialState: AppState = PlatformAppServices.stateStore.load(),
-    private val sourceLoader: RemoteTextLoader = PlatformAppServices.remoteTextLoader,
-    private val stateSaver: (AppState) -> Unit = PlatformAppServices.stateStore::save
+    initialState: AppState,
+    private val sourceLoader: RemoteTextLoader,
+    private val xmlTvParser: XmlTvParser,
+    private val stateSaver: (AppState) -> Unit
 ) {
     private val refreshingEpgSourceIds = mutableSetOf<String>()
     private val provisionedState = OfficialWukkiSource.provision(initialState)
@@ -138,7 +146,7 @@ class WukkiModel(
         try {
             if (showFeedback) showLoading("status.epg.loading", source.name)
             val xml = withContext(Dispatchers.Default) { sourceLoader.load(source.url) }
-            val programmes = withContext(Dispatchers.Default) { EpgParser.parse(xml) }
+            val programmes = withContext(Dispatchers.Default) { xmlTvParser.parse(xml) }
             if (programmes.isEmpty()) throw IllegalArgumentException("error.epg.empty")
             state = state.copy(
                 epgSources = listOf(source.copy(lastUpdatedAt = System.currentTimeMillis())),

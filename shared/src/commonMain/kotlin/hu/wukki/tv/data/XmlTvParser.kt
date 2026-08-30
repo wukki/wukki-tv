@@ -1,10 +1,5 @@
 package hu.wukki.tv
 
-/** Secure, streaming XMLTV parser supplied by the active platform. */
-expect object EpgParser {
-    fun parse(xml: String): List<Programme>
-}
-
 object EpgMatcher {
     fun match(channels: List<Channel>, programmes: List<Programme>): List<Channel> {
         val ids = programmes.map { it.channelId }.distinct()

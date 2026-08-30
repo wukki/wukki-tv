@@ -38,8 +38,7 @@ object AndroidRefreshScheduler {
 
 class WukkiRefreshWorker(appContext: Context, parameters: WorkerParameters) : CoroutineWorker(appContext, parameters) {
     override suspend fun doWork(): Result {
-        LocalStore.install(applicationContext)
-        val model = WukkiModel()
+        val model = AndroidAppGraph.install(applicationContext).createModel()
         val refreshed = when (inputData.getString(AndroidRefreshScheduler.KEY_TYPE)) {
             RefreshType.PLAYLIST.name -> model.refreshOfficialPlaylist(showFeedback = false)
             RefreshType.EPG.name -> model.refreshOfficialEpg(showFeedback = false)

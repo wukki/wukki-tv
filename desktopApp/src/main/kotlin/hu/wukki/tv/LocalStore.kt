@@ -40,12 +40,7 @@ internal class DesktopStateStore(private val directory: Path) : AppStateStore {
 
 object LocalStore : AppStateStore by DesktopStateStore(Path.of(System.getProperty("user.home"), ".wukki-tv"))
 
-actual object PlatformAppServices {
-    actual val stateStore: AppStateStore = LocalStore
-    actual val remoteTextLoader: RemoteTextLoader = RemoteTextLoader(::readRemoteText)
-}
-
-private fun readRemoteText(url: String): String {
+internal fun readRemoteText(url: String): String {
     val connection = java.net.URI(url).toURL().openConnection().apply {
         connectTimeout = 15_000
         readTimeout = 30_000

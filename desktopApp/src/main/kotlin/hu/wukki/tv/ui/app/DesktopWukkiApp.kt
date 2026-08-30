@@ -5,12 +5,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import hu.wukki.tv.EmbeddedVlcPlayer
 import hu.wukki.tv.PlaybackController
+import hu.wukki.tv.DesktopAppGraph
 
 /** Desktop composition root. Android supplies its own Media3 playback engine. */
 @Composable
 fun DesktopWukkiApp() {
     val playbackController = remember { PlaybackController() }
+    val dependencies = remember { DesktopAppGraph.dependencies }
     WukkiApp(
+        dependencies = dependencies,
         playbackController = playbackController,
         videoHost = { modifier: Modifier, _ -> EmbeddedVlcPlayer(playbackController, modifier) },
         playbackEngineLabel = "VLC / libVLC"

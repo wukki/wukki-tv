@@ -37,6 +37,7 @@ import kotlinx.coroutines.withContext
 
 @Composable
 fun WukkiApp(
+    dependencies: WukkiAppDependencies,
     playbackController: PlaybackEngine,
     videoHost: @Composable (Modifier, LiveVideoGestures?) -> Unit,
     playbackEngineLabel: String,
@@ -44,7 +45,7 @@ fun WukkiApp(
     androidSettingsNavigation: Boolean = false,
     onPlatformBackActionChange: ((() -> Boolean)?) -> Unit = {}
 ) {
-    val model = remember { WukkiModel() }
+    val model = remember(dependencies) { dependencies.createModel() }
     val scope = rememberCoroutineScope()
     val focusRequester = remember { FocusRequester() }
     var tick by remember { mutableStateOf(System.currentTimeMillis()) }
@@ -294,7 +295,7 @@ fun WukkiApp(
     }
     LaunchedEffect(activeSection, settingsNavigation.section) {
         if (activeSection == DashboardSection.SETTINGS && settingsNavigation.section == SettingsSection.ABOUT && deviceInfo == null) {
-            deviceInfo = withContext(Dispatchers.Default) { DeviceInfoProvider.collect() }
+            deviceInfo = withContext(Dispatchers.Default) { dependencies.deviceInfoProvider.collect() }
         }
     }
     val currentBackHandler = rememberUpdatedState { handleBackNavigation() }

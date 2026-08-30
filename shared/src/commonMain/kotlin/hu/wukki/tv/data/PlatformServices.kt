@@ -14,6 +14,11 @@ fun interface RemoteTextLoader {
     fun load(url: String): String
 }
 
+/** Platform-owned XMLTV parser used by the common model. */
+fun interface XmlTvParser {
+    fun parse(xml: String): List<Programme>
+}
+
 data class DeviceInfo(
     val platform: String,
     val osVersion: String,
@@ -22,14 +27,18 @@ data class DeviceInfo(
     val availableStorageBytes: Long
 )
 
-expect object PlatformAppServices {
-    val stateStore: AppStateStore
-    val remoteTextLoader: RemoteTextLoader
-}
-
-expect object DeviceInfoProvider {
+/** Platform-owned diagnostics provider used by the common About screen. */
+fun interface DeviceInfoProvider {
     fun collect(): DeviceInfo
 }
+
+/** Explicit application boundary assembled by each platform entry point. */
+data class WukkiAppDependencies(
+    val stateStore: AppStateStore,
+    val remoteTextLoader: RemoteTextLoader,
+    val xmlTvParser: XmlTvParser,
+    val deviceInfoProvider: DeviceInfoProvider
+)
 
 fun formatByteSize(bytes: Long): String {
     val safe = bytes.coerceAtLeast(0L)

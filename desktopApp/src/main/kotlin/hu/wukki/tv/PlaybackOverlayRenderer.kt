@@ -280,16 +280,18 @@ private fun drawProgrammePanel(
     graphics.font = metaFont
     graphics.color = WukkiOverlayColors.text
     val timeY = top + (94 * scale).toInt()
-    if (data.currentStart != null && data.currentEnd != null && data.currentEnd > data.currentStart) {
-        val startText = overlayTime(data.currentStart)
-        val endText = overlayTime(data.currentEnd)
+    val currentStart = data.currentStart
+    val currentEnd = data.currentEnd
+    if (currentStart != null && currentEnd != null && currentEnd > currentStart) {
+        val startText = overlayTime(currentStart)
+        val endText = overlayTime(currentEnd)
         graphics.drawString(startText, contentLeft, timeY)
         val progressLeft = contentLeft + graphics.fontMetrics.stringWidth(startText) + (22 * scale).toInt()
         val progressRight = min(contentRight - graphics.fontMetrics.stringWidth(endText) - (185 * scale).toInt(), progressLeft + (430 * scale).toInt())
         if (progressRight > progressLeft) {
             val progressY = timeY - (8 * scale).toInt()
             val barHeight = (6 * scale).toInt().coerceAtLeast(3)
-            val progress = ((data.now - data.currentStart).toDouble() / (data.currentEnd - data.currentStart)).coerceIn(0.0, 1.0)
+            val progress = ((data.now - currentStart).toDouble() / (currentEnd - currentStart)).coerceIn(0.0, 1.0)
             graphics.color = WukkiOverlayColors.divider
             graphics.fillRoundRect(progressLeft, progressY, progressRight - progressLeft, barHeight, barHeight, barHeight)
             graphics.color = WukkiOverlayColors.accent
@@ -322,11 +324,13 @@ private fun drawProgrammePanel(
         graphics.font = Font(Font.SANS_SERIF, Font.BOLD, (21 * scale).toInt().coerceAtLeast(13))
         graphics.color = Color.WHITE
         drawClippedText(graphics, nextTitle, nextLeft, horizontalDividerY + (43 * scale).toInt(), contentRight - nextLeft)
-        if (data.nextStart != null && data.nextEnd != null) {
+        val nextStart = data.nextStart
+        val nextEnd = data.nextEnd
+        if (nextStart != null && nextEnd != null) {
             graphics.font = metaFont
             graphics.color = WukkiOverlayColors.text
             graphics.drawString(
-                "${overlayTime(data.nextStart)}  –  ${overlayTime(data.nextEnd)}",
+                "${overlayTime(nextStart)}  –  ${overlayTime(nextEnd)}",
                 nextLeft,
                 horizontalDividerY + (78 * scale).toInt()
             )
