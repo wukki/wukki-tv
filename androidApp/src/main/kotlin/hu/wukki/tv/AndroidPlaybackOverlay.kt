@@ -120,7 +120,7 @@ private fun ProgrammePanel(data: PlaybackOverlayData, modifier: Modifier) {
         }
         data.programmeImageUrl?.takeUnless { artworkFailed }?.let { imageUrl ->
             AsyncImage(
-                model = imageUrl,
+                model = rememberWukkiImageRequest(imageUrl),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 onError = { artworkFailed = true },

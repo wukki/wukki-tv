@@ -12,14 +12,11 @@ import java.awt.geom.Arc2D
 import java.awt.geom.Path2D
 import java.awt.geom.RoundRectangle2D
 import java.awt.image.BufferedImage
-import java.net.HttpURLConnection
-import java.net.URI
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
-import javax.imageio.ImageIO
 import kotlin.math.min
 
 internal data class RenderedPlaybackOverlay(
@@ -30,14 +27,15 @@ internal data class RenderedPlaybackOverlay(
 
 internal class DesktopPlaybackOverlayCoordinator(
     private val component: OverlayCallbackMediaPlayerComponent,
-    private val requestRepaint: () -> Unit
+    private val requestRepaint: () -> Unit,
+    private val imageLoader: DesktopOverlayImageLoader = DesktopOverlayImageLoader()
 ) {
     private val imageExecutor = Executors.newSingleThreadExecutor { runnable ->
         Thread(runnable, "wukki-vlc-overlay-image").apply { isDaemon = true }
     }
     private val imageCache = ConcurrentHashMap<String, BufferedImage>()
     private val pendingImages = ConcurrentHashMap.newKeySet<String>()
-    private val failedImages = ConcurrentHashMap.newKeySet<String>()
+    private val failedImages = ConcurrentHashMap<String, Long>()
     @Volatile private var released = false
 
     fun update(data: PlaybackOverlayData) {
@@ -52,25 +50,16 @@ internal class DesktopPlaybackOverlayCoordinator(
     }
 
     private fun loadImage(imageUrl: String, channelId: String) {
-        if (imageCache.containsKey(imageUrl) || imageUrl in failedImages || !pendingImages.add(imageUrl)) return
+        if (imageCache.containsKey(imageUrl) || !canRetry(imageUrl) || !pendingImages.add(imageUrl)) return
         imageExecutor.execute {
-            val loaded = runCatching {
-                val connection = URI.create(imageUrl).toURL().openConnection().apply {
-                    connectTimeout = 10_000
-                    readTimeout = 15_000
-                    setRequestProperty("User-Agent", "WukkiTV/1.0 (desktop; image loader)")
-                    setRequestProperty("Accept", "image/*")
-                }
-                (connection as? HttpURLConnection)?.let { http ->
-                    require(http.responseCode in 200..299) { "HTTP ${http.responseCode}" }
-                }
-                require(connection.contentType?.startsWith("image/", ignoreCase = true) != false) {
-                    "Unsupported content type: ${connection.contentType}"
-                }
-                connection.getInputStream().use(ImageIO::read)
-            }.getOrNull()
+            val loaded = runCatching { imageLoader.load(imageUrl) }.getOrNull()
             pendingImages.remove(imageUrl)
-            if (loaded != null) imageCache[imageUrl] = loaded else failedImages.add(imageUrl)
+            if (loaded != null) {
+                imageCache[imageUrl] = loaded
+                failedImages.remove(imageUrl)
+            } else {
+                failedImages[imageUrl] = System.currentTimeMillis()
+            }
             val current = component.overlay
             val imageStillUsed = current?.data?.let { it.logoUrl == imageUrl || it.programmeImageUrl == imageUrl } == true
             if (!released && loaded != null && current?.data?.channelId == channelId && imageStillUsed) {
@@ -83,9 +72,19 @@ internal class DesktopPlaybackOverlayCoordinator(
         }
     }
 
+    private fun canRetry(imageUrl: String): Boolean {
+        val failedAt = failedImages[imageUrl] ?: return true
+        return System.currentTimeMillis() - failedAt >= IMAGE_RETRY_DELAY_MILLIS
+    }
+
     fun release() {
         released = true
         imageExecutor.shutdownNow()
+        imageLoader.close()
+    }
+
+    private companion object {
+        const val IMAGE_RETRY_DELAY_MILLIS = 30_000L
     }
 }
 

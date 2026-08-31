@@ -24,6 +24,7 @@ dependencies {
     implementation(compose.desktop.currentOs)
     implementation("org.jetbrains.compose.material3:material3:1.12.0-alpha03")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0")
+    implementation("io.coil-kt.coil3:coil-core:3.6.0")
     implementation("io.ktor:ktor-client-java:3.0.1")
     implementation("uk.co.caprica:vlcj:4.8.3")
     implementation("net.java.dev.jna:jna-jpms:5.14.0")

@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.LocalPlatformContext
 import coil3.compose.SubcomposeAsyncImage
+import coil3.PlatformContext
 import coil3.network.NetworkHeaders
 import coil3.network.httpHeaders
 import coil3.request.CachePolicy
@@ -47,14 +48,24 @@ private val WukkiImageHeaders = NetworkHeaders.Builder().apply {
 fun rememberWukkiImageRequest(url: String): ImageRequest {
     val context = LocalPlatformContext.current
     return remember(context, url) {
-        ImageRequest.Builder(context)
-            .data(url)
-            .httpHeaders(WukkiImageHeaders)
-            .memoryCachePolicy(CachePolicy.ENABLED)
-            .diskCachePolicy(CachePolicy.ENABLED)
-            .networkCachePolicy(CachePolicy.ENABLED)
-            .build()
+        wukkiImageRequest(context, url)
     }
+}
+
+fun wukkiImageRequest(
+    context: PlatformContext,
+    data: Any,
+    width: Int? = null,
+    height: Int? = null
+): ImageRequest {
+    val builder = ImageRequest.Builder(context)
+        .data(data)
+        .httpHeaders(WukkiImageHeaders)
+        .memoryCachePolicy(CachePolicy.ENABLED)
+        .diskCachePolicy(CachePolicy.ENABLED)
+        .networkCachePolicy(CachePolicy.ENABLED)
+    if (width != null && height != null) builder.size(width, height)
+    return builder.build()
 }
 
 @Composable
