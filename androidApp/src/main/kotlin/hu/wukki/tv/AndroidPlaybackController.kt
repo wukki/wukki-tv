@@ -182,10 +182,19 @@ class AndroidPlaybackController(private val context: Context) : PlaybackEngine {
                 }
                 MotionEvent.ACTION_POINTER_DOWN -> singlePointer = false
                 MotionEvent.ACTION_UP -> if (singlePointer) {
-                    when (classifyLiveTouch(event.x - downX, event.y - downY, event.eventTime - downAt, thresholdPx, MAX_TAP_DURATION_MS)) {
+                    val startedInTopEdge = downY <= LIVE_NAVIGATION_EDGE_DP * view.resources.displayMetrics.density
+                    when (classifyLiveTouch(
+                        deltaX = event.x - downX,
+                        deltaY = event.y - downY,
+                        durationMillis = event.eventTime - downAt,
+                        thresholdPx = thresholdPx,
+                        maxTapDurationMillis = MAX_TAP_DURATION_MS,
+                        startedInTopEdge = startedInTopEdge
+                    )) {
                         LiveTouchAction.TAP -> gestures.onTap()
                         LiveTouchAction.NEXT_CHANNEL -> gestures.onNextChannel()
                         LiveTouchAction.PREVIOUS_CHANNEL -> gestures.onPreviousChannel()
+                        LiveTouchAction.SHOW_NAVIGATION -> gestures.onShowNavigation()
                         LiveTouchAction.NONE -> Unit
                     }
                 }
@@ -311,6 +320,7 @@ class AndroidPlaybackController(private val context: Context) : PlaybackEngine {
         const val BUFFERING_VISIBILITY_DELAY_MS = 250L
         const val RECONNECT_DELAY_MS = 1_000L
         const val LIVE_SWIPE_THRESHOLD_DP = 48f
+        const val LIVE_NAVIGATION_EDGE_DP = 48f
         const val MAX_TAP_DURATION_MS = 300L
     }
 }

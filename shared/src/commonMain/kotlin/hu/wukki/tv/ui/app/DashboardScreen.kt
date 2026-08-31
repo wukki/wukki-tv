@@ -1,5 +1,8 @@
 package hu.wukki.tv.ui.app
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -87,6 +90,7 @@ fun DashboardScreen(
     scope: CoroutineScope,
     tick: Long,
     activeSection: DashboardSection,
+    liveNavigationVisible: Boolean,
     guideState: EpgGuideState,
     onSectionChange: (DashboardSection) -> Unit,
     settingsSection: SettingsSection?,
@@ -207,14 +211,21 @@ fun DashboardScreen(
             }
         }
         if (activeSection == DashboardSection.LIVE) {
-            TopNavigation(
-                state = navigationState,
-                onSelect = onSectionChange,
-                scale = scale,
-                showLabels = !androidSettingsNavigation,
-                overlay = true,
+            AnimatedVisibility(
+                visible = liveNavigationVisible,
+                enter = slideInVertically(initialOffsetY = { -it }),
+                exit = slideOutVertically(targetOffsetY = { -it }),
                 modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter)
-            )
+            ) {
+                TopNavigation(
+                    state = navigationState,
+                    onSelect = onSectionChange,
+                    scale = scale,
+                    showLabels = !androidSettingsNavigation,
+                    overlay = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
         }
         Column(Modifier.align(Alignment.BottomCenter).padding(bottom = 24.dp).widthIn(max = 720.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             model.error?.let { AppFeedback(tr(model.settings.language, "app.error.prefix", it.text(model.settings.language))) }

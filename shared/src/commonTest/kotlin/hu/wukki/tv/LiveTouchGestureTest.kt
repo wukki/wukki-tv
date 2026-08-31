@@ -17,6 +17,18 @@ class LiveTouchGestureTest {
     }
 
     @Test
+    fun `downward flick from top edge shows navigation instead of changing channel`() {
+        assertEquals(
+            LiveTouchAction.SHOW_NAVIGATION,
+            classifyLiveTouch(2f, 72f, 180L, threshold, 300L, startedInTopEdge = true)
+        )
+        assertEquals(
+            LiveTouchAction.PREVIOUS_CHANNEL,
+            classifyLiveTouch(2f, 72f, 180L, threshold, 300L, startedInTopEdge = false)
+        )
+    }
+
+    @Test
     fun `short still touch toggles information`() {
         assertEquals(LiveTouchAction.TAP, classifyLiveTouch(5f, 3f, 120L, threshold, 300L))
     }

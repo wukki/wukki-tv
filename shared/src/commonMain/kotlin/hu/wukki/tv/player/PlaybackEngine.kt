@@ -20,18 +20,22 @@ interface PlaybackEngine {
 data class LiveVideoGestures(
     val onTap: () -> Unit,
     val onNextChannel: () -> Unit,
-    val onPreviousChannel: () -> Unit
+    val onPreviousChannel: () -> Unit,
+    val onShowNavigation: () -> Unit
 )
 
-enum class LiveTouchAction { TAP, NEXT_CHANNEL, PREVIOUS_CHANNEL, NONE }
+enum class LiveTouchAction { TAP, NEXT_CHANNEL, PREVIOUS_CHANNEL, SHOW_NAVIGATION, NONE }
 
 fun classifyLiveTouch(
     deltaX: Float,
     deltaY: Float,
     durationMillis: Long,
     thresholdPx: Float,
-    maxTapDurationMillis: Long
+    maxTapDurationMillis: Long,
+    startedInTopEdge: Boolean = false
 ): LiveTouchAction = when {
+    startedInTopEdge && deltaY >= thresholdPx && kotlin.math.abs(deltaY) > kotlin.math.abs(deltaX) ->
+        LiveTouchAction.SHOW_NAVIGATION
     kotlin.math.abs(deltaY) >= thresholdPx && kotlin.math.abs(deltaY) > kotlin.math.abs(deltaX) ->
         if (deltaY < 0f) LiveTouchAction.NEXT_CHANNEL else LiveTouchAction.PREVIOUS_CHANNEL
     kotlin.math.abs(deltaX) < thresholdPx && kotlin.math.abs(deltaY) < thresholdPx && durationMillis <= maxTapDurationMillis ->

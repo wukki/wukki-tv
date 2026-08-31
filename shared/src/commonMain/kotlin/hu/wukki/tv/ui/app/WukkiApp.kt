@@ -71,6 +71,7 @@ fun WukkiApp(
     var overlayRequest by remember { mutableIntStateOf(0) }
     var programmeOverlayVisible by remember { mutableStateOf(false) }
     var liveChannelPreviewState by remember { mutableStateOf(LiveChannelPreviewState()) }
+    var liveNavigationState by remember { mutableStateOf(LiveNavigationVisibilityState()) }
     var channelNumberInput by remember { mutableStateOf("") }
     var deviceInfo by remember { mutableStateOf<DeviceInfo?>(null) }
     val guideState = rememberEpgGuideState()
@@ -87,7 +88,28 @@ fun WukkiApp(
         if (hidePanel) programmeOverlayVisible = false
     }
 
+    fun handleLiveNavigation(event: LiveNavigationVisibilityEvent) {
+        val result = liveNavigationState.reduce(event)
+        liveNavigationState = result.state
+        when (result.effect) {
+            LiveNavigationVisibilityEffect.NONE -> Unit
+            LiveNavigationVisibilityEffect.FOCUS_NAVIGATION -> {
+                mainNavigationIndex = mainSections.indexOf(DashboardSection.LIVE).coerceAtLeast(0)
+                focusZone = TvFocusZone.MAIN_NAVIGATION
+            }
+            LiveNavigationVisibilityEffect.FOCUS_CONTENT_IF_NAVIGATION_FOCUSED -> {
+                if (focusZone == TvFocusZone.MAIN_NAVIGATION) focusZone = TvFocusZone.CONTENT
+            }
+        }
+    }
+
     fun activateSection(section: DashboardSection) {
+        val previousSection = activeSection
+        if (section == DashboardSection.LIVE && previousSection != DashboardSection.LIVE) {
+            handleLiveNavigation(LiveNavigationVisibilityEvent.EnterLive)
+        } else if (section != DashboardSection.LIVE && previousSection == DashboardSection.LIVE) {
+            handleLiveNavigation(LiveNavigationVisibilityEvent.LeaveLive)
+        }
         if (section != DashboardSection.LIVE) dismissLiveChannelPreview(hidePanel = true)
         if (section == DashboardSection.CHANNELS && activeSection != DashboardSection.CHANNELS) {
             val visibleChannels = model.filteredChannels()
@@ -181,7 +203,10 @@ fun WukkiApp(
     val liveVideoGestures = LiveVideoGestures(
         onTap = ::toggleLiveProgrammeInfo,
         onNextChannel = { switchLiveChannel(1) },
-        onPreviousChannel = { switchLiveChannel(-1) }
+        onPreviousChannel = { switchLiveChannel(-1) },
+        onShowNavigation = {
+            handleLiveNavigation(LiveNavigationVisibilityEvent.Reveal(focusNavigation = false))
+        }
     )
 
     fun showGuideProgrammeDetails() {
@@ -258,6 +283,10 @@ fun WukkiApp(
     }
 
     fun handleBackNavigation(): Boolean {
+        if (activeSection == DashboardSection.LIVE && !liveNavigationState.visible) {
+            handleLiveNavigation(LiveNavigationVisibilityEvent.Reveal(focusNavigation = true))
+            return true
+        }
         val effect = AppBackNavigationState(
             guideDialogVisible = guideProgrammeDetailsVisible,
             channelSearchOpen = activeSection == DashboardSection.CHANNELS && channelSearchOpen,
@@ -306,6 +335,12 @@ fun WukkiApp(
     LaunchedEffect(activeSection) {
         onActiveSectionChange(activeSection)
         if (activeSection == DashboardSection.LIVE) focusRequester.requestFocus()
+    }
+    LaunchedEffect(activeSection, liveNavigationState.visible, liveNavigationState.interactionSequence) {
+        if (activeSection == DashboardSection.LIVE && liveNavigationState.visible) {
+            delay(LIVE_NAVIGATION_TIMEOUT_MS)
+            handleLiveNavigation(LiveNavigationVisibilityEvent.Timeout)
+        }
     }
     LaunchedEffect(activeSection, settingsNavigation.section) {
         if (activeSection == DashboardSection.SETTINGS && settingsNavigation.section == SettingsSection.ABOUT && deviceInfo == null) {
@@ -473,6 +508,7 @@ fun WukkiApp(
                         return@onPreviewKeyEvent handleBackNavigation()
                     }
                     if (focusZone == TvFocusZone.MAIN_NAVIGATION) {
+                        val wasLive = activeSection == DashboardSection.LIVE
                         val remoteKey = event.key.toRemoteKey() ?: return@onPreviewKeyEvent false
                         val result = MainMenuNavigationState(mainNavigationIndex).reduce(remoteKey, mainSections.size)
                         mainNavigationIndex = result.state.index
@@ -480,6 +516,9 @@ fun WukkiApp(
                             MainMenuNavigationEffect.None -> Unit
                             MainMenuNavigationEffect.EnterContent -> focusZone = TvFocusZone.CONTENT
                             is MainMenuNavigationEffect.Activate -> activateSection(mainSections[effect.index])
+                        }
+                        if (result.handled && wasLive && activeSection == DashboardSection.LIVE) {
+                            handleLiveNavigation(LiveNavigationVisibilityEvent.Interact)
                         }
                         return@onPreviewKeyEvent result.handled
                     }
@@ -571,8 +610,12 @@ fun WukkiApp(
                 scope = scope,
                 tick = tick,
                 activeSection = activeSection,
+                liveNavigationVisible = liveNavigationState.visible,
                 guideState = guideState,
                 onSectionChange = { section ->
+                    if (section == DashboardSection.LIVE && activeSection == DashboardSection.LIVE) {
+                        handleLiveNavigation(LiveNavigationVisibilityEvent.Interact)
+                    }
                     activateSection(section)
                 },
                 settingsSection = settingsNavigation.section,
@@ -652,3 +695,4 @@ private fun adjustDisplayOption(model: WukkiModel, option: DisplaySettingsOption
 
 private const val SUCCESS_FEEDBACK_TIMEOUT_MS = 3_000L
 private const val ERROR_FEEDBACK_TIMEOUT_MS = 8_000L
+private const val LIVE_NAVIGATION_TIMEOUT_MS = 5_000L
