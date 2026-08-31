@@ -58,12 +58,13 @@ private fun navigationState(model: WukkiModel, activeSection: DashboardSection, 
     )
 }
 
-private fun channelBrowserUiState(model: WukkiModel, tick: Long): ChannelBrowserUiState {
+private fun channelBrowserUiState(model: WukkiModel, tick: Long, previewChannelId: String?): ChannelBrowserUiState {
     val rows = model.filteredChannels().mapIndexed { index, channel ->
         val current = model.currentProgram(channel, tick)
         ChannelBrowserRowUiState(channel, index + 1, current, current?.let { model.nextProgram(channel, it) })
     }
-    val selected = model.selectedChannel()
+    val selected = rows.firstOrNull { it.channel.id == previewChannelId }?.channel
+        ?: rows.firstOrNull()?.channel
     return ChannelBrowserUiState(
         language = model.settings.language,
         categories = model.categories(),
@@ -71,11 +72,11 @@ private fun channelBrowserUiState(model: WukkiModel, tick: Long): ChannelBrowser
         selectedCategory = model.category,
         onlyFavorites = model.onlyFavorites,
         channels = rows,
-        selectedChannelId = model.selectedChannelId,
         displayMode = model.settings.display.channelListMode ?: hu.wukki.tv.ChannelListDisplayMode.NORMAL,
         showChannelProgramme = model.settings.display.showChannelProgramme,
         showMiniGuide = model.settings.display.showMiniGuide,
         showLogos = model.settings.display.showLogos,
+        showProgrammeImages = model.settings.display.showProgrammeImages != false,
         preview = selected?.let { ChannelPreviewUiState(it, model.currentProgram(it, tick), tick) }
     )
 }
@@ -96,6 +97,9 @@ fun DashboardScreen(
     channelFilterIndex: Int,
     channelListIndex: Int,
     channelListOpenRequest: Int,
+    channelPreviewId: String?,
+    onChannelPreviewSelect: (String) -> Unit,
+    onOpenChannel: (String) -> Unit,
     channelSearchOpen: Boolean,
     onChannelSearchOpenChange: (Boolean) -> Unit,
     settingsCategoryIndex: Int,
@@ -145,16 +149,16 @@ fun DashboardScreen(
                     modifier = Modifier.fillMaxSize().padding(padding)
                 )
                 DashboardSection.CHANNELS -> ChannelBrowserScreen(
-                    state = channelBrowserUiState(model, tick),
+                    state = channelBrowserUiState(model, tick, channelPreviewId),
                     callbacks = ChannelBrowserCallbacks(
                         onQueryChange = model::setChannelQuery,
                         onSelectAll = model::showAllChannels,
                         onSelectFavorites = model::showFavoriteChannels,
                         onSelectCategory = model::showChannelCategory,
-                        onSelectChannel = model::selectChannel,
+                        onSelectChannel = onChannelPreviewSelect,
+                        onOpenChannel = onOpenChannel,
                         onToggleFavorite = model::toggleFavorite
                     ),
-                    tick = tick,
                     modifier = Modifier.fillMaxSize().padding(padding),
                     scale = scale.coerceAtMost(1f),
                     remoteFocus = channelRemoteFocus,
@@ -162,8 +166,7 @@ fun DashboardScreen(
                     remoteListIndex = channelListIndex,
                     listOpenRequest = channelListOpenRequest,
                     searchOpen = channelSearchOpen,
-                    onSearchOpenChange = onChannelSearchOpenChange,
-                    videoPreview = { videoHost(Modifier.fillMaxSize(), null) }
+                    onSearchOpenChange = onChannelSearchOpenChange
                 )
                 DashboardSection.SETTINGS -> SettingsScreen(
                     state = SettingsUiState(

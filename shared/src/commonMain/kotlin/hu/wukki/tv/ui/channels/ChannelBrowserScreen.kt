@@ -22,12 +22,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.SignalCellularAlt
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -36,7 +38,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.LocalTextStyle
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -49,6 +50,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.Key
@@ -57,6 +59,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -70,16 +73,17 @@ import hu.wukki.tv.ui.components.ChannelLogo
 import hu.wukki.tv.ui.components.WukkiColors
 import hu.wukki.tv.ui.components.displayTitle
 import hu.wukki.tv.ui.components.formatTime
+import hu.wukki.tv.ui.components.rememberWukkiImageRequest
 import hu.wukki.tv.ui.components.tr
 import hu.wukki.tv.ui.navigation.ChannelRemoteFocus
+import coil3.compose.SubcomposeAsyncImage
 
 
-/** Channels feature. The optional video slot is supplied by the app composition. */
+/** Channels feature. */
 @Composable
 fun ChannelBrowserScreen(
     state: ChannelBrowserUiState,
     callbacks: ChannelBrowserCallbacks,
-    tick: Long,
     modifier: Modifier,
     scale: Float,
     remoteFocus: ChannelRemoteFocus,
@@ -87,8 +91,7 @@ fun ChannelBrowserScreen(
     remoteListIndex: Int,
     listOpenRequest: Int,
     searchOpen: Boolean,
-    onSearchOpenChange: (Boolean) -> Unit,
-    videoPreview: @Composable () -> Unit
+    onSearchOpenChange: (Boolean) -> Unit
 ) {
     val screenFocusRequester = remember { FocusRequester() }
     val searchFocusRequester = remember { FocusRequester() }
@@ -123,8 +126,7 @@ fun ChannelBrowserScreen(
                 modifier = Modifier.weight(.62f).fillMaxHeight()
             )
             ProgrammeInformation(
-                state.preview, state.language, state.showMiniGuide, callbacks,
-                scale, Modifier.weight(.38f).fillMaxHeight(), videoPreview
+                state, callbacks, scale, Modifier.weight(.38f).fillMaxHeight()
             )
         }
     }
@@ -357,36 +359,87 @@ private fun FavoriteButton(favorite: Boolean, scale: Float, onClick: () -> Unit)
 
 @Composable
 private fun ProgrammeInformation(
-    preview: ChannelPreviewUiState?, language: hu.wukki.tv.AppLanguage, showMiniGuide: Boolean,
-    callbacks: ChannelBrowserCallbacks, scale: Float, modifier: Modifier, videoPreview: @Composable () -> Unit
+    state: ChannelBrowserUiState,
+    callbacks: ChannelBrowserCallbacks,
+    scale: Float,
+    modifier: Modifier
 ) {
     SurfaceCard(modifier, contentPadding = 0.dp) {
-        if (preview == null) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(tr(language, "channels.select")) }
+        val preview = state.preview
+        if (preview == null) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text(tr(state.language, "channels.select"))
+        }
         else {
-            Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(WukkiColors.video)) { videoPreview() }
-            HorizontalDivider()
             Column(
                 Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()).padding(18.dp * scale),
-                verticalArrangement = Arrangement.spacedBy(7.dp * scale)
+                verticalArrangement = Arrangement.spacedBy(10.dp * scale)
             ) {
+                ProgrammeArtwork(state, preview, scale)
                 Text(preview.channel.name, fontSize = (24f * scale).sp, fontWeight = FontWeight.Bold)
-                ProgrammeTitleAndTime(language, preview.currentProgramme, scale)
+                ProgrammeTitleAndTime(state.language, preview.currentProgramme, scale)
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp * scale)) {
                     if (preview.currentProgramme != null) ProgrammeProgress(preview.currentProgramme, preview.now, Modifier.weight(1f))
                     else LinearProgressIndicator(progress = { 0f }, modifier = Modifier.weight(1f).height(5.dp * scale))
                     Text(formatTime(preview.now), fontSize = (12f * scale).sp)
                 }
                 Spacer(Modifier.height(8.dp * scale))
-                if (showMiniGuide) Text(
-                    preview.currentProgramme?.description?.takeIf { it.isNotBlank() } ?: tr(language, "epg.no.description"),
+                if (state.showMiniGuide) Text(
+                    preview.currentProgramme?.description?.takeIf { it.isNotBlank() }
+                        ?: tr(state.language, "epg.no.description"),
                     fontSize = (13f * scale).sp
                 )
-                Spacer(Modifier.height(8.dp * scale))
-                OutlinedButton(onClick = { callbacks.onToggleFavorite(preview.channel.id) }, modifier = Modifier.fillMaxWidth().height(48.dp * scale)) {
-                    Text(if (preview.channel.favorite) "♥ ${tr(language, "favourite.current")}" else "♡ ${tr(language, "favourite.add")}", fontSize = (14f * scale).sp)
+            }
+            HorizontalDivider()
+            Box(Modifier.fillMaxWidth().padding(18.dp * scale)) {
+                Button(
+                    onClick = { callbacks.onOpenChannel(preview.channel.id) },
+                    modifier = Modifier.fillMaxWidth().height(48.dp * scale)
+                ) {
+                    Text(tr(state.language, "action.open"), fontSize = (14f * scale).sp)
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ProgrammeArtwork(state: ChannelBrowserUiState, preview: ChannelPreviewUiState, scale: Float) {
+    val artworkUrl = preview.currentProgramme?.imageUrl?.takeIf { state.showProgrammeImages }
+    val shape = RoundedCornerShape(12.dp * scale)
+    Box(
+        modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(shape).background(WukkiColors.video),
+        contentAlignment = Alignment.Center
+    ) {
+        if (artworkUrl != null) {
+            SubcomposeAsyncImage(
+                model = rememberWukkiImageRequest(artworkUrl),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+                loading = { ProgrammeArtworkFallback(state, preview, scale) },
+                error = { ProgrammeArtworkFallback(state, preview, scale) }
+            )
+        } else {
+            ProgrammeArtworkFallback(state, preview, scale)
+        }
+    }
+}
+
+@Composable
+private fun ProgrammeArtworkFallback(state: ChannelBrowserUiState, preview: ChannelPreviewUiState, scale: Float) {
+    if (state.showLogos) {
+        ChannelLogo(
+            channel = preview.channel,
+            language = state.language,
+            modifier = Modifier.fillMaxWidth(.45f).fillMaxHeight(.45f)
+        )
+    } else {
+        Text(
+            text = preview.channel.name,
+            fontSize = (22f * scale).sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(16.dp * scale)
+        )
     }
 }
 

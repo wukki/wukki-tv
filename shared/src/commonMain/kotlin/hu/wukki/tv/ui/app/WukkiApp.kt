@@ -122,6 +122,20 @@ fun WukkiApp(
         channelFocusedId = visibleChannelIds.getOrNull(channelListIndex)
     }
 
+    fun selectChannelPreview(channelId: String) {
+        val index = visibleChannelIds.indexOf(channelId)
+        if (index < 0) return
+        channelListIndex = index
+        channelFocusedId = channelId
+        channelRemoteFocus = ChannelRemoteFocus.LIST
+    }
+
+    fun openChannelFromBrowser(channelId: String) {
+        model.selectChannel(channelId)
+        activateSection(DashboardSection.LIVE)
+        overlayRequest++
+    }
+
     fun openGuideProgrammeChannel(channelId: String) {
         model.selectChannel(channelId)
         guideProgrammeDetailsVisible = false
@@ -516,7 +530,9 @@ fun WukkiApp(
                                 }
                                 channelListIndex = 0
                             }
-                            is ChannelNavigationEffect.OpenChannel -> model.filteredChannels().getOrNull(effect.index)?.let { model.selectChannel(it.id) }
+                            is ChannelNavigationEffect.OpenChannel -> model.filteredChannels().getOrNull(effect.index)?.let {
+                                openChannelFromBrowser(it.id)
+                            }
                             is ChannelNavigationEffect.ToggleFavorite -> model.filteredChannels().getOrNull(effect.index)?.let { model.toggleFavorite(it.id) }
                         }
                         return@onPreviewKeyEvent result.handled
@@ -575,6 +591,9 @@ fun WukkiApp(
                 channelFilterIndex = channelFilterIndex,
                 channelListIndex = channelListIndex,
                 channelListOpenRequest = channelListOpenRequest,
+                channelPreviewId = channelFocusedId ?: model.selectedChannelId,
+                onChannelPreviewSelect = ::selectChannelPreview,
+                onOpenChannel = ::openChannelFromBrowser,
                 channelSearchOpen = channelSearchOpen,
                 onChannelSearchOpenChange = { open ->
                     channelSearchOpen = open

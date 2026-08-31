@@ -13,11 +13,11 @@ data class ChannelBrowserUiState(
     val selectedCategory: String?,
     val onlyFavorites: Boolean,
     val channels: List<ChannelBrowserRowUiState>,
-    val selectedChannelId: String?,
     val displayMode: ChannelListDisplayMode,
     val showChannelProgramme: Boolean,
     val showMiniGuide: Boolean,
     val showLogos: Boolean,
+    val showProgrammeImages: Boolean,
     val preview: ChannelPreviewUiState?
 )
 
@@ -40,5 +40,6 @@ data class ChannelBrowserCallbacks(
     val onSelectFavorites: () -> Unit,
     val onSelectCategory: (String) -> Unit,
     val onSelectChannel: (String) -> Unit,
+    val onOpenChannel: (String) -> Unit,
     val onToggleFavorite: (String) -> Unit
 )
