@@ -2,7 +2,6 @@ package hu.wukki.tv
 
 import hu.wukki.tv.ui.components.WukkiOverlayColors
 import uk.co.caprica.vlcj.player.component.CallbackMediaPlayerComponent
-import java.awt.AlphaComposite
 import java.awt.BasicStroke
 import java.awt.Color
 import java.awt.Font
@@ -189,151 +188,150 @@ private fun drawProgrammePanel(
     scale: Float
 ) {
     val data = content.data
-    val margin = (28 * scale).toInt().coerceAtLeast(12)
-    val bottomMargin = (1 * scale).toInt().coerceAtLeast(1)
-    val panelHeight = min((280 * scale).toInt(), (height * .38f).toInt()).coerceAtLeast((175 * scale).toInt())
-    val panelWidth = width - margin * 2
+    fun scaled(value: Float, minimum: Int = 1): Int = (value * scale).toInt().coerceAtLeast(minimum)
+
+    val outerMargin = scaled(PlaybackInfoPanelStyle.OUTER_MARGIN, 12)
+    val maximumPanelWidth = scaled(PlaybackInfoPanelStyle.MAX_WIDTH, 320)
+    val panelWidth = min((width * PlaybackInfoPanelStyle.WIDTH_FRACTION).toInt(), maximumPanelWidth)
+        .coerceAtMost((width - outerMargin * 2).coerceAtLeast(1))
+    val panelHeight = scaled(PlaybackInfoPanelStyle.MIN_HEIGHT, 90)
+        .coerceAtMost((height - outerMargin * 2).coerceAtLeast(1))
+    val margin = (width - panelWidth) / 2
+    val bottomMargin = outerMargin
     val top = height - bottomMargin - panelHeight
-    val radius = (6 * scale).toInt().coerceAtLeast(4)
-    val previousComposite = graphics.composite
-    graphics.composite = AlphaComposite.getInstance(AlphaComposite.SRC_OVER, .92f)
     graphics.color = WukkiOverlayColors.panel
-    graphics.fillRoundRect(margin, top, panelWidth, panelHeight, radius, radius)
-    graphics.composite = previousComposite
-    graphics.color = WukkiOverlayColors.divider
-    graphics.stroke = BasicStroke((1.2f * scale).coerceAtLeast(1f))
-    graphics.drawRoundRect(margin, top, panelWidth, panelHeight, radius, radius)
+    graphics.fillRect(margin, top, panelWidth, panelHeight)
 
-    val leftWidth = min((184 * scale).toInt(), (panelWidth * .2f).toInt())
-    val dividerX = margin + leftWidth
-    graphics.drawLine(dividerX, top, dividerX, top + panelHeight)
+    val padding = scaled(PlaybackInfoPanelStyle.CONTENT_PADDING, 8)
+    val columnGap = scaled(PlaybackInfoPanelStyle.COLUMN_GAP, 8)
+    val channelGap = scaled(PlaybackInfoPanelStyle.CHANNEL_ITEM_GAP)
+    val channelWidth = scaled(PlaybackInfoPanelStyle.CHANNEL_COLUMN_WIDTH, 38)
+    val channelLeft = margin + padding
+    val channelRight = channelLeft + channelWidth
+    val channelColumnCenterX = (channelLeft + channelRight) / 2
+    val arrowSize = scaled(PlaybackInfoPanelStyle.CHANNEL_ARROW_SIZE, 14)
+    val numberFont = Font(Font.SANS_SERIF, Font.BOLD, scaled(PlaybackInfoPanelStyle.CHANNEL_NUMBER_TEXT_SIZE, 16))
+    val logoWidth = scaled(PlaybackInfoPanelStyle.CHANNEL_LOGO_WIDTH, 34)
+    val logoHeight = scaled(PlaybackInfoPanelStyle.CHANNEL_LOGO_HEIGHT, 17)
+    val numberHeight = graphics.getFontMetrics(numberFont).height
+    val channelContentHeight = arrowSize * 2 + numberHeight + logoHeight + channelGap * 3
+    var channelY = top + (panelHeight - channelContentHeight) / 2
 
-    val channelColumnCenterX = margin + leftWidth / 2
-    val arrowSize = (30 * scale).toInt().coerceAtLeast(18)
     drawChannelNavigationChevron(
         graphics = graphics,
         centerX = channelColumnCenterX,
-        centerY = top + (24 * scale).toInt().coerceAtLeast(15),
+        centerY = channelY + arrowSize / 2,
         size = arrowSize,
         pointsUp = true,
         scale = scale
     )
-    val numberFont = Font(Font.SANS_SERIF, Font.PLAIN, (58 * scale).toInt().coerceAtLeast(28))
+    channelY += arrowSize + channelGap
     graphics.font = numberFont
     graphics.color = Color.WHITE
-    drawCentered(graphics, data.channelNumber, margin, dividerX, top + (89 * scale).toInt())
-    val logoLeft = margin + (16 * scale).toInt()
-    val logoTop = top + (108 * scale).toInt()
-    val logoMaxWidth = (leftWidth - (32 * scale).toInt()).coerceAtLeast(1)
-    val logoMaxHeight = (58 * scale).toInt().coerceAtLeast(24)
+    drawCentered(graphics, data.channelNumber, channelLeft, channelRight, channelY + graphics.fontMetrics.ascent)
+    channelY += numberHeight + channelGap
+
     val logo = content.logo
     if (logo != null && logo.width > 0 && logo.height > 0) {
-        val logoScale = min(logoMaxWidth / logo.width.toDouble(), logoMaxHeight / logo.height.toDouble())
+        val logoScale = min(logoWidth / logo.width.toDouble(), logoHeight / logo.height.toDouble())
         val drawnWidth = (logo.width * logoScale).toInt().coerceAtLeast(1)
         val drawnHeight = (logo.height * logoScale).toInt().coerceAtLeast(1)
-        val logoX = logoLeft + (logoMaxWidth - drawnWidth) / 2
-        val logoY = logoTop + (logoMaxHeight - drawnHeight) / 2
+        val logoX = channelLeft + (channelWidth - drawnWidth) / 2
+        val logoY = channelY + (logoHeight - drawnHeight) / 2
         graphics.drawImage(logo, logoX, logoY, drawnWidth, drawnHeight, null)
     } else {
-        graphics.font = Font(Font.SANS_SERIF, Font.BOLD, (21 * scale).toInt().coerceAtLeast(13))
-        drawCentered(graphics, data.channelName, margin + 8, dividerX - 8, top + (145 * scale).toInt())
+        graphics.font = Font(Font.SANS_SERIF, Font.PLAIN, scaled(PlaybackInfoPanelStyle.META_TEXT_SIZE, 9))
+        drawCentered(
+            graphics,
+            data.channelName,
+            channelLeft,
+            channelRight,
+            channelY + (logoHeight - graphics.fontMetrics.height) / 2 + graphics.fontMetrics.ascent
+        )
     }
+    channelY += logoHeight + channelGap
     drawChannelNavigationChevron(
         graphics = graphics,
         centerX = channelColumnCenterX,
-        centerY = top + panelHeight - (24 * scale).toInt().coerceAtLeast(15),
+        centerY = channelY + arrowSize / 2,
         size = arrowSize,
         pointsUp = false,
         scale = scale
     )
 
     val artwork = content.programmeImage
-    val artworkGap = (24 * scale).toInt().coerceAtLeast(10)
-    val artworkWidth = if (artwork != null) {
-        min((220 * scale).toInt(), (panelWidth * .21f).toInt()).coerceAtLeast(80)
-    } else 0
+    val artworkWidth = scaled(PlaybackInfoPanelStyle.ARTWORK_WIDTH, 76)
+    val artworkHeight = (artworkWidth / PlaybackInfoPanelStyle.ARTWORK_ASPECT_RATIO).toInt().coerceAtLeast(43)
+    val artworkLeft = channelRight + columnGap
     if (artwork != null) {
-        val artworkHeight = (artworkWidth * 9f / 16f).toInt().coerceAtLeast(45)
         drawCroppedImage(
             graphics = graphics,
             image = artwork,
-            x = dividerX + artworkGap,
-            y = top + (24 * scale).toInt().coerceAtLeast(10),
+            x = artworkLeft,
+            y = top + (panelHeight - artworkHeight) / 2,
             width = artworkWidth,
             height = artworkHeight,
-            radius = (8 * scale).toInt().coerceAtLeast(4)
+            radius = scaled(PlaybackInfoPanelStyle.ARTWORK_CORNER_RADIUS, 4)
         )
     }
     val contentLeft = if (artwork != null) {
-        dividerX + artworkGap + artworkWidth + artworkGap
+        artworkLeft + artworkWidth + columnGap
     } else {
-        dividerX + (38 * scale).toInt()
+        channelRight + columnGap
     }
-    val contentRight = margin + panelWidth - (30 * scale).toInt()
+    val contentRight = margin + panelWidth - padding
+    val availableContentWidth = (contentRight - contentLeft).coerceAtLeast(1)
     val title = data.currentTitle ?: data.noEpgLabel
-    graphics.font = Font(Font.SANS_SERIF, Font.BOLD, (30 * scale).toInt().coerceAtLeast(17))
-    graphics.color = Color.WHITE
-    drawClippedText(graphics, title, contentLeft, top + (55 * scale).toInt(), contentRight - contentLeft)
-
-    val metaFont = Font(Font.SANS_SERIF, Font.PLAIN, (20 * scale).toInt().coerceAtLeast(12))
-    graphics.font = metaFont
-    graphics.color = WukkiOverlayColors.text
-    val timeY = top + (94 * scale).toInt()
+    val titleFont = Font(Font.SANS_SERIF, Font.BOLD, scaled(PlaybackInfoPanelStyle.TITLE_TEXT_SIZE, 12))
+    val metaFont = Font(Font.SANS_SERIF, Font.PLAIN, scaled(PlaybackInfoPanelStyle.META_TEXT_SIZE, 9))
+    val nextFont = Font(Font.SANS_SERIF, Font.PLAIN, scaled(PlaybackInfoPanelStyle.NEXT_TEXT_SIZE, 9))
+    val itemGap = scaled(PlaybackInfoPanelStyle.ITEM_GAP, 2)
+    val progressHeight = scaled(PlaybackInfoPanelStyle.PROGRESS_HEIGHT, 3)
     val currentStart = data.currentStart
     val currentEnd = data.currentEnd
-    if (currentStart != null && currentEnd != null && currentEnd > currentStart) {
-        val startText = overlayTime(currentStart)
-        val endText = overlayTime(currentEnd)
-        graphics.drawString(startText, contentLeft, timeY)
-        val progressLeft = contentLeft + graphics.fontMetrics.stringWidth(startText) + (22 * scale).toInt()
-        val progressRight = min(contentRight - graphics.fontMetrics.stringWidth(endText) - (185 * scale).toInt(), progressLeft + (430 * scale).toInt())
-        if (progressRight > progressLeft) {
-            val progressY = timeY - (8 * scale).toInt()
-            val barHeight = (6 * scale).toInt().coerceAtLeast(3)
-            val progress = ((data.now - currentStart).toDouble() / (currentEnd - currentStart)).coerceIn(0.0, 1.0)
-            graphics.color = WukkiOverlayColors.divider
-            graphics.fillRoundRect(progressLeft, progressY, progressRight - progressLeft, barHeight, barHeight, barHeight)
-            graphics.color = WukkiOverlayColors.accent
-            graphics.fillRoundRect(progressLeft, progressY, ((progressRight - progressLeft) * progress).toInt(), barHeight, barHeight, barHeight)
-            graphics.color = WukkiOverlayColors.text
-            graphics.drawString(endText, progressRight + (16 * scale).toInt(), timeY)
-        }
-    } else {
-        graphics.drawString(data.noEpgLabel, contentLeft, timeY)
-    }
+    val hasTiming = currentStart != null && currentEnd != null && currentEnd > currentStart
+    val hasNext = data.nextTitle != null
+    val contentHeight = graphics.getFontMetrics(titleFont).height +
+        (if (hasTiming) itemGap + graphics.getFontMetrics(metaFont).height + itemGap + progressHeight else 0) +
+        (if (hasNext) itemGap + graphics.getFontMetrics(nextFont).height else 0)
+    var contentY = top + (panelHeight - contentHeight) / 2
 
-    val nowText = overlayTime(data.now)
-    graphics.font = Font(Font.SANS_SERIF, Font.BOLD, (20 * scale).toInt().coerceAtLeast(12))
+    graphics.font = titleFont
     graphics.color = Color.WHITE
-    graphics.drawString(nowText, contentRight - graphics.fontMetrics.stringWidth(nowText), top + (50 * scale).toInt())
-    data.remainingText?.let { remaining ->
-        graphics.font = Font(Font.SANS_SERIF, Font.PLAIN, (17 * scale).toInt().coerceAtLeast(11))
-        graphics.color = WukkiOverlayColors.text
-        graphics.drawString(remaining, contentRight - graphics.fontMetrics.stringWidth(remaining), top + (84 * scale).toInt())
-    }
+    drawClippedText(graphics, title, contentLeft, contentY + graphics.fontMetrics.ascent, availableContentWidth)
+    contentY += graphics.fontMetrics.height
 
-    val horizontalDividerY = top + (132 * scale).toInt()
-    graphics.color = WukkiOverlayColors.divider
-    graphics.drawLine(contentLeft, horizontalDividerY, contentRight, horizontalDividerY)
-    graphics.font = Font(Font.SANS_SERIF, Font.PLAIN, (17 * scale).toInt().coerceAtLeast(11))
-    graphics.color = WukkiOverlayColors.muted
-    graphics.drawString("${data.nextLabel}:", contentLeft, horizontalDividerY + (43 * scale).toInt())
+    if (hasTiming) {
+        contentY += itemGap
+        graphics.font = metaFont
+        graphics.color = WukkiOverlayColors.text
+        graphics.drawString("${overlayTime(currentStart)} – ${overlayTime(currentEnd)}", contentLeft, contentY + graphics.fontMetrics.ascent)
+        contentY += graphics.fontMetrics.height + itemGap
+        val progress = ((data.now - currentStart).toDouble() / (currentEnd - currentStart)).coerceIn(0.0, 1.0)
+        graphics.color = WukkiOverlayColors.divider
+        graphics.fillRoundRect(contentLeft, contentY, availableContentWidth, progressHeight, progressHeight, progressHeight)
+        graphics.color = WukkiOverlayColors.accent
+        graphics.fillRoundRect(
+            contentLeft,
+            contentY,
+            (availableContentWidth * progress).toInt(),
+            progressHeight,
+            progressHeight,
+            progressHeight
+        )
+        contentY += progressHeight
+    }
     data.nextTitle?.let { nextTitle ->
-        val nextLeft = contentLeft + (170 * scale).toInt()
-        graphics.font = Font(Font.SANS_SERIF, Font.BOLD, (21 * scale).toInt().coerceAtLeast(13))
-        graphics.color = Color.WHITE
-        drawClippedText(graphics, nextTitle, nextLeft, horizontalDividerY + (43 * scale).toInt(), contentRight - nextLeft)
-        val nextStart = data.nextStart
-        val nextEnd = data.nextEnd
-        if (nextStart != null && nextEnd != null) {
-            graphics.font = metaFont
-            graphics.color = WukkiOverlayColors.text
-            graphics.drawString(
-                "${overlayTime(nextStart)}  –  ${overlayTime(nextEnd)}",
-                nextLeft,
-                horizontalDividerY + (78 * scale).toInt()
-            )
-        }
+        contentY += itemGap
+        graphics.font = nextFont
+        graphics.color = WukkiOverlayColors.text
+        drawClippedText(
+            graphics,
+            "${data.nextLabel}: $nextTitle",
+            contentLeft,
+            contentY + graphics.fontMetrics.ascent,
+            availableContentWidth
+        )
     }
 }
 

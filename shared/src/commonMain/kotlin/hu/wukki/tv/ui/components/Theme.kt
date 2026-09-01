@@ -42,7 +42,6 @@ object WukkiColors {
     val overlayPanel = Color(0xE1040C16)
     val overlayDivider = Color(0xFF27374B)
     val overlayText = Color(0xFFCCD2DC)
-    val overlayMuted = Color(0xFFAAB3C0)
 }
 
 object WukkiBrushes {

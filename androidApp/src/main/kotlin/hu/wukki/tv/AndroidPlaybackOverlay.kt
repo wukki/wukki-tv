@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -88,34 +89,46 @@ internal fun AndroidPlaybackOverlay(data: PlaybackOverlayData?, modifier: Modifi
 private fun ProgrammePanel(data: PlaybackOverlayData, modifier: Modifier) {
     var artworkFailed by remember(data.programmeImageUrl) { mutableStateOf(false) }
     Row(
-        modifier = modifier.fillMaxWidth(.92f).widthIn(max = 760.dp).background(WukkiColors.overlayPanel).padding(18.dp),
-        horizontalArrangement = Arrangement.spacedBy(18.dp),
+        modifier = modifier
+            .fillMaxWidth(PlaybackInfoPanelStyle.WIDTH_FRACTION)
+            .widthIn(max = PlaybackInfoPanelStyle.MAX_WIDTH.dp)
+            .heightIn(min = PlaybackInfoPanelStyle.MIN_HEIGHT.dp)
+            .background(WukkiColors.overlayPanel)
+            .padding(PlaybackInfoPanelStyle.CONTENT_PADDING.dp),
+        horizontalArrangement = Arrangement.spacedBy(PlaybackInfoPanelStyle.COLUMN_GAP.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(2.dp),
-            modifier = Modifier.width(70.dp)
+            verticalArrangement = Arrangement.spacedBy(PlaybackInfoPanelStyle.CHANNEL_ITEM_GAP.dp),
+            modifier = Modifier.width(PlaybackInfoPanelStyle.CHANNEL_COLUMN_WIDTH.dp)
         ) {
             Icon(
                 imageVector = Icons.Outlined.KeyboardArrowUp,
                 contentDescription = null,
                 tint = WukkiColors.primary,
-                modifier = Modifier.size(26.dp)
+                modifier = Modifier.size(PlaybackInfoPanelStyle.CHANNEL_ARROW_SIZE.dp)
             )
-            Text(data.channelNumber, color = WukkiColors.textPrimary, fontSize = 30.sp, fontWeight = FontWeight.Black)
+            Text(
+                data.channelNumber,
+                color = WukkiColors.textPrimary,
+                fontSize = PlaybackInfoPanelStyle.CHANNEL_NUMBER_TEXT_SIZE.sp,
+                fontWeight = FontWeight.Black
+            )
             data.logoUrl?.let { logoUrl ->
                 OverlayChannelLogo(
                     channelName = data.channelName,
                     logoUrl = logoUrl,
-                    modifier = Modifier.width(64.dp).height(32.dp)
+                    modifier = Modifier
+                        .width(PlaybackInfoPanelStyle.CHANNEL_LOGO_WIDTH.dp)
+                        .height(PlaybackInfoPanelStyle.CHANNEL_LOGO_HEIGHT.dp)
                 )
             } ?: Text(data.channelName, color = WukkiColors.textSecondary, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Icon(
                 imageVector = Icons.Outlined.KeyboardArrowDown,
                 contentDescription = null,
                 tint = WukkiColors.primary,
-                modifier = Modifier.size(26.dp)
+                modifier = Modifier.size(PlaybackInfoPanelStyle.CHANNEL_ARROW_SIZE.dp)
             )
         }
         data.programmeImageUrl?.takeUnless { artworkFailed }?.let { imageUrl ->
@@ -124,20 +137,48 @@ private fun ProgrammePanel(data: PlaybackOverlayData, modifier: Modifier) {
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 onError = { artworkFailed = true },
-                modifier = Modifier.width(150.dp).aspectRatio(16f / 9f).clip(RoundedCornerShape(8.dp))
+                modifier = Modifier
+                    .width(PlaybackInfoPanelStyle.ARTWORK_WIDTH.dp)
+                    .aspectRatio(PlaybackInfoPanelStyle.ARTWORK_ASPECT_RATIO)
+                    .clip(RoundedCornerShape(PlaybackInfoPanelStyle.ARTWORK_CORNER_RADIUS.dp))
             )
         }
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            Text(data.currentTitle ?: data.noEpgLabel, color = WukkiColors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 19.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(PlaybackInfoPanelStyle.ITEM_GAP.dp)
+        ) {
+            Text(
+                data.currentTitle ?: data.noEpgLabel,
+                color = WukkiColors.textPrimary,
+                fontWeight = FontWeight.Bold,
+                fontSize = PlaybackInfoPanelStyle.TITLE_TEXT_SIZE.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
             val currentStart = data.currentStart
             val currentEnd = data.currentEnd
             if (currentStart != null && currentEnd != null) {
                 val progress = ((data.now - currentStart).toFloat() / max(1L, currentEnd - currentStart)).coerceIn(0f, 1f)
-                Text("${formatTime(currentStart)} – ${formatTime(currentEnd)}", color = WukkiColors.textSecondary, fontSize = 12.sp)
-                LinearProgressIndicator(progress = { progress }, color = WukkiColors.primary, trackColor = WukkiColors.border, modifier = Modifier.fillMaxWidth().height(5.dp))
+                Text(
+                    "${formatTime(currentStart)} – ${formatTime(currentEnd)}",
+                    color = WukkiColors.textSecondary,
+                    fontSize = PlaybackInfoPanelStyle.META_TEXT_SIZE.sp
+                )
+                LinearProgressIndicator(
+                    progress = { progress },
+                    color = WukkiColors.primary,
+                    trackColor = WukkiColors.border,
+                    modifier = Modifier.fillMaxWidth().height(PlaybackInfoPanelStyle.PROGRESS_HEIGHT.dp)
+                )
             }
             data.nextTitle?.let { next ->
-                Text("${data.nextLabel}: $next", color = WukkiColors.textSecondary, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    "${data.nextLabel}: $next",
+                    color = WukkiColors.textSecondary,
+                    fontSize = PlaybackInfoPanelStyle.NEXT_TEXT_SIZE.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
         }
     }

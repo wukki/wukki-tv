@@ -8,7 +8,6 @@ import hu.wukki.tv.Programme
 import hu.wukki.tv.ui.components.displayTitle
 import hu.wukki.tv.ui.components.tr
 import hu.wukki.tv.ui.navigation.DashboardSection
-import kotlin.math.ceil
 
 internal fun playbackOverlayData(
     channel: Channel,
@@ -30,10 +29,6 @@ internal fun playbackOverlayData(
         PlaybackState.RECONNECTING -> tr(language, "playback.reconnecting")
         PlaybackState.ERROR -> tr(language, "playback.error")
     }?.let { label -> listOf(label, playbackDetail).filterNotNull().joinToString(" · ") }
-    val remainingMinutes = currentProgramme?.end?.let { end ->
-        ceil((end - now).coerceAtLeast(0L) / 60_000.0).toInt()
-    }
-
     return PlaybackOverlayData(
         channelId = channel.id,
         channelNumber = channel.tvgChno?.toString() ?: "–",
@@ -50,10 +45,7 @@ internal fun playbackOverlayData(
         currentTitle = currentProgramme?.displayTitle(language),
         currentStart = currentProgramme?.start,
         currentEnd = currentProgramme?.end,
-        remainingText = remainingMinutes?.let { tr(language, "playback.remaining", it) },
         nextTitle = nextProgramme?.displayTitle(language),
-        nextStart = nextProgramme?.start,
-        nextEnd = nextProgramme?.end,
         now = now,
         playbackStatus = playbackStatus,
         playbackError = playbackState == PlaybackState.ERROR,

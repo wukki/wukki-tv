@@ -10,15 +10,12 @@ data class LiveChannelPreviewState(
 
 enum class LiveChannelPreviewEvent { PREVIOUS, NEXT, CONFIRM, CANCEL, TIMEOUT }
 
-sealed interface LiveChannelPreviewEffect {
-    data object None : LiveChannelPreviewEffect
-    data object Dismiss : LiveChannelPreviewEffect
-    data class OpenChannel(val channelId: String) : LiveChannelPreviewEffect
-}
+enum class LiveChannelPreviewEffect { NONE, DISMISS, OPEN_CHANNEL }
 
 data class LiveChannelPreviewResult(
     val state: LiveChannelPreviewState,
-    val effect: LiveChannelPreviewEffect = LiveChannelPreviewEffect.None,
+    val effect: LiveChannelPreviewEffect = LiveChannelPreviewEffect.NONE,
+    val channelIdToOpen: String? = null,
     val handled: Boolean = true
 )
 
@@ -53,13 +50,14 @@ fun LiveChannelPreviewState.reduce(
     LiveChannelPreviewEvent.CONFIRM -> channelId?.let { selectedId ->
         LiveChannelPreviewResult(
             state = copy(channelId = null, interactionSequence = interactionSequence + 1),
-            effect = LiveChannelPreviewEffect.OpenChannel(selectedId)
+            effect = LiveChannelPreviewEffect.OPEN_CHANNEL,
+            channelIdToOpen = selectedId
         )
     } ?: LiveChannelPreviewResult(this, handled = false)
 
     LiveChannelPreviewEvent.CANCEL, LiveChannelPreviewEvent.TIMEOUT -> LiveChannelPreviewResult(
         state = copy(channelId = null, interactionSequence = interactionSequence + 1),
-        effect = LiveChannelPreviewEffect.Dismiss,
+        effect = LiveChannelPreviewEffect.DISMISS,
         handled = isActive
     )
 }

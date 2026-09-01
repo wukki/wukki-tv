@@ -18,16 +18,16 @@ fun Key.toRemoteKey(): RemoteKey? = when (this) {
     else -> RemoteKey.CONFIRM.takeIf { isConfirmKey() }
 }
 
-/** Direction keys change the live stream immediately while the video content has focus. */
+/** Dedicated channel keys change the live stream immediately. */
 fun Key.liveImmediateChannelDelta(): Int? = when (this) {
-    Key.DirectionUp -> 1
-    Key.DirectionDown -> -1
+    Key.PageUp, Key.ChannelUp -> 1
+    Key.PageDown, Key.ChannelDown -> -1
     else -> null
 }
 
-/** Channel keys browse the information panel without changing the active stream. */
+/** Direction keys browse the information panel without changing the active stream. */
 fun Key.livePreviewEvent(): LiveChannelPreviewEvent? = when (this) {
-    Key.PageUp, Key.ChannelUp -> LiveChannelPreviewEvent.NEXT
-    Key.PageDown, Key.ChannelDown -> LiveChannelPreviewEvent.PREVIOUS
+    Key.DirectionUp -> LiveChannelPreviewEvent.NEXT
+    Key.DirectionDown -> LiveChannelPreviewEvent.PREVIOUS
     else -> null
 }

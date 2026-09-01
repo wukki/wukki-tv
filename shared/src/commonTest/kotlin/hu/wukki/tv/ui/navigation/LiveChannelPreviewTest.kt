@@ -3,7 +3,6 @@ package hu.wukki.tv.ui.navigation
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -20,7 +19,8 @@ class LiveChannelPreviewTest {
         )
 
         assertEquals("two", result.state.channelId)
-        assertIs<LiveChannelPreviewEffect.None>(result.effect)
+        assertEquals(LiveChannelPreviewEffect.NONE, result.effect)
+        assertNull(result.channelIdToOpen)
         assertTrue(result.handled)
     }
 
@@ -74,8 +74,10 @@ class LiveChannelPreviewTest {
         val browse = preview.reduce(LiveChannelPreviewEvent.PREVIOUS, channels, "one", panelVisible = true)
         val confirm = preview.reduce(LiveChannelPreviewEvent.CONFIRM, channels, "one", panelVisible = true)
 
-        assertIs<LiveChannelPreviewEffect.None>(browse.effect)
-        assertEquals("three", assertIs<LiveChannelPreviewEffect.OpenChannel>(confirm.effect).channelId)
+        assertEquals(LiveChannelPreviewEffect.NONE, browse.effect)
+        assertNull(browse.channelIdToOpen)
+        assertEquals(LiveChannelPreviewEffect.OPEN_CHANNEL, confirm.effect)
+        assertEquals("three", confirm.channelIdToOpen)
         assertNull(confirm.state.channelId)
     }
 
@@ -85,7 +87,8 @@ class LiveChannelPreviewTest {
             val result = LiveChannelPreviewState("two").reduce(event, channels, "one", panelVisible = true)
 
             assertNull(result.state.channelId)
-            assertIs<LiveChannelPreviewEffect.Dismiss>(result.effect)
+            assertEquals(LiveChannelPreviewEffect.DISMISS, result.effect)
+            assertNull(result.channelIdToOpen)
             assertTrue(result.handled)
         }
     }
@@ -100,6 +103,7 @@ class LiveChannelPreviewTest {
         )
 
         assertFalse(result.handled)
-        assertIs<LiveChannelPreviewEffect.None>(result.effect)
+        assertEquals(LiveChannelPreviewEffect.NONE, result.effect)
+        assertNull(result.channelIdToOpen)
     }
 }

@@ -10,7 +10,6 @@ object WukkiOverlayColors {
     val surface = WukkiColors.backgroundRaised.toAwt()
     val divider = WukkiColors.overlayDivider.toAwt()
     val text = WukkiColors.overlayText.toAwt()
-    val muted = WukkiColors.overlayMuted.toAwt()
     val errorPanel = WukkiColors.errorContainer.toAwt()
     val errorText = WukkiColors.error.toAwt()
 }

@@ -194,11 +194,11 @@ fun WukkiApp(
             panelVisible = programmeOverlayVisible
         )
         liveChannelPreviewState = result.state
-        when (val effect = result.effect) {
-            LiveChannelPreviewEffect.None -> if (result.handled) overlayRequest++
-            LiveChannelPreviewEffect.Dismiss -> programmeOverlayVisible = false
-            is LiveChannelPreviewEffect.OpenChannel -> {
-                if (effect.channelId != model.selectedChannelId) model.selectChannel(effect.channelId)
+        when (result.effect) {
+            LiveChannelPreviewEffect.NONE -> if (result.handled) overlayRequest++
+            LiveChannelPreviewEffect.DISMISS -> programmeOverlayVisible = false
+            LiveChannelPreviewEffect.OPEN_CHANNEL -> result.channelIdToOpen?.let { channelId ->
+                if (channelId != model.selectedChannelId) model.selectChannel(channelId)
                 overlayRequest++
             }
         }
@@ -531,8 +531,8 @@ fun WukkiApp(
                         return@onPreviewKeyEvent handleBackNavigation()
                     }
                     if (activeSection == DashboardSection.LIVE) {
-                        event.key.livePreviewEvent()?.let { previewEvent ->
-                            handleLiveChannelPreview(previewEvent)
+                        event.key.liveImmediateChannelDelta()?.let { delta ->
+                            switchLiveChannel(delta)
                             return@onPreviewKeyEvent true
                         }
                     }
@@ -624,9 +624,9 @@ fun WukkiApp(
                         channelNumberInput = (channelNumberInput + digit).take(4)
                         return@onPreviewKeyEvent true
                     }
-                    val liveChannelDelta = event.key.liveImmediateChannelDelta()
+                    val livePreviewEvent = event.key.livePreviewEvent()
                         ?: return@onPreviewKeyEvent false
-                    switchLiveChannel(liveChannelDelta)
+                    handleLiveChannelPreview(livePreviewEvent)
                     true
                 }
         ) {

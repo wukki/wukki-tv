@@ -9,19 +9,19 @@ import kotlin.test.assertIs
 
 class RemoteNavigationTest {
     @Test
-    fun `direction keys map to immediate live channel changes`() {
-        assertEquals(1, Key.DirectionUp.liveImmediateChannelDelta())
-        assertEquals(-1, Key.DirectionDown.liveImmediateChannelDelta())
-        assertEquals(null, Key.PageUp.liveImmediateChannelDelta())
+    fun `page and Android TV channel keys map to immediate live channel changes`() {
+        assertEquals(1, Key.PageUp.liveImmediateChannelDelta())
+        assertEquals(1, Key.ChannelUp.liveImmediateChannelDelta())
+        assertEquals(-1, Key.PageDown.liveImmediateChannelDelta())
+        assertEquals(-1, Key.ChannelDown.liveImmediateChannelDelta())
+        assertEquals(null, Key.DirectionUp.liveImmediateChannelDelta())
     }
 
     @Test
-    fun `page and Android TV channel keys browse the live information panel`() {
-        assertEquals(LiveChannelPreviewEvent.NEXT, Key.PageUp.livePreviewEvent())
-        assertEquals(LiveChannelPreviewEvent.NEXT, Key.ChannelUp.livePreviewEvent())
-        assertEquals(LiveChannelPreviewEvent.PREVIOUS, Key.PageDown.livePreviewEvent())
-        assertEquals(LiveChannelPreviewEvent.PREVIOUS, Key.ChannelDown.livePreviewEvent())
-        assertEquals(null, Key.DirectionUp.livePreviewEvent())
+    fun `direction keys browse the live information panel`() {
+        assertEquals(LiveChannelPreviewEvent.NEXT, Key.DirectionUp.livePreviewEvent())
+        assertEquals(LiveChannelPreviewEvent.PREVIOUS, Key.DirectionDown.livePreviewEvent())
+        assertEquals(null, Key.PageUp.livePreviewEvent())
     }
 
     @Test
