@@ -1,5 +1,6 @@
 package hu.wukki.tv.ui.navigation
 
+import androidx.compose.ui.input.key.Key
 import hu.wukki.tv.ui.settings.SettingsSection
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -7,6 +8,22 @@ import kotlin.test.assertFalse
 import kotlin.test.assertIs
 
 class RemoteNavigationTest {
+    @Test
+    fun `direction keys map to immediate live channel changes`() {
+        assertEquals(1, Key.DirectionUp.liveImmediateChannelDelta())
+        assertEquals(-1, Key.DirectionDown.liveImmediateChannelDelta())
+        assertEquals(null, Key.PageUp.liveImmediateChannelDelta())
+    }
+
+    @Test
+    fun `page and Android TV channel keys browse the live information panel`() {
+        assertEquals(LiveChannelPreviewEvent.NEXT, Key.PageUp.livePreviewEvent())
+        assertEquals(LiveChannelPreviewEvent.NEXT, Key.ChannelUp.livePreviewEvent())
+        assertEquals(LiveChannelPreviewEvent.PREVIOUS, Key.PageDown.livePreviewEvent())
+        assertEquals(LiveChannelPreviewEvent.PREVIOUS, Key.ChannelDown.livePreviewEvent())
+        assertEquals(null, Key.DirectionUp.livePreviewEvent())
+    }
+
     @Test
     fun `main menu moves horizontally stays in bounds and activates focused item`() {
         val first = MainMenuNavigationState(0).reduce(RemoteKey.LEFT, 4)

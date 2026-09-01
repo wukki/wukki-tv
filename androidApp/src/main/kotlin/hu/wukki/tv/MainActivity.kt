@@ -2,6 +2,7 @@ package hu.wukki.tv
 
 import android.os.Bundle
 import android.view.WindowManager
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
@@ -22,6 +23,7 @@ class MainActivity : ComponentActivity() {
     private var appBackAction: (() -> Boolean)? = null
     private var playbackController: AndroidPlaybackController? = null
     private var liveSectionActive = false
+    private var exitConfirmationToast: Toast? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -62,6 +64,11 @@ class MainActivity : ComponentActivity() {
                             setKeepScreenOn(liveSectionActive)
                         },
                         androidSettingsNavigation = true,
+                        requireDoubleBackToExit = true,
+                        onExitConfirmation = { message ->
+                            exitConfirmationToast?.cancel()
+                            exitConfirmationToast = Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).also(Toast::show)
+                        },
                         onPlatformBackActionChange = backRegistrar
                     )
                 }
@@ -70,6 +77,8 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        exitConfirmationToast?.cancel()
+        exitConfirmationToast = null
         setKeepScreenOn(false)
         super.onDestroy()
     }

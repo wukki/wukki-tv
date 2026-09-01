@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -31,6 +32,7 @@ import hu.wukki.tv.ui.guide.GuideProgrammeDetails
 import hu.wukki.tv.ui.guide.GuideProgrammeDetailsUiState
 import hu.wukki.tv.ui.guide.GuideProgrammeDialogAction
 import hu.wukki.tv.ui.guide.GuideProgrammeDialogEvent
+import hu.wukki.tv.ui.guide.GuideDataSource
 import hu.wukki.tv.ui.guide.guideTimeline
 import hu.wukki.tv.ui.live.LiveTvScreen
 import hu.wukki.tv.ui.live.LiveTvUiState
@@ -61,13 +63,11 @@ private fun navigationState(model: WukkiModel, activeSection: DashboardSection, 
     )
 }
 
-private fun channelBrowserUiState(model: WukkiModel, tick: Long, previewChannelId: String?): ChannelBrowserUiState {
+private fun channelBrowserUiState(model: WukkiModel, tick: Long): ChannelBrowserUiState {
     val rows = model.filteredChannels().mapIndexed { index, channel ->
         val current = model.currentProgram(channel, tick)
         ChannelBrowserRowUiState(channel, index + 1, current, current?.let { model.nextProgram(channel, it) })
     }
-    val selected = rows.firstOrNull { it.channel.id == previewChannelId }?.channel
-        ?: rows.firstOrNull()?.channel
     return ChannelBrowserUiState(
         language = model.settings.language,
         categories = model.categories(),
@@ -80,8 +80,13 @@ private fun channelBrowserUiState(model: WukkiModel, tick: Long, previewChannelI
         showMiniGuide = model.settings.display.showMiniGuide,
         showLogos = model.settings.display.showLogos,
         showProgrammeImages = model.settings.display.showProgrammeImages != false,
-        preview = selected?.let { ChannelPreviewUiState(it, model.currentProgram(it, tick), tick) }
+        preview = null
     )
+}
+
+private fun ChannelBrowserUiState.withPreview(channelId: String?, tick: Long): ChannelBrowserUiState {
+    val selected = channels.firstOrNull { it.channel.id == channelId } ?: channels.firstOrNull()
+    return copy(preview = selected?.let { row -> ChannelPreviewUiState(row.channel, row.currentProgramme, tick) })
 }
 
 @Composable
@@ -91,6 +96,7 @@ fun DashboardScreen(
     tick: Long,
     activeSection: DashboardSection,
     liveNavigationVisible: Boolean,
+    guideDataSource: GuideDataSource,
     guideState: EpgGuideState,
     onSectionChange: (DashboardSection) -> Unit,
     settingsSection: SettingsSection?,
@@ -149,29 +155,41 @@ fun DashboardScreen(
                     modifier = Modifier.fillMaxSize()
                 )
                 DashboardSection.GUIDE -> EpgGuideScreen(
-                    model.guideDataSource(), tick, guideState, onProgrammeClick = { _, _ -> onShowGuideProgrammeDetails() },
+                    guideDataSource, tick, guideState, onProgrammeClick = { _, _ -> onShowGuideProgrammeDetails() },
                     modifier = Modifier.fillMaxSize().padding(padding)
                 )
-                DashboardSection.CHANNELS -> ChannelBrowserScreen(
-                    state = channelBrowserUiState(model, tick, channelPreviewId),
-                    callbacks = ChannelBrowserCallbacks(
-                        onQueryChange = model::setChannelQuery,
-                        onSelectAll = model::showAllChannels,
-                        onSelectFavorites = model::showFavoriteChannels,
-                        onSelectCategory = model::showChannelCategory,
-                        onSelectChannel = onChannelPreviewSelect,
-                        onOpenChannel = onOpenChannel,
-                        onToggleFavorite = model::toggleFavorite
-                    ),
-                    modifier = Modifier.fillMaxSize().padding(padding),
-                    scale = scale.coerceAtMost(1f),
-                    remoteFocus = channelRemoteFocus,
-                    remoteFilterIndex = channelFilterIndex,
-                    remoteListIndex = channelListIndex,
-                    listOpenRequest = channelListOpenRequest,
-                    searchOpen = channelSearchOpen,
-                    onSearchOpenChange = onChannelSearchOpenChange
-                )
+                DashboardSection.CHANNELS -> {
+                    val browserState = remember(
+                        model.state,
+                        model.query,
+                        model.category,
+                        model.onlyFavorites,
+                        tick
+                    ) { channelBrowserUiState(model, tick) }
+                    val browserStateWithPreview = remember(browserState, channelPreviewId) {
+                        browserState.withPreview(channelPreviewId, tick)
+                    }
+                    ChannelBrowserScreen(
+                        state = browserStateWithPreview,
+                        callbacks = ChannelBrowserCallbacks(
+                            onQueryChange = model::setChannelQuery,
+                            onSelectAll = model::showAllChannels,
+                            onSelectFavorites = model::showFavoriteChannels,
+                            onSelectCategory = model::showChannelCategory,
+                            onSelectChannel = onChannelPreviewSelect,
+                            onOpenChannel = onOpenChannel,
+                            onToggleFavorite = model::toggleFavorite
+                        ),
+                        modifier = Modifier.fillMaxSize().padding(padding),
+                        scale = scale.coerceAtMost(1f),
+                        remoteFocus = channelRemoteFocus,
+                        remoteFilterIndex = channelFilterIndex,
+                        remoteListIndex = channelListIndex,
+                        listOpenRequest = channelListOpenRequest,
+                        searchOpen = channelSearchOpen,
+                        onSearchOpenChange = onChannelSearchOpenChange
+                    )
+                }
                 DashboardSection.SETTINGS -> SettingsScreen(
                     state = SettingsUiState(
                         settings = model.settings,
@@ -234,7 +252,7 @@ fun DashboardScreen(
             }
         }
         if (guideProgrammeDetailsVisible) {
-            val focused = guideState.focusedProgramme(model.guideDataSource(), guideTimeline(tick, model.guideLatestProgrammeEnd()))
+            val focused = guideState.focusedProgramme(guideDataSource, guideTimeline(tick, model.guideLatestProgrammeEnd()))
             focused?.let { (channel: Channel, programme) ->
                 val next = model.programmesFor(channel, programme.end, programme.end + 86_400_000L).firstOrNull()
                 GuideProgrammeDetails(

@@ -6,9 +6,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlin.math.roundToLong
-
-private const val MILLIS_PER_HOUR = 60L * 60L * 1000L
 
 fun WukkiAppDependencies.createModel(): WukkiModel = WukkiModel(
     initialState = stateStore.load(),
@@ -25,6 +22,19 @@ class WukkiModel(
 ) {
     private val refreshingEpgSourceIds = mutableSetOf<String>()
     private val provisionedState = OfficialWukkiSource.provision(initialState)
+    private var indexedProgrammeSources: Map<String, List<Programme>>? = null
+    private var programmeIndex = ProgrammeIndex(emptyMap())
+    private var cachedChannelSource: List<Channel>? = null
+    private var cachedSortedChannels: List<Channel> = emptyList()
+    private var cachedCategories: List<String> = emptyList()
+    private var cachedFilteredChannelSource: List<Channel>? = null
+    private var cachedFilterQuery = ""
+    private var cachedFilterCategory: String? = null
+    private var cachedOnlyFavorites = false
+    private var cachedFilteredChannels: List<Channel> = emptyList()
+    private var latestEndChannelSource: List<Channel>? = null
+    private var latestEndProgrammeSources: Map<String, List<Programme>>? = null
+    private var cachedGuideLatestProgrammeEnd: Long? = null
 
     var state by mutableStateOf(provisionedState)
         private set
@@ -201,25 +211,45 @@ class WukkiModel(
 
     fun selectedChannel(): Channel? = state.channels.firstOrNull { it.id == selectedChannelId }
     fun channelById(id: String?): Channel? = id?.let { channelId -> state.channels.firstOrNull { it.id == channelId } }
-    fun categories(): List<String> = state.channels.asSequence()
-        .map(::channelCategoryName)
-        .distinct()
-        .sorted()
-        .toList()
+    fun categories(): List<String> {
+        refreshChannelCachesIfNeeded()
+        return cachedCategories
+    }
 
-    fun filteredChannels(): List<Channel> = state.channels.filter { channel ->
-        (!onlyFavorites || channel.favorite) &&
-            (category == null || channelCategoryName(channel) == category) &&
-            (query.isBlank() || normalize(channel.name).contains(normalize(query)))
-    }.sortedChannels()
+    fun filteredChannels(): List<Channel> {
+        val channels = state.channels
+        if (
+            channels !== cachedFilteredChannelSource || query != cachedFilterQuery ||
+            category != cachedFilterCategory || onlyFavorites != cachedOnlyFavorites
+        ) {
+            val normalizedQuery = normalize(query)
+            cachedFilteredChannels = sortedChannels().filter { channel ->
+                (!onlyFavorites || channel.favorite) &&
+                    (category == null || channelCategoryName(channel) == category) &&
+                    (query.isBlank() || normalize(channel.name).contains(normalizedQuery))
+            }
+            cachedFilteredChannelSource = channels
+            cachedFilterQuery = query
+            cachedFilterCategory = category
+            cachedOnlyFavorites = onlyFavorites
+        }
+        return cachedFilteredChannels
+    }
 
     /** Returns every fixed Wukki channel, independently of the directory filters. */
-    fun guideChannels(): List<Channel> = state.channels.sortedChannels()
+    fun guideChannels(): List<Channel> = sortedChannels()
 
     /** The continuous guide only spans programmes that can actually be shown for this playlist. */
-    fun guideLatestProgrammeEnd(): Long? = guideChannels().asSequence()
-        .flatMap { channel -> channelProgrammes(channel).asSequence() }
-        .maxOfOrNull { programme -> programme.end }
+    fun guideLatestProgrammeEnd(): Long? {
+        val channels = state.channels
+        val programmeSources = state.epgProgrammesBySource.orEmpty()
+        if (channels !== latestEndChannelSource || programmeSources !== latestEndProgrammeSources) {
+            cachedGuideLatestProgrammeEnd = currentProgrammeIndex().latestEnd(guideChannels())
+            latestEndChannelSource = channels
+            latestEndProgrammeSources = programmeSources
+        }
+        return cachedGuideLatestProgrammeEnd
+    }
 
     fun currentProgram(channel: Channel, now: Long = System.currentTimeMillis()): Programme? =
         channelProgrammes(channel).firstOrNull { now in it.start until it.end }
@@ -295,16 +325,32 @@ class WukkiModel(
     }
 
     private fun channelProgrammes(channel: Channel): List<Programme> {
-        val epgChannelId = channel.epgChannelId ?: return emptyList()
-        val programmes = if (channel.epgSourceId == OfficialWukkiSource.EPG_SOURCE_ID) {
-            state.epgProgrammesBySource.orEmpty()[OfficialWukkiSource.EPG_SOURCE_ID].orEmpty()
-        } else {
-            emptyList()
+        return currentProgrammeIndex().programmes(channel)
+    }
+
+    private fun currentProgrammeIndex(): ProgrammeIndex {
+        val sources = state.epgProgrammesBySource.orEmpty()
+        if (sources !== indexedProgrammeSources) {
+            indexedProgrammeSources = sources
+            programmeIndex = ProgrammeIndex(sources)
         }
-        return programmes.asSequence()
-            .filter { programme -> programme.channelId.equals(epgChannelId, ignoreCase = true) }
-            .map { programme -> programme.shiftedBy(channel.tvgShiftHours) }
-            .sortedBy { it.start }
+        return programmeIndex
+    }
+
+    private fun sortedChannels(): List<Channel> {
+        refreshChannelCachesIfNeeded()
+        return cachedSortedChannels
+    }
+
+    private fun refreshChannelCachesIfNeeded() {
+        val channels = state.channels
+        if (channels === cachedChannelSource) return
+        cachedChannelSource = channels
+        cachedSortedChannels = channels.sortedChannels()
+        cachedCategories = channels.asSequence()
+            .map(::channelCategoryName)
+            .distinct()
+            .sorted()
             .toList()
     }
 
@@ -355,8 +401,3 @@ internal fun nextEpgRefreshDelayMillis(sources: List<EpgSource>, interval: Refre
 
 private fun List<Channel>.sortedChannels(): List<Channel> =
     sortedWith(compareBy<Channel> { it.tvgChno ?: Int.MAX_VALUE }.thenBy { normalize(it.name) })
-
-private fun Programme.shiftedBy(hours: Double?): Programme {
-    val offset = hours?.takeIf { it.isFinite() }?.times(MILLIS_PER_HOUR)?.roundToLong() ?: return this
-    return if (offset == 0L) this else copy(start = start + offset, end = end + offset)
-}

@@ -258,7 +258,7 @@ private fun ChannelDirectory(
         if (centredOpenRequest != listOpenRequest) {
             withFrameNanos { }
             val offset = -((viewportHeightPx - with(density) { rowHeight.roundToPx() }).coerceAtLeast(0) / 2)
-            listState.animateScrollToItem(target, offset)
+            listState.scrollToItem(target, offset)
             centredOpenRequest = listOpenRequest
         } else listState.animateScrollToItem(target)
     }

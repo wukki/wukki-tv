@@ -43,6 +43,8 @@ fun WukkiApp(
     playbackEngineLabel: String,
     onActiveSectionChange: (DashboardSection) -> Unit = {},
     androidSettingsNavigation: Boolean = false,
+    requireDoubleBackToExit: Boolean = false,
+    onExitConfirmation: (String) -> Unit = {},
     onPlatformBackActionChange: ((() -> Boolean)?) -> Unit = {}
 ) {
     val model = remember(dependencies) { dependencies.createModel() }
@@ -72,9 +74,11 @@ fun WukkiApp(
     var programmeOverlayVisible by remember { mutableStateOf(false) }
     var liveChannelPreviewState by remember { mutableStateOf(LiveChannelPreviewState()) }
     var liveNavigationState by remember { mutableStateOf(LiveNavigationVisibilityState()) }
+    var exitConfirmationState by remember { mutableStateOf(ExitConfirmationState()) }
     var channelNumberInput by remember { mutableStateOf("") }
     var deviceInfo by remember { mutableStateOf<DeviceInfo?>(null) }
     val guideState = rememberEpgGuideState()
+    val guideDataSource = remember(model) { model.guideDataSource() }
     val baseDensity = LocalDensity.current
     val mainSections = DashboardSection.entries
 
@@ -104,6 +108,7 @@ fun WukkiApp(
     }
 
     fun activateSection(section: DashboardSection) {
+        exitConfirmationState = ExitConfirmationState()
         val previousSection = activeSection
         if (section == DashboardSection.LIVE && previousSection != DashboardSection.LIVE) {
             handleLiveNavigation(LiveNavigationVisibilityEvent.EnterLive)
@@ -119,8 +124,7 @@ fun WukkiApp(
             channelListOpenRequest++
         }
         if (section == DashboardSection.GUIDE && activeSection != DashboardSection.GUIDE) {
-            val guideData = model.guideDataSource()
-            guideState.focusCurrentProgramme(guideData, guideTimeline(tick, model.guideLatestProgrammeEnd()), tick)
+            guideState.focusCurrentProgramme(guideDataSource, guideTimeline(tick, model.guideLatestProgrammeEnd()), tick)
         }
         if (androidSettingsNavigation && section == DashboardSection.SETTINGS && activeSection != DashboardSection.SETTINGS) {
             settingsNavigation = settingsNavigation.copy(section = null, option = null)
@@ -130,7 +134,8 @@ fun WukkiApp(
         focusZone = TvFocusZone.CONTENT
     }
 
-    val visibleChannelIds = model.filteredChannels().map { it.id }
+    val visibleChannels = model.filteredChannels()
+    val visibleChannelIds = remember(visibleChannels) { visibleChannels.map { it.id } }
     LaunchedEffect(visibleChannelIds, model.selectedChannelId) {
         channelListIndex = restoredChannelIndex(
             channelIds = visibleChannelIds,
@@ -210,7 +215,7 @@ fun WukkiApp(
     )
 
     fun showGuideProgrammeDetails() {
-        if (guideState.focusedProgramme(model.guideDataSource(), guideTimeline(tick, model.guideLatestProgrammeEnd())) != null) {
+        if (guideState.focusedProgramme(guideDataSource, guideTimeline(tick, model.guideLatestProgrammeEnd())) != null) {
             guideProgrammeDetailsVisible = true
             guideProgrammeDialogState = GuideProgrammeDialogState()
         }
@@ -221,7 +226,7 @@ fun WukkiApp(
         guideProgrammeDialogState = transition.state
         when (transition.effect) {
             GuideProgrammeDialogEffect.DISMISS -> guideProgrammeDetailsVisible = false
-            GuideProgrammeDialogEffect.OPEN_CHANNEL -> guideState.focusedProgramme(model.guideDataSource(), guideTimeline(tick, model.guideLatestProgrammeEnd()))?.first?.let { channel ->
+            GuideProgrammeDialogEffect.OPEN_CHANNEL -> guideState.focusedProgramme(guideDataSource, guideTimeline(tick, model.guideLatestProgrammeEnd()))?.first?.let { channel ->
                 openGuideProgrammeChannel(channel.id)
             } ?: run { guideProgrammeDetailsVisible = false }
             GuideProgrammeDialogEffect.NONE -> Unit
@@ -284,6 +289,7 @@ fun WukkiApp(
 
     fun handleBackNavigation(): Boolean {
         if (activeSection == DashboardSection.LIVE && !liveNavigationState.visible) {
+            exitConfirmationState = ExitConfirmationState()
             handleLiveNavigation(LiveNavigationVisibilityEvent.Reveal(focusNavigation = true))
             return true
         }
@@ -297,29 +303,45 @@ fun WukkiApp(
         ).reduce()
         return when (effect) {
             AppBackNavigationEffect.DISMISS_GUIDE_DIALOG -> {
+                exitConfirmationState = ExitConfirmationState()
                 guideProgrammeDetailsVisible = false
                 true
             }
             AppBackNavigationEffect.CLOSE_CHANNEL_SEARCH -> {
+                exitConfirmationState = ExitConfirmationState()
                 model.setChannelQuery("")
                 channelSearchOpen = false
                 channelRemoteFocus = ChannelRemoteFocus.LIST
                 true
             }
             AppBackNavigationEffect.DISMISS_LIVE_OVERLAY -> {
+                exitConfirmationState = ExitConfirmationState()
                 dismissLiveChannelPreview(hidePanel = true)
                 true
             }
             AppBackNavigationEffect.CLOSE_SETTINGS_DETAIL -> {
+                exitConfirmationState = ExitConfirmationState()
                 settingsNavigation = settingsNavigation.copy(section = null, option = null)
                 true
             }
             AppBackNavigationEffect.FOCUS_MAIN_NAVIGATION -> {
+                exitConfirmationState = ExitConfirmationState()
                 mainNavigationIndex = mainSections.indexOf(activeSection).coerceAtLeast(0)
                 focusZone = TvFocusZone.MAIN_NAVIGATION
                 true
             }
-            AppBackNavigationEffect.EXIT_APPLICATION -> false
+            AppBackNavigationEffect.EXIT_APPLICATION -> {
+                if (!requireDoubleBackToExit) return false
+                val result = exitConfirmationState.requestExit(System.currentTimeMillis())
+                exitConfirmationState = result.state
+                when (result.effect) {
+                    ExitConfirmationEffect.SHOW_HINT -> {
+                        onExitConfirmation(tr(model.settings.language, "app.exit.confirm"))
+                        true
+                    }
+                    ExitConfirmationEffect.EXIT -> false
+                }
+            }
         }
     }
 
@@ -477,6 +499,7 @@ fun WukkiApp(
                     // Android forwards the system Back key to OnBackPressedDispatcher.
                     // Consuming it here too would advance the back hierarchy twice.
                     if (androidSettingsNavigation && event.key == Key.Back) return@onPreviewKeyEvent false
+                    if (!event.key.isBackKey()) exitConfirmationState = ExitConfirmationState()
                     if (guideProgrammeDetailsVisible) {
                         val dialogEvent = when {
                             event.key.isBackKey() -> GuideProgrammeDialogEvent.BACK
@@ -507,6 +530,12 @@ fun WukkiApp(
                     if (event.key.isBackKey()) {
                         return@onPreviewKeyEvent handleBackNavigation()
                     }
+                    if (activeSection == DashboardSection.LIVE) {
+                        event.key.livePreviewEvent()?.let { previewEvent ->
+                            handleLiveChannelPreview(previewEvent)
+                            return@onPreviewKeyEvent true
+                        }
+                    }
                     if (focusZone == TvFocusZone.MAIN_NAVIGATION) {
                         val wasLive = activeSection == DashboardSection.LIVE
                         val remoteKey = event.key.toRemoteKey() ?: return@onPreviewKeyEvent false
@@ -527,7 +556,7 @@ fun WukkiApp(
                             showGuideProgrammeDetails()
                             return@onPreviewKeyEvent true
                         }
-                        if (guideState.handleKey(event.key, model.guideDataSource(), scope, guideTimeline(tick, model.guideLatestProgrammeEnd()))) return@onPreviewKeyEvent true
+                        if (guideState.handleKey(event.key, guideDataSource, scope, guideTimeline(tick, model.guideLatestProgrammeEnd()))) return@onPreviewKeyEvent true
                     }
                     if (activeSection == DashboardSection.LIVE && event.key.isConfirmKey()) {
                         if (channelNumberInput.isNotEmpty()) {
@@ -595,13 +624,9 @@ fun WukkiApp(
                         channelNumberInput = (channelNumberInput + digit).take(4)
                         return@onPreviewKeyEvent true
                     }
-                    when (event.key) {
-                        Key.PageDown -> switchLiveChannel(1)
-                        Key.PageUp -> switchLiveChannel(-1)
-                        Key.DirectionDown -> handleLiveChannelPreview(LiveChannelPreviewEvent.NEXT)
-                        Key.DirectionUp -> handleLiveChannelPreview(LiveChannelPreviewEvent.PREVIOUS)
-                        else -> return@onPreviewKeyEvent false
-                    }
+                    val liveChannelDelta = event.key.liveImmediateChannelDelta()
+                        ?: return@onPreviewKeyEvent false
+                    switchLiveChannel(liveChannelDelta)
                     true
                 }
         ) {
@@ -611,6 +636,7 @@ fun WukkiApp(
                 tick = tick,
                 activeSection = activeSection,
                 liveNavigationVisible = liveNavigationState.visible,
+                guideDataSource = guideDataSource,
                 guideState = guideState,
                 onSectionChange = { section ->
                     if (section == DashboardSection.LIVE && activeSection == DashboardSection.LIVE) {
