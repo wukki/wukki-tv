@@ -41,7 +41,9 @@ data class SideNavigationUiState(
     val entries: List<NavigationEntryUiState>,
     val activeSection: DashboardSection,
     val focusedSection: DashboardSection? = null
-)
+) {
+    val highlightedSection: DashboardSection get() = focusedSection ?: activeSection
+}
 
 /** Horizontal dashboard navigation shared by desktop and Android. */
 @Composable
@@ -72,7 +74,7 @@ fun TopNavigation(
             state.entries.forEach { entry ->
                 TopNavigationItem(
                     entry = entry,
-                    selected = entry.section == state.activeSection || entry.section == state.focusedSection,
+                    selected = entry.section == state.highlightedSection,
                     scale = scale,
                     showLabel = showLabels,
                     onClick = { onSelect(entry.section) },
