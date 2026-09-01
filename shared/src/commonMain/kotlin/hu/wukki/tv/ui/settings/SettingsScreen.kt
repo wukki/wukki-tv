@@ -131,7 +131,7 @@ private fun SettingsNavigation(
                 val focused = selected == null && remoteNavigationActive && index == remoteCategoryIndex
                 SettingsListRow(
                     title = item.title(state.language),
-                    selected = active || focused,
+                    highlight = if (active || focused) SettingsRowHighlight.ACTIVE else SettingsRowHighlight.NONE,
                     onClick = { onCategoryFocus(index); onSelect(item) },
                     scale = scale,
                     titleFontSize = 19.sp,

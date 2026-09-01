@@ -214,6 +214,7 @@ private fun FixedSourceCard(
     SettingsListRow(
         title = tr(language, titleKey),
         description = details,
+        highlight = if (selected) SettingsRowHighlight.FOCUSED else SettingsRowHighlight.NONE,
         onClick = onFocus,
         scale = scale
     ) {

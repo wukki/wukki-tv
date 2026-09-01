@@ -46,7 +46,14 @@ import hu.wukki.tv.AspectRatioMode
 import hu.wukki.tv.BufferProfile
 import hu.wukki.tv.ChannelListDisplayMode
 import hu.wukki.tv.RefreshInterval
+import hu.wukki.tv.ui.components.WukkiColors
 import hu.wukki.tv.ui.components.tr
+
+internal enum class SettingsRowHighlight {
+    NONE,
+    FOCUSED,
+    ACTIVE
+}
 
 @Composable
 @OptIn(ExperimentalFoundationApi::class)
@@ -67,7 +74,7 @@ internal fun SettingsOptionRow(
     SettingsListRow(
         title = tr(language, titleKey),
         description = descriptionKey?.let { tr(language, it) },
-        selected = selected,
+        highlight = if (selected) SettingsRowHighlight.FOCUSED else SettingsRowHighlight.NONE,
         onClick = if (onFocus != null || onSelect != null) ({ onFocus?.invoke(); onSelect?.invoke() }) else null,
         scale = scale,
         modifier = Modifier.bringIntoViewRequester(bringIntoViewRequester),
@@ -164,7 +171,7 @@ internal fun SettingsToggle(
 internal fun SettingsListRow(
     title: String,
     description: String? = null,
-    selected: Boolean = false,
+    highlight: SettingsRowHighlight = SettingsRowHighlight.NONE,
     onClick: (() -> Unit)? = null,
     scale: Float = 1f,
     titleFontSize: TextUnit = 19.sp,
@@ -176,14 +183,21 @@ internal fun SettingsListRow(
         headlineContent = { Text(title, fontSize = titleFontSize * scale, fontWeight = titleWeight, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         supportingContent = description?.let { value -> { Text(value, maxLines = 1, overflow = TextOverflow.Ellipsis) } },
         trailingContent = control,
-        colors = if (selected) {
-            ListItemDefaults.colors(
+        colors = when (highlight) {
+            SettingsRowHighlight.NONE -> ListItemDefaults.colors()
+            SettingsRowHighlight.FOCUSED -> ListItemDefaults.colors(
+                containerColor = WukkiColors.surfaceSelected,
+                headlineColor = MaterialTheme.colorScheme.onSurface,
+                supportingColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                trailingIconColor = MaterialTheme.colorScheme.onSurface
+            )
+            SettingsRowHighlight.ACTIVE -> ListItemDefaults.colors(
                 containerColor = MaterialTheme.colorScheme.primary,
                 headlineColor = MaterialTheme.colorScheme.onPrimary,
                 supportingColor = MaterialTheme.colorScheme.onPrimary,
                 trailingIconColor = MaterialTheme.colorScheme.onPrimary
             )
-        } else ListItemDefaults.colors(),
+        },
         modifier = modifier.fillMaxWidth().heightIn(min = 81.dp * scale)
             .then(onClick?.let { Modifier.clickable(onClick = it) } ?: Modifier)
     )
