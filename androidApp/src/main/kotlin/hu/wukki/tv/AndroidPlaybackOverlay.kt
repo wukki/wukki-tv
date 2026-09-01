@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -92,7 +91,7 @@ private fun ProgrammePanel(data: PlaybackOverlayData, modifier: Modifier) {
         modifier = modifier
             .fillMaxWidth(PlaybackInfoPanelStyle.WIDTH_FRACTION)
             .widthIn(max = PlaybackInfoPanelStyle.MAX_WIDTH.dp)
-            .heightIn(min = PlaybackInfoPanelStyle.MIN_HEIGHT.dp)
+            .height(PlaybackInfoPanelStyle.MIN_HEIGHT.dp)
             .background(WukkiColors.overlayPanel)
             .padding(PlaybackInfoPanelStyle.CONTENT_PADDING.dp),
         horizontalArrangement = Arrangement.spacedBy(PlaybackInfoPanelStyle.COLUMN_GAP.dp),

@@ -21,7 +21,8 @@ import kotlin.math.min
 internal data class RenderedPlaybackOverlay(
     val data: PlaybackOverlayData,
     val logo: BufferedImage? = null,
-    val programmeImage: BufferedImage? = null
+    val programmeImage: BufferedImage? = null,
+    val programmeImageFailed: Boolean = false
 )
 
 internal class DesktopPlaybackOverlayCoordinator(
@@ -42,7 +43,8 @@ internal class DesktopPlaybackOverlayCoordinator(
         component.overlay = RenderedPlaybackOverlay(
             data = data,
             logo = data.logoUrl?.let(imageCache::get),
-            programmeImage = data.programmeImageUrl?.let(imageCache::get)
+            programmeImage = data.programmeImageUrl?.let(imageCache::get),
+            programmeImageFailed = data.programmeImageUrl?.let(failedImages::containsKey) == true
         )
         requestRepaint()
         listOfNotNull(data.logoUrl, data.programmeImageUrl).distinct().forEach { loadImage(it, data.channelId) }
@@ -61,10 +63,11 @@ internal class DesktopPlaybackOverlayCoordinator(
             }
             val current = component.overlay
             val imageStillUsed = current?.data?.let { it.logoUrl == imageUrl || it.programmeImageUrl == imageUrl } == true
-            if (!released && loaded != null && current?.data?.channelId == channelId && imageStillUsed) {
+            if (!released && current?.data?.channelId == channelId && imageStillUsed) {
                 component.overlay = current.copy(
                     logo = current.data.logoUrl?.let(imageCache::get),
-                    programmeImage = current.data.programmeImageUrl?.let(imageCache::get)
+                    programmeImage = current.data.programmeImageUrl?.let(imageCache::get),
+                    programmeImageFailed = current.data.programmeImageUrl?.let(failedImages::containsKey) == true
                 )
                 requestRepaint()
             }
@@ -188,17 +191,14 @@ private fun drawProgrammePanel(
     scale: Float
 ) {
     val data = content.data
-    fun scaled(value: Float, minimum: Int = 1): Int = (value * scale).toInt().coerceAtLeast(minimum)
+    val geometry = desktopInfoPanelGeometry(width, height, scale)
+    fun scaled(value: Float, minimum: Int = 1): Int =
+        (value * geometry.contentScale).toInt().coerceAtLeast(minimum)
 
-    val outerMargin = scaled(PlaybackInfoPanelStyle.OUTER_MARGIN, 12)
-    val maximumPanelWidth = scaled(PlaybackInfoPanelStyle.MAX_WIDTH, 320)
-    val panelWidth = min((width * PlaybackInfoPanelStyle.WIDTH_FRACTION).toInt(), maximumPanelWidth)
-        .coerceAtMost((width - outerMargin * 2).coerceAtLeast(1))
-    val panelHeight = scaled(PlaybackInfoPanelStyle.MIN_HEIGHT, 90)
-        .coerceAtMost((height - outerMargin * 2).coerceAtLeast(1))
-    val margin = (width - panelWidth) / 2
-    val bottomMargin = outerMargin
-    val top = height - bottomMargin - panelHeight
+    val margin = geometry.left
+    val top = geometry.top
+    val panelWidth = geometry.width
+    val panelHeight = geometry.height
     graphics.color = WukkiOverlayColors.panel
     graphics.fillRect(margin, top, panelWidth, panelHeight)
 
@@ -223,7 +223,7 @@ private fun drawProgrammePanel(
         centerY = channelY + arrowSize / 2,
         size = arrowSize,
         pointsUp = true,
-        scale = scale
+        scale = geometry.contentScale
     )
     channelY += arrowSize + channelGap
     graphics.font = numberFont
@@ -256,10 +256,11 @@ private fun drawProgrammePanel(
         centerY = channelY + arrowSize / 2,
         size = arrowSize,
         pointsUp = false,
-        scale = scale
+        scale = geometry.contentScale
     )
 
     val artwork = content.programmeImage
+    val showArtworkSlot = data.programmeImageUrl != null && !content.programmeImageFailed
     val artworkWidth = scaled(PlaybackInfoPanelStyle.ARTWORK_WIDTH, 76)
     val artworkHeight = (artworkWidth / PlaybackInfoPanelStyle.ARTWORK_ASPECT_RATIO).toInt().coerceAtLeast(43)
     val artworkLeft = channelRight + columnGap
@@ -274,7 +275,7 @@ private fun drawProgrammePanel(
             radius = scaled(PlaybackInfoPanelStyle.ARTWORK_CORNER_RADIUS, 4)
         )
     }
-    val contentLeft = if (artwork != null) {
+    val contentLeft = if (showArtworkSlot) {
         artworkLeft + artworkWidth + columnGap
     } else {
         channelRight + columnGap
