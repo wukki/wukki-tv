@@ -2,13 +2,17 @@ package hu.wukki.tv.ui.settings
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -55,6 +59,8 @@ internal enum class SettingsRowHighlight {
     ACTIVE
 }
 
+private val SettingsChoiceControlHeight = 40.dp
+
 @Composable
 @OptIn(ExperimentalFoundationApi::class)
 internal fun SettingsOptionRow(
@@ -94,6 +100,8 @@ internal fun <T> SettingsExposedDropdown(
 ) {
     var expanded by remember { mutableStateOf(false) }
     val dropdownShape = RoundedCornerShape(28.dp)
+    val displayValue = label(value)
+    val fieldState = remember(displayValue) { TextFieldState(displayValue) }
     LaunchedEffect(openRequest) { if (openRequest > 0) expanded = true }
     ExposedDropdownMenuBox(
         expanded = expanded,
@@ -101,17 +109,18 @@ internal fun <T> SettingsExposedDropdown(
         modifier = Modifier.fillMaxWidth()
     ) {
         OutlinedTextField(
-            value = label(value),
-            onValueChange = {},
+            state = fieldState,
             readOnly = true,
-            singleLine = true,
+            lineLimits = TextFieldLineLimits.SingleLine,
             shape = dropdownShape,
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = MaterialTheme.colorScheme.primary,
                 unfocusedBorderColor = MaterialTheme.colorScheme.primary
             ),
+            contentPadding = PaddingValues(horizontal = 16.dp),
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+            modifier = Modifier.fillMaxWidth().height(SettingsChoiceControlHeight)
+                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
         )
         ExposedDropdownMenu(
             expanded = expanded,
@@ -224,7 +233,7 @@ internal fun RefreshSelector(
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
 internal fun <T> SettingsSegmentedChoice(entries: List<T>, selected: T, label: (T) -> String, onSelect: (T) -> Unit) {
-    SingleChoiceSegmentedButtonRow {
+    SingleChoiceSegmentedButtonRow(modifier = Modifier.height(SettingsChoiceControlHeight)) {
         entries.forEachIndexed { index, entry ->
             SegmentedButton(
                 selected = entry == selected,
