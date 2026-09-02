@@ -1,0 +1,635 @@
+name: Build and publish release
+
+on:
+  workflow_dispatch:
+    inputs:
+      prerelease:
+        description: Mark the GitHub Release as a prerelease
+        required: false
+        type: boolean
+        default: false
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  VLC_VERSION: 3.0.23
+
+jobs:
+  metadata:
+    name: Generate release metadata
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      build_id: ${{ steps.version.outputs.build_id }}
+      package_version: ${{ steps.version.outputs.package_version }}
+      android_version_code: ${{ steps.version.outputs.android_version_code }}
+      build_date: ${{ steps.version.outputs.build_date }}
+      release_tag: ${{ steps.version.outputs.release_tag }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Calculate common version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          build_date="$(date -u +%F)"
+          mapfile -t metadata < <(
+            ./gradlew -q printWukkiVersion \
+              -PwukkiBuildDate="$build_date" \
+              -PwukkiGitSha="$GITHUB_SHA" \
+              -PwukkiRunNumber="$GITHUB_RUN_NUMBER" \
+              --no-daemon
+          )
+          for entry in "${metadata[@]}"; do
+            case "$entry" in
+              displayVersion=*) version="${entry#*=}" ;;
+              buildId=*) build_id="${entry#*=}" ;;
+              packageVersion=*) package_version="${entry#*=}" ;;
+              androidVersionCode=*) android_version_code="${entry#*=}" ;;
+            esac
+          done
+          : "${version:?Missing display version}"
+          : "${build_id:?Missing build identifier}"
+          : "${package_version:?Missing package version}"
+          : "${android_version_code:?Missing Android version code}"
+
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            release_tag="$GITHUB_REF_NAME"
+          else
+            release_tag="v$version"
+          fi
+          prerelease="${{ github.event_name == 'workflow_dispatch' && inputs.prerelease || false }}"
+
+          {
+            echo "version=$version"
+            echo "build_id=$build_id"
+            echo "package_version=$package_version"
+            echo "android_version_code=$android_version_code"
+            echo "build_date=$build_date"
+            echo "release_tag=$release_tag"
+            echo "prerelease=$prerelease"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Show version metadata
+        run: |
+          echo "Version: ${{ steps.version.outputs.version }}"
+          echo "Build: ${{ steps.version.outputs.build_id }}"
+          echo "Installer version: ${{ steps.version.outputs.package_version }}"
+          echo "Android version code: ${{ steps.version.outputs.android_version_code }}"
+          echo "Release tag: ${{ steps.version.outputs.release_tag }}"
+
+  verify:
+    name: Verify source
+    needs: metadata
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Lint GitHub Actions workflows
+        run: >-
+          docker run --rm
+          --volume "$GITHUB_WORKSPACE:/repo"
+          --workdir /repo
+          rhysd/actionlint:1.7.12
+          -color
+
+      - name: Test versioning build logic
+        run: ./gradlew -p buildSrc test --no-daemon
+
+      - name: Run project verification
+        run: >-
+          ./gradlew
+          :shared:desktopTest
+          :shared:testAndroidHostTest
+          :shared:checkLocalizationBundles
+          :desktopApp:test
+          :desktopApp:compileKotlin
+          :androidApp:testDebugUnitTest
+          :androidApp:assembleDebug
+          -PwukkiBuildDate=${{ needs.metadata.outputs.build_date }}
+          -PwukkiGitSha=${{ github.sha }}
+          -PwukkiRunNumber=${{ github.run_number }}
+          -PwukkiVersion=${{ needs.metadata.outputs.version }}
+          -PwukkiBuild=${{ needs.metadata.outputs.build_id }}
+          -PwukkiPackageVersion=${{ needs.metadata.outputs.package_version }}
+          -PwukkiVersionCode=${{ needs.metadata.outputs.android_version_code }}
+          --no-daemon
+
+  package-desktop:
+    name: Package ${{ matrix.artifact_id }}
+    needs:
+      - metadata
+      - verify
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - artifact_id: macos-arm64
+            runner: macos-14
+            platform: macos
+            architecture: arm64
+            task: packageDmg
+            extension: dmg
+          - artifact_id: macos-x64
+            runner: macos-15-intel
+            platform: macos
+            architecture: x86_64
+            task: packageDmg
+            extension: dmg
+          - artifact_id: windows-x64
+            runner: windows-2022
+            platform: windows
+            architecture: x86_64
+            task: packageMsi
+            extension: msi
+          - artifact_id: linux-x64
+            runner: ubuntu-22.04
+            platform: linux
+            architecture: x86_64
+            task: packageDeb
+            extension: deb
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Validate optional Apple signing configuration
+        if: matrix.platform == 'macos'
+        id: apple-signing
+        shell: bash
+        env:
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          values=(
+            "$APPLE_CERTIFICATE_BASE64"
+            "$APPLE_CERTIFICATE_PASSWORD"
+            "$APPLE_SIGNING_IDENTITY"
+            "$APPLE_ID"
+            "$APPLE_APP_SPECIFIC_PASSWORD"
+            "$APPLE_TEAM_ID"
+          )
+          configured=0
+          for value in "${values[@]}"; do
+            [[ -n "$value" ]] && configured=$((configured + 1))
+          done
+          if [[ "$configured" -ne 0 && "$configured" -ne "${#values[@]}" ]]; then
+            echo "Apple signing secrets must either all be configured or all be absent." >&2
+            exit 1
+          fi
+          [[ "$configured" -eq "${#values[@]}" ]] && echo "enabled=true" >> "$GITHUB_OUTPUT" || echo "enabled=false" >> "$GITHUB_OUTPUT"
+
+      - name: Import Apple signing certificate
+        if: matrix.platform == 'macos' && steps.apple-signing.outputs.enabled == 'true'
+        shell: bash
+        env:
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          certificate="$RUNNER_TEMP/wukki-signing.p12"
+          keychain="$RUNNER_TEMP/wukki-signing.keychain-db"
+          keychain_password="wukki-ci-$GITHUB_RUN_ID"
+          printf '%s' "$APPLE_CERTIFICATE_BASE64" | base64 -D > "$certificate"
+          security create-keychain -p "$keychain_password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+          security import "$certificate" -P "$APPLE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$keychain"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain"
+          security list-keychain -d user -s "$keychain"
+
+      - name: Download VLC runtime for macOS
+        if: matrix.platform == 'macos'
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 \
+            --output "$RUNNER_TEMP/vlc.dmg" \
+            "https://get.videolan.org/vlc/$VLC_VERSION/macosx/vlc-$VLC_VERSION-universal.dmg"
+          hdiutil attach "$RUNNER_TEMP/vlc.dmg" -nobrowse -readonly -mountpoint "$RUNNER_TEMP/WukkiVLC"
+          mkdir -p desktopApp/build/vlc-runtime
+          cp -R "$RUNNER_TEMP/WukkiVLC/VLC.app/Contents/MacOS/." desktopApp/build/vlc-runtime/
+          hdiutil detach "$RUNNER_TEMP/WukkiVLC"
+          test -f desktopApp/build/vlc-runtime/lib/libvlc.dylib
+          test -f desktopApp/build/vlc-runtime/lib/libvlccore.dylib
+          test -f desktopApp/build/vlc-runtime/plugins/libvmem_plugin.dylib
+
+      - name: Download VLC runtime for Windows
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          Invoke-WebRequest "https://get.videolan.org/vlc/$env:VLC_VERSION/win64/vlc-$env:VLC_VERSION-win64.zip" -OutFile "$env:RUNNER_TEMP\vlc.zip"
+          Expand-Archive "$env:RUNNER_TEMP\vlc.zip" -DestinationPath "$env:RUNNER_TEMP\extracted-vlc"
+          New-Item -ItemType Directory -Force -Path desktopApp/build/vlc-runtime | Out-Null
+          Copy-Item "$env:RUNNER_TEMP\extracted-vlc\vlc-$env:VLC_VERSION\*" desktopApp/build/vlc-runtime -Recurse -Force
+          if (!(Test-Path desktopApp/build/vlc-runtime/libvlc.dll)) { throw "libvlc.dll is missing" }
+          if (!(Test-Path desktopApp/build/vlc-runtime/plugins/video_output/libvmem_plugin.dll)) { throw "libvmem_plugin.dll is missing" }
+
+      - name: Prepare VLC runtime for Linux
+        if: matrix.platform == 'linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes vlc
+          mkdir -p desktopApp/build/vlc-runtime/plugins
+          cp /usr/lib/x86_64-linux-gnu/libvlc.so* desktopApp/build/vlc-runtime/
+          cp /usr/lib/x86_64-linux-gnu/libvlccore.so* desktopApp/build/vlc-runtime/
+          cp -R /usr/lib/x86_64-linux-gnu/vlc/plugins/. desktopApp/build/vlc-runtime/plugins/
+          dpkg-query -W -f='${Version}\n' vlc > desktopApp/build/linux-vlc-version.txt
+          test -f desktopApp/build/vlc-runtime/plugins/video_output/libvmem_plugin.so
+
+      - name: Build desktop installer
+        shell: bash
+        env:
+          WUKKI_VLC_RUNTIME: ${{ github.workspace }}/desktopApp/build/vlc-runtime
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          task="${{ matrix.task }}"
+          if [[ "${{ matrix.platform }}" == "macos" && "${{ steps.apple-signing.outputs.enabled }}" == "true" ]]; then
+            task="notarizeDmg"
+            export ORG_GRADLE_PROJECT_macSigningIdentity="$APPLE_SIGNING_IDENTITY"
+            export ORG_GRADLE_PROJECT_macSigningKeychain="$RUNNER_TEMP/wukki-signing.keychain-db"
+            export ORG_GRADLE_PROJECT_macSigningPrefix="hu.wukki.tv."
+            export ORG_GRADLE_PROJECT_macNotarizationAppleId="$APPLE_ID"
+            export ORG_GRADLE_PROJECT_macNotarizationPassword="$APPLE_APP_SPECIFIC_PASSWORD"
+            export ORG_GRADLE_PROJECT_macNotarizationTeamId="$APPLE_TEAM_ID"
+          fi
+          ./gradlew ":desktopApp:$task" \
+            -PwukkiBuildDate="${{ needs.metadata.outputs.build_date }}" \
+            -PwukkiGitSha="$GITHUB_SHA" \
+            -PwukkiRunNumber="$GITHUB_RUN_NUMBER" \
+            -PwukkiVersion="${{ needs.metadata.outputs.version }}" \
+            -PwukkiBuild="${{ needs.metadata.outputs.build_id }}" \
+            -PwukkiPackageVersion="${{ needs.metadata.outputs.package_version }}" \
+            -PwukkiVersionCode="${{ needs.metadata.outputs.android_version_code }}" \
+            --no-daemon
+
+      - name: Validate and stage macOS installer
+        if: matrix.platform == 'macos'
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_file="$(find desktopApp/build/compose/binaries/main/dmg -maxdepth 1 -name '*.dmg' -print -quit)"
+          test -n "$source_file"
+          hdiutil verify "$source_file"
+          app="desktopApp/build/compose/binaries/main/app/Wukki TV.app"
+          file "$app/Contents/MacOS/Wukki TV" | grep -q "${{ matrix.architecture }}"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app/Contents/Info.plist")" = "${{ needs.metadata.outputs.package_version }}"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$app/Contents/Info.plist")" = "${{ needs.metadata.outputs.package_version }}"
+          icon_name="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconFile' "$app/Contents/Info.plist")"
+          test -f "$app/Contents/Resources/$icon_name"
+          test -f "$app/Contents/app/resources/runtime/vlc/lib/libvlc.dylib"
+          test -f "$app/Contents/app/resources/runtime/vlc/plugins/libvmem_plugin.dylib"
+          if [[ "${{ steps.apple-signing.outputs.enabled }}" == "true" ]]; then
+            codesign --verify --deep --strict --verbose=2 "$app"
+            xcrun stapler validate "$source_file"
+          fi
+          mkdir -p release-output
+          cp "$source_file" "release-output/Wukki-TV-${{ needs.metadata.outputs.version }}-${{ matrix.artifact_id }}.dmg"
+
+      - name: Validate optional Windows signing configuration
+        if: matrix.platform == 'windows'
+        id: windows-signing
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $configured = @($env:WINDOWS_CERTIFICATE_BASE64, $env:WINDOWS_CERTIFICATE_PASSWORD) | Where-Object { $_ }
+          if ($configured.Count -ne 0 -and $configured.Count -ne 2) { throw "Windows signing secrets must both be configured or both be absent." }
+          ("enabled=$($configured.Count -eq 2)").ToLower() | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Sign Windows installer
+        if: matrix.platform == 'windows' && steps.windows-signing.outputs.enabled == 'true'
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $msi = Get-ChildItem desktopApp/build/compose/binaries/main/msi/*.msi | Select-Object -First 1
+          $certificate = "$env:RUNNER_TEMP\wukki-signing.pfx"
+          [IO.File]::WriteAllBytes($certificate, [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE_BASE64))
+          $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Filter signtool.exe -Recurse |
+            Sort-Object FullName -Descending | Select-Object -First 1
+          if (!$signtool) { throw "signtool.exe was not found" }
+          & $signtool.FullName sign /fd SHA256 /td SHA256 /tr http://timestamp.digicert.com /f $certificate /p $env:WINDOWS_CERTIFICATE_PASSWORD $msi.FullName
+          if ($LASTEXITCODE -ne 0) { throw "Authenticode signing failed" }
+
+      - name: Validate and stage Windows installer
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $msi = Get-ChildItem desktopApp/build/compose/binaries/main/msi/*.msi | Select-Object -First 1
+          if (!$msi) { throw "MSI installer is missing" }
+          $installer = New-Object -ComObject WindowsInstaller.Installer
+          $database = $installer.OpenDatabase($msi.FullName, 0)
+          $query = "SELECT ``Value`` FROM ``Property`` WHERE ``Property`` = 'ProductVersion'"
+          $view = $database.OpenView($query)
+          $view.Execute()
+          $record = $view.Fetch()
+          if (!$record -or $record.StringData(1) -ne "${{ needs.metadata.outputs.package_version }}") {
+            throw "Unexpected MSI ProductVersion"
+          }
+          if ("${{ steps.windows-signing.outputs.enabled }}" -eq "true") {
+            $signature = Get-AuthenticodeSignature $msi.FullName
+            if ($signature.Status -ne "Valid") { throw "Invalid MSI signature: $($signature.Status)" }
+          }
+          New-Item -ItemType Directory -Force release-output | Out-Null
+          Copy-Item $msi.FullName "release-output/Wukki-TV-${{ needs.metadata.outputs.version }}-${{ matrix.artifact_id }}.msi"
+
+      - name: Validate and stage Linux installer
+        if: matrix.platform == 'linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_file="$(find desktopApp/build/compose/binaries/main/deb -maxdepth 1 -name '*.deb' -print -quit)"
+          test -n "$source_file"
+          test "$(dpkg-deb -f "$source_file" Architecture)" = "amd64"
+          test "$(dpkg-deb -f "$source_file" Version)" = "${{ needs.metadata.outputs.package_version }}"
+          package_contents="$(dpkg-deb --contents "$source_file")"
+          grep -q 'resources/runtime/vlc/plugins/video_output/libvmem_plugin.so' <<< "$package_contents"
+          mkdir -p release-output
+          cp "$source_file" "release-output/Wukki-TV-${{ needs.metadata.outputs.version }}-${{ matrix.artifact_id }}.deb"
+          cp desktopApp/build/linux-vlc-version.txt release-output/
+
+      - name: Upload desktop installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: wukki-tv-${{ matrix.artifact_id }}
+          path: release-output/*
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Remove temporary signing credentials
+        if: always()
+        shell: bash
+        run: |
+          rm -f "$RUNNER_TEMP/wukki-signing.p12" "$RUNNER_TEMP/wukki-signing.pfx"
+          if [[ "${{ matrix.platform }}" == "macos" && -f "$RUNNER_TEMP/wukki-signing.keychain-db" ]]; then
+            security delete-keychain "$RUNNER_TEMP/wukki-signing.keychain-db" || true
+          fi
+
+  package-android:
+    name: Package Android release APK
+    needs:
+      - metadata
+      - verify
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Validate Android signing secrets
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for variable in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            if [[ -z "${!variable}" ]]; then
+              echo "Required Android signing secret $variable is missing." >&2
+              exit 1
+            fi
+          done
+
+      - name: Create temporary Android signing configuration
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          keystore="$RUNNER_TEMP/wukki-release.jks"
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$keystore"
+          {
+            echo "storeFile=$keystore"
+            echo "storePassword=$ANDROID_KEYSTORE_PASSWORD"
+            echo "keyAlias=$ANDROID_KEY_ALIAS"
+            echo "keyPassword=$ANDROID_KEY_PASSWORD"
+          } > androidApp/keystore.properties
+
+      - name: Build signed Android release APK
+        run: >-
+          ./gradlew
+          :androidApp:assembleRelease
+          -PwukkiBuildDate=${{ needs.metadata.outputs.build_date }}
+          -PwukkiGitSha=${{ github.sha }}
+          -PwukkiRunNumber=${{ github.run_number }}
+          -PwukkiVersion=${{ needs.metadata.outputs.version }}
+          -PwukkiBuild=${{ needs.metadata.outputs.build_id }}
+          -PwukkiPackageVersion=${{ needs.metadata.outputs.package_version }}
+          -PwukkiVersionCode=${{ needs.metadata.outputs.android_version_code }}
+          --no-daemon
+
+      - name: Verify and stage Android APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="androidApp/build/outputs/apk/release/androidApp-release.apk"
+          test -f "$apk"
+          build_tools="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          "$build_tools/apksigner" verify --verbose --print-certs "$apk"
+          badging="$($build_tools/aapt dump badging "$apk" | head -n 1)"
+          grep -q "name='hu.wukki.tv'" <<< "$badging"
+          grep -q "versionCode='${{ needs.metadata.outputs.android_version_code }}'" <<< "$badging"
+          grep -q "versionName='${{ needs.metadata.outputs.version }}'" <<< "$badging"
+          mkdir -p release-output
+          cp "$apk" "release-output/Wukki-TV-${{ needs.metadata.outputs.version }}-android-release.apk"
+
+      - name: Upload Android installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: wukki-tv-android-release
+          path: release-output/*.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Remove temporary Android signing credentials
+        if: always()
+        run: rm -f androidApp/keystore.properties "$RUNNER_TEMP/wukki-release.jks"
+
+  publish:
+    name: Publish GitHub Release
+    needs:
+      - metadata
+      - package-desktop
+      - package-android
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out source and tags
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download installers
+        uses: actions/download-artifact@v4
+        with:
+          pattern: wukki-tv-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Validate release files and metadata
+        shell: bash
+        env:
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          WINDOWS_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}
+        run: |
+          set -euo pipefail
+          version="${{ needs.metadata.outputs.version }}"
+          expected=(
+            "Wukki-TV-$version-macos-arm64.dmg"
+            "Wukki-TV-$version-macos-x64.dmg"
+            "Wukki-TV-$version-windows-x64.msi"
+            "Wukki-TV-$version-linux-x64.deb"
+            "Wukki-TV-$version-android-release.apk"
+          )
+          for artifact in "${expected[@]}"; do
+            test -f "release-assets/$artifact" || { echo "Missing release artifact: $artifact" >&2; exit 1; }
+          done
+          linux_vlc_version="$(cat release-assets/linux-vlc-version.txt)"
+          rm release-assets/linux-vlc-version.txt
+          (
+            cd release-assets
+            sha256sum "${expected[@]}" > SHA256SUMS.txt
+          )
+          apple_signed=false
+          windows_signed=false
+          [[ -n "$APPLE_CERTIFICATE_BASE64" ]] && apple_signed=true
+          [[ -n "$WINDOWS_CERTIFICATE_BASE64" ]] && windows_signed=true
+          jq -n \
+            --arg version "$version" \
+            --arg buildId "${{ needs.metadata.outputs.build_id }}" \
+            --arg commit "$GITHUB_SHA" \
+            --arg buildDate "${{ needs.metadata.outputs.build_date }}" \
+            --arg packageVersion "${{ needs.metadata.outputs.package_version }}" \
+            --argjson androidVersionCode "${{ needs.metadata.outputs.android_version_code }}" \
+            --arg vlcVersion "$VLC_VERSION" \
+            --arg linuxVlcVersion "$linux_vlc_version" \
+            --argjson appleSigned "$apple_signed" \
+            --argjson windowsSigned "$windows_signed" \
+            '{
+              version: $version,
+              buildId: $buildId,
+              commit: $commit,
+              buildDateUtc: $buildDate,
+              packageVersion: $packageVersion,
+              androidVersionCode: $androidVersionCode,
+              signing: {android: true, macos: $appleSigned, windows: $windowsSigned},
+              runtimes: {macosAndWindowsVlc: $vlcVersion, linuxVlc: $linuxVlcVersion}
+            }' > release-assets/release-metadata.json
+
+      - name: Validate or create release tag
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="${{ needs.metadata.outputs.release_tag }}"
+          if git rev-parse --verify --quiet "refs/tags/$tag" >/dev/null; then
+            tagged_commit="$(git rev-list -n 1 "$tag")"
+            if [[ "$tagged_commit" != "$GITHUB_SHA" ]]; then
+              echo "Tag $tag points to $tagged_commit instead of $GITHUB_SHA." >&2
+              exit 1
+            fi
+          fi
+
+      - name: Publish or update GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="${{ needs.metadata.outputs.release_tag }}"
+          title="Wukki TV ${{ needs.metadata.outputs.version }}"
+          prerelease_args=()
+          [[ "${{ needs.metadata.outputs.prerelease }}" == "true" ]] && prerelease_args+=(--prerelease)
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release edit "$tag" --title "$title" "${prerelease_args[@]}"
+            gh release upload "$tag" release-assets/* --clobber
+          else
+            gh release create "$tag" release-assets/* \
+              --target "$GITHUB_SHA" \
+              --title "$title" \
+              --generate-notes \
+              "${prerelease_args[@]}"
+          fi

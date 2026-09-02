@@ -45,6 +45,35 @@ Példa egyedi VLC runtime-mal:
 WUKKI_VLC_HOME="/Applications/VLC.app/Contents/MacOS" ./gradlew :desktopApp:run
 ```
 
+## Verziózás
+
+A CI/CD minden buildhez UTC alapján egységes verziót számol:
+
+```text
+YY.DDD.sha8
+```
+
+- `YY`: az év utolsó két számjegye;
+- `DDD`: az év napja három számjegyen;
+- `sha8`: a Git commitazonosító első nyolc karaktere.
+
+Például a 2026. év 245. napján, a `8001345f…` commitból készült verzió: `26.245.8001345f`. Ez jelenik meg a Névjegy oldalon, az Android `versionName` mezőjében, a GitHub Release címében és az artifactok fájlnevében. A desktop telepítők és az Android ezen felül platformkompatibilis, numerikus belső verziót kapnak.
+
+A helyileg számított értékek megtekinthetők ezzel:
+
+```sh
+./gradlew printWukkiVersion
+```
+
+Reprodukálható buildhez a dátum, a commit és a futásszám explicit is megadható:
+
+```sh
+./gradlew printWukkiVersion \
+  -PwukkiBuildDate=2026-09-02 \
+  -PwukkiGitSha=8001345f00000000000000000000000000000000 \
+  -PwukkiRunNumber=42
+```
+
 ## Csomagolás
 
 Natív telepítő készíthető DMG, MSI vagy DEB formátumban. A kiadásba szánt VLC runtime-ot a `WUKKI_VLC_RUNTIME` változóval lehet az alkalmazás erőforrásai közé másolni; a licencek a `LICENSES` könyvtárból kerülnek be.
@@ -53,9 +82,9 @@ Natív telepítő készíthető DMG, MSI vagy DEB formátumban. A kiadásba szá
 WUKKI_VLC_RUNTIME="/elérési/út/vlc-runtime" ./gradlew :desktopApp:packageDistributionForCurrentOS
 ```
 
-A GitHub Actions `Package desktop applications` workflow kézzel, illetve `v*` formátumú tag pusholásakor készít macOS, Windows és Linux telepítőket. A workflow a VLC runtime-ot is a telepítőbe csomagolja, ezért a kiadott alkalmazásokhoz nem szükséges külön VLC telepítés.
+A release workflow a VLC runtime-ot is a desktop telepítőkbe csomagolja, ezért a kiadott alkalmazásokhoz nem szükséges külön VLC telepítés.
 
-> A macOS DMG jelenleg nincs Apple Developer tanúsítvánnyal aláírva vagy notarizálva. Első indításkor Finderben jobb klikk → **Megnyitás** szükséges lehet.
+> A helyben készített vagy Apple secretek nélkül kiadott macOS DMG nincs Developer ID tanúsítvánnyal aláírva és notarizálva. Első indításkor Finderben jobb klikk → **Megnyitás** szükséges lehet.
 
 ## Android APK
 
@@ -88,6 +117,58 @@ adb install -r androidApp/build/outputs/apk/debug/androidApp-debug.apk
 ```
 
 Release APK saját aláírással készíthető. Másold az `androidApp/keystore.properties.example` fájlt `androidApp/keystore.properties` néven, töltsd ki a helyi keystore adataival, majd futtasd az `:androidApp:assembleRelease` feladatot. A keystore és a jelszavak nem kerülnek a repóba.
+
+## CI/CD és kiadás
+
+A `.github/workflows/ci.yml` pull requestnél, valamint a `main` vagy `master` ágra történő pushnál fut. Ellenőrzi a közös és platformspecifikus teszteket, a lokalizációt, a desktop fordítást és az Android debug APK-t. Kézi indításkor a debug APK Actions artifactként is letölthető.
+
+A `.github/workflows/release.yml` `v*` tag pusholásakor vagy kézi indítással egyetlen, ellenőrzött forráscommitból készíti el az összes kiadási csomagot:
+
+| Platform | Kimenet |
+| --- | --- |
+| macOS Apple Silicon | `Wukki-TV-<verzió>-macos-arm64.dmg` |
+| macOS Intel | `Wukki-TV-<verzió>-macos-x64.dmg` |
+| Windows x64 | `Wukki-TV-<verzió>-windows-x64.msi` |
+| Linux x64 | `Wukki-TV-<verzió>-linux-x64.deb` |
+| Android | `Wukki-TV-<verzió>-android-release.apk` |
+
+A kiadás tartalmaz egy `SHA256SUMS.txt` ellenőrzőösszeg-fájlt és egy `release-metadata.json` leírást is. Az installerek Actions artifactként 30 napig megmaradnak, sikeres teljes build után pedig GitHub Release-hez csatolódnak. Kézi indításnál a workflow létrehozza a `v<verzió>` taget; már létező, más commitra mutató taget nem ír felül.
+
+Az Android release kötelező aláírásához a repositoryban az alábbi Actions secretek szükségesek:
+
+- `ANDROID_KEYSTORE_BASE64`
+- `ANDROID_KEYSTORE_PASSWORD`
+- `ANDROID_KEY_ALIAS`
+- `ANDROID_KEY_PASSWORD`
+
+A macOS aláírás és notarizálás opcionális. Ha használod, a teljes készletet meg kell adni:
+
+- `APPLE_CERTIFICATE_BASE64`
+- `APPLE_CERTIFICATE_PASSWORD`
+- `APPLE_SIGNING_IDENTITY`
+- `APPLE_ID`
+- `APPLE_APP_SPECIFIC_PASSWORD`
+- `APPLE_TEAM_ID`
+
+A Windows Authenticode-aláírás szintén opcionális, és mindkét secretet együtt igényli:
+
+- `WINDOWS_CERTIFICATE_BASE64`
+- `WINDOWS_CERTIFICATE_PASSWORD`
+
+A tanúsítványokat és keystore-t Base64-kódolt binárisként kell megadni. A workflow ezeket csak a runner ideiglenes könyvtárában állítja helyre, majd a futás végén eltávolítja. Desktop aláírási secretek nélkül unsigned/ad-hoc csomagok készülnek; hiányzó Android aláírási secret esetén a release még a csomagolás előtt leáll.
+
+Helyi, azonos verziómetaadatot használó release build például:
+
+```sh
+./gradlew \
+  :desktopApp:packageDistributionForCurrentOS \
+  :androidApp:assembleRelease \
+  -PwukkiBuildDate=2026-09-02 \
+  -PwukkiGitSha=8001345f00000000000000000000000000000000 \
+  -PwukkiRunNumber=42
+```
+
+A desktop csomagoláshoz `WUKKI_VLC_RUNTIME`, az Android release buildhez pedig a fent ismertetett helyi `androidApp/keystore.properties` szükséges.
 
 ### Android használat
 

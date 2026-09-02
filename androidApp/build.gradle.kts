@@ -10,6 +10,8 @@ val releaseSigningProperties = Properties().apply {
     val propertiesFile = rootProject.file("androidApp/keystore.properties")
     if (propertiesFile.isFile) propertiesFile.inputStream().use(::load)
 }
+val wukkiVersion = rootProject.extra["wukkiDisplayVersion"].toString()
+val wukkiVersionCode = rootProject.extra["wukkiAndroidVersionCode"] as Int
 
 android {
     namespace = "hu.wukki.tv"
@@ -19,8 +21,8 @@ android {
         applicationId = "hu.wukki.tv"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = wukkiVersionCode
+        versionName = wukkiVersion
     }
 
     buildFeatures { compose = true }

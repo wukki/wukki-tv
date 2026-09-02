@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify shared, desktop and Android
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Lint GitHub Actions workflows
+        run: >-
+          docker run --rm
+          --volume "$GITHUB_WORKSPACE:/repo"
+          --workdir /repo
+          rhysd/actionlint:1.7.12
+          -color
+
+      - name: Test versioning build logic
+        run: ./gradlew -p buildSrc test --no-daemon
+
+      - name: Verify all application modules
+        run: >-
+          ./gradlew
+          :shared:desktopTest
+          :shared:testAndroidHostTest
+          :shared:checkLocalizationBundles
+          :desktopApp:test
+          :desktopApp:compileKotlin
+          :androidApp:testDebugUnitTest
+          :androidApp:assembleDebug
+          --no-daemon
+
+      - name: Upload manually triggered debug APK
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: wukki-tv-android-debug
+          path: androidApp/build/outputs/apk/debug/androidApp-debug.apk
+          if-no-files-found: error
+          retention-days: 14

@@ -15,9 +15,13 @@ kotlin {
 
 val generatedAppResources = layout.buildDirectory.dir("generated/wukkiAppResources")
 val vlcRuntimePath = providers.environmentVariable("WUKKI_VLC_RUNTIME")
-val wukkiVersion = providers.gradleProperty("wukkiVersion")
-    .orElse(providers.environmentVariable("GITHUB_REF_NAME").map { it.removePrefix("v") })
-    .orElse("1.0.0")
+val wukkiPackageVersion = rootProject.extra["wukkiPackageVersion"].toString()
+val macSigningIdentity = providers.gradleProperty("macSigningIdentity")
+val macSigningKeychain = providers.gradleProperty("macSigningKeychain")
+val macSigningPrefix = providers.gradleProperty("macSigningPrefix")
+val macNotarizationAppleId = providers.gradleProperty("macNotarizationAppleId")
+val macNotarizationPassword = providers.gradleProperty("macNotarizationPassword")
+val macNotarizationTeamId = providers.gradleProperty("macNotarizationTeamId")
 
 dependencies {
     implementation(project(":shared"))
@@ -89,10 +93,34 @@ compose.desktop {
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Deb
             )
             packageName = "Wukki TV"
-            packageVersion = wukkiVersion.get()
-            macOS { iconFile.set(rootProject.file("packaging/icons/wukki-tv.icns")) }
-            windows { iconFile.set(rootProject.file("packaging/icons/wukki-tv.ico")) }
-            linux { iconFile.set(rootProject.file("packaging/icons/wukki-tv.png")) }
+            packageVersion = wukkiPackageVersion
+            macOS {
+                iconFile.set(rootProject.file("packaging/icons/wukki-tv.icns"))
+                packageBuildVersion = wukkiPackageVersion
+                if (macSigningIdentity.isPresent) {
+                    signing {
+                        sign.set(true)
+                        identity.set(macSigningIdentity)
+                        keychain.set(macSigningKeychain)
+                        prefix.set(macSigningPrefix)
+                    }
+                }
+                if (macNotarizationAppleId.isPresent) {
+                    notarization {
+                        appleID.set(macNotarizationAppleId)
+                        password.set(macNotarizationPassword)
+                        teamID.set(macNotarizationTeamId)
+                    }
+                }
+            }
+            windows {
+                iconFile.set(rootProject.file("packaging/icons/wukki-tv.ico"))
+                msiPackageVersion = wukkiPackageVersion
+            }
+            linux {
+                iconFile.set(rootProject.file("packaging/icons/wukki-tv.png"))
+                debPackageVersion = wukkiPackageVersion
+            }
             appResourcesRootDir.set(generatedAppResources)
         }
     }
