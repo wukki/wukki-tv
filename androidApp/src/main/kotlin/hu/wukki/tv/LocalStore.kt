@@ -12,11 +12,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.decodeFromString
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
-import java.util.zip.GZIPInputStream
-import java.util.zip.GZIPOutputStream
 
 private val Context.wukkiStateDataStore by preferencesDataStore(name = "wukki_tv_state")
 
@@ -29,7 +26,7 @@ internal class AndroidStateStore(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val json = Json { encodeDefaults = true; ignoreUnknownKeys = true }
     private val pendingStates = Channel<AppState>(Channel.CONFLATED)
-    private val epgCacheFile = File(appContext.filesDir, "epg_cache.json.gz")
+    private val epgCacheFile = EpgCacheFile(File(appContext.filesDir, "epg_cache.json.gz"), json)
     private var lastPersistedCache: Map<String, List<Programme>>? = null
 
     init {
@@ -42,7 +39,7 @@ internal class AndroidStateStore(
         val stored = appContext.wukkiStateDataStore.data.first()[STATE_KEY]
             ?.let { saved -> runCatching { json.decodeFromString<AppState>(saved) }.getOrNull() }
             ?: AppState()
-        val fileCache = readEpgCache()
+        val fileCache = epgCacheFile.read()
         val embeddedCache = stored.epgProgrammesBySource
             ?: stored.epgSources.orEmpty().firstOrNull()?.let { source ->
                 stored.programmes.takeIf { it.isNotEmpty() }?.let { mapOf(source.id to it) }
@@ -62,41 +59,12 @@ internal class AndroidStateStore(
     private suspend fun persistLatest(state: AppState) {
         val cache = state.epgProgrammesBySource.orEmpty()
         if (cache !== lastPersistedCache) {
-            if (writeEpgCache(cache)) lastPersistedCache = cache
+            if (cache == lastPersistedCache || epgCacheFile.write(cache)) lastPersistedCache = cache
         }
         val lightweightState = state.copy(programmes = emptyList(), epgProgrammesBySource = emptyMap())
         val encoded = runCatching { json.encodeToString(lightweightState) }.getOrNull() ?: return
         appContext.wukkiStateDataStore.edit { preferences -> preferences[STATE_KEY] = encoded }
     }
-
-    private fun readEpgCache(): Map<String, List<Programme>>? = runCatching {
-        if (!epgCacheFile.isFile) return@runCatching null
-        GZIPInputStream(epgCacheFile.inputStream().buffered()).bufferedReader(Charsets.UTF_8).use { reader ->
-            json.decodeFromString<Map<String, List<Programme>>>(reader.readText())
-        }
-    }.getOrNull()
-
-    private fun writeEpgCache(cache: Map<String, List<Programme>>): Boolean = runCatching {
-        val temporary = File(epgCacheFile.parentFile, "${epgCacheFile.name}.tmp")
-        GZIPOutputStream(temporary.outputStream().buffered()).bufferedWriter(Charsets.UTF_8).use { writer ->
-            writer.write(json.encodeToString(cache))
-        }
-        try {
-            java.nio.file.Files.move(
-                temporary.toPath(),
-                epgCacheFile.toPath(),
-                java.nio.file.StandardCopyOption.REPLACE_EXISTING,
-                java.nio.file.StandardCopyOption.ATOMIC_MOVE
-            )
-        } catch (_: java.nio.file.AtomicMoveNotSupportedException) {
-            java.nio.file.Files.move(
-                temporary.toPath(),
-                epgCacheFile.toPath(),
-                java.nio.file.StandardCopyOption.REPLACE_EXISTING
-            )
-        }
-        true
-    }.getOrDefault(false)
 
     private companion object {
         val STATE_KEY = stringPreferencesKey("app_state")

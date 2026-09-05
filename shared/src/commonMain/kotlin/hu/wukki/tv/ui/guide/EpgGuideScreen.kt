@@ -22,6 +22,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
@@ -66,6 +67,14 @@ fun EpgGuideScreen(
         val timelineWidth = metrics.minuteWidth * timeline.minutes
         val scope = rememberCoroutineScope()
         state.pixelsPerMinute = minuteWidthPx
+        val viewport = remember(timeline, state.horizontalScroll.value, state.viewportWidthPx, minuteWidthPx) {
+            guideViewport(
+                timeline = timeline,
+                scrollPx = state.horizontalScroll.value,
+                viewportWidthPx = state.viewportWidthPx,
+                pixelsPerMinute = minuteWidthPx
+            )
+        }
 
         LaunchedEffect(channels.map { it.id }, timeline) { state.initialise(data, channels, timeline) }
         LaunchedEffect(state.horizontalScroll.maxValue, timeline) {
@@ -88,7 +97,7 @@ fun EpgGuideScreen(
         ) {
             Column(Modifier.fillMaxSize()) {
                 GuideTitle(data.language, layoutScale)
-                TimelineHeader(data.language, state, timeline, timelineWidth, tick, metrics)
+                TimelineHeader(data.language, state, timeline, timelineWidth, viewport, tick, metrics)
                 Box(
                     modifier = Modifier.weight(1f).fillMaxWidth()
                         .pointerInput(state.horizontalScroll, scope) {
@@ -116,7 +125,7 @@ fun EpgGuideScreen(
                     } else {
                         LazyColumn(state = state.verticalList, modifier = Modifier.fillMaxSize()) {
                             itemsIndexed(channels, key = { _, channel -> channel.id }) { _, channel ->
-                                GuideChannelRow(data, channel, timeline, state, timelineWidth, metrics, onProgrammeClick)
+                                GuideChannelRow(data, channel, timeline, viewport, state, metrics, onProgrammeClick)
                             }
                         }
                         CurrentTimeBodyLine(tick, timeline, state, metrics)

@@ -290,7 +290,13 @@ class WukkiModel(
 
         val previous = officialEpgSource
         val sameUrl = previous?.url?.equals(url, ignoreCase = true) == true
-        val cachedProgrammes = if (sameUrl) state.epgProgrammesBySource.orEmpty()[OfficialWukkiSource.EPG_SOURCE_ID].orEmpty() else emptyList()
+        val previousCache = state.epgProgrammesBySource.orEmpty()
+        val cachedProgrammes = if (sameUrl) previousCache[OfficialWukkiSource.EPG_SOURCE_ID].orEmpty() else emptyList()
+        val synchronizedCache = if (sameUrl && previousCache.keys.all { it == OfficialWukkiSource.EPG_SOURCE_ID }) {
+            previousCache
+        } else {
+            mapOf(OfficialWukkiSource.EPG_SOURCE_ID to cachedProgrammes)
+        }
         val source = EpgSource(
             id = OfficialWukkiSource.EPG_SOURCE_ID,
             name = "${OfficialWukkiSource.PLAYLIST_NAME} EPG",
@@ -302,7 +308,7 @@ class WukkiModel(
         )
         state = state.copy(
             epgSources = listOf(source),
-            epgProgrammesBySource = mapOf(OfficialWukkiSource.EPG_SOURCE_ID to cachedProgrammes),
+            epgProgrammesBySource = synchronizedCache,
             programmes = emptyList(),
             epgUrl = url
         )

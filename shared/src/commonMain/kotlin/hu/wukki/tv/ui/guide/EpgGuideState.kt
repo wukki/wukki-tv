@@ -35,7 +35,7 @@ class EpgGuideState internal constructor(
     var focusTime by mutableStateOf(System.currentTimeMillis())
         private set
     var pixelsPerMinute: Float = 6f
-    var viewportWidthPx: Int = 0
+    var viewportWidthPx by mutableIntStateOf(0)
     var guideOpenRequest by mutableIntStateOf(0)
         private set
     private var initialisedChannelIds by mutableStateOf<List<String>>(emptyList())

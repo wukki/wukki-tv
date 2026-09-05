@@ -63,6 +63,7 @@ internal fun TimelineHeader(
     state: EpgGuideState,
     timeline: GuideTimeline,
     timelineWidth: Dp,
+    viewport: GuideViewport,
     tick: Long,
     metrics: GuideLayoutMetrics
 ) {
@@ -82,7 +83,7 @@ internal fun TimelineHeader(
                 .horizontalScroll(state.horizontalScroll)
         ) {
             Box(Modifier.requiredWidth(timelineWidth).fillMaxHeight()) {
-                TimelineTicks(language, timeline, metrics)
+                TimelineTicks(language, timeline, viewport, metrics)
                 CurrentTimeHeaderIndicator(tick, timeline, metrics)
             }
         }
@@ -90,8 +91,13 @@ internal fun TimelineHeader(
 }
 
 @Composable
-private fun TimelineTicks(language: AppLanguage, timeline: GuideTimeline, metrics: GuideLayoutMetrics) {
-    repeat(timeline.halfHourTickCount) { index ->
+private fun TimelineTicks(
+    language: AppLanguage,
+    timeline: GuideTimeline,
+    viewport: GuideViewport,
+    metrics: GuideLayoutMetrics
+) {
+    viewport.tickIndices.forEach { index ->
         val timestamp = timeline.start + index * HALF_HOUR_MINUTES * 60_000L
         val offset = metrics.minuteWidth * (index * HALF_HOUR_MINUTES)
         val isDayStart = platformIsStartOfDay(timestamp)
