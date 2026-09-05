@@ -18,7 +18,8 @@ class WukkiModel(
     initialState: AppState,
     private val sourceLoader: RemoteTextLoader,
     private val xmlTvParser: XmlTvParser,
-    private val stateSaver: (AppState) -> Unit
+    private val stateSaver: (AppState) -> Unit,
+    private val refreshService: RefreshService? = null
 ) {
     private val refreshingEpgSourceIds = mutableSetOf<String>()
     private val provisionedState = OfficialWukkiSource.provision(initialState)
@@ -101,7 +102,11 @@ class WukkiModel(
     }
 
     /** Fetches the fixed M3U and updates its single, header-managed EPG source. */
-    suspend fun refreshOfficialPlaylist(showFeedback: Boolean = true): Boolean {
+    suspend fun refreshOfficialPlaylist(showFeedback: Boolean = true): Boolean =
+        refreshService?.refresh("playlist") { performPlaylistRefresh(showFeedback) }
+            ?: performPlaylistRefresh(showFeedback)
+
+    private suspend fun performPlaylistRefresh(showFeedback: Boolean): Boolean {
         try {
             if (showFeedback) showLoading("status.playlist.refreshing", OfficialWukkiSource.PLAYLIST_NAME)
             val playlistText = withContext(Dispatchers.Default) { sourceLoader.load(OfficialWukkiSource.PLAYLIST_URL) }
@@ -131,6 +136,8 @@ class WukkiModel(
             persist()
             if (showFeedback && feedbackKind != AppFeedbackKind.ERROR) showStatus("status.playlist.refreshed", channels.size)
             return true
+        } catch (exception: kotlinx.coroutines.CancellationException) {
+            throw exception
         } catch (exception: Exception) {
             if (state.channels.isEmpty()) {
                 showErrorKey("error.wukki.playlist.unavailable", messageArgument(exception))
@@ -156,7 +163,11 @@ class WukkiModel(
         return refreshEpgSource(source.id, showFeedback)
     }
 
-    suspend fun refreshEpgSource(sourceId: String, showFeedback: Boolean = true): Boolean {
+    suspend fun refreshEpgSource(sourceId: String, showFeedback: Boolean = true): Boolean =
+        refreshService?.refresh("epg:$sourceId") { performEpgRefresh(sourceId, showFeedback) }
+            ?: performEpgRefresh(sourceId, showFeedback)
+
+    private suspend fun performEpgRefresh(sourceId: String, showFeedback: Boolean): Boolean {
         val source = officialEpgSource?.takeIf { it.id == sourceId } ?: return false
         if (!refreshingEpgSourceIds.add(source.id)) return false
         try {
@@ -174,6 +185,8 @@ class WukkiModel(
             persist()
             if (showFeedback) showStatus("status.epg.loaded", programmes.size, source.name)
             return true
+        } catch (exception: kotlinx.coroutines.CancellationException) {
+            throw exception
         } catch (exception: Exception) {
             // The previous cache deliberately stays intact when the XMLTV download fails.
             showErrorKey("error.epg.load", source.name, messageArgument(exception))
@@ -320,7 +333,7 @@ class WukkiModel(
         )
         rematchChannels()
         persist()
-        if (cachedProgrammes.isEmpty()) refreshEpgSource(source.id, showFeedback)
+        if (cachedProgrammes.isEmpty()) performEpgRefresh(source.id, showFeedback)
     }
 
     private fun matchingChannelId(

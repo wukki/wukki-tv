@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -25,13 +26,22 @@ internal class AndroidStateStore(
     private val appContext = context.applicationContext
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val json = Json { encodeDefaults = true; ignoreUnknownKeys = true }
-    private val pendingStates = Channel<AppState>(Channel.CONFLATED)
+    private data class PendingSave(val state: AppState, val completion: CompletableDeferred<Unit>)
+    private val pendingStates = Channel<PendingSave>(Channel.UNLIMITED)
+    private var lastSave: CompletableDeferred<Unit>? = null
     private val epgCacheFile = EpgCacheFile(File(appContext.filesDir, "epg_cache.json.gz"), json)
     private var lastPersistedCache: Map<String, List<Programme>>? = null
 
     init {
         scope.launch {
-            for (state in pendingStates) persistLatest(state)
+            for (pending in pendingStates) {
+                try {
+                    persistLatest(pending.state)
+                    pending.completion.complete(Unit)
+                } catch (exception: Exception) {
+                    pending.completion.completeExceptionally(exception)
+                }
+            }
         }
     }
 
@@ -47,21 +57,28 @@ internal class AndroidStateStore(
         val cache = fileCache ?: embeddedCache.orEmpty()
         lastPersistedCache = fileCache
         val migrated = stored.copy(programmes = emptyList(), epgProgrammesBySource = cache)
-        if (fileCache == null && embeddedCache != null) pendingStates.trySend(migrated)
+        if (fileCache == null && embeddedCache != null) save(migrated)
         migrated
     }
 
     fun save(state: AppState) {
-        pendingStates.trySend(state)
+        val completion = CompletableDeferred<Unit>()
+        lastSave = completion
+        check(pendingStates.trySend(PendingSave(state, completion)).isSuccess)
+    }
+
+    suspend fun flush() {
+        lastSave?.await()
     }
 
     private suspend fun persistLatest(state: AppState) {
         val cache = state.epgProgrammesBySource.orEmpty()
         if (cache !== lastPersistedCache) {
-            if (cache == lastPersistedCache || epgCacheFile.write(cache)) lastPersistedCache = cache
+            check(cache == lastPersistedCache || epgCacheFile.write(cache)) { "Could not persist EPG cache" }
+            lastPersistedCache = cache
         }
         val lightweightState = state.copy(programmes = emptyList(), epgProgrammesBySource = emptyMap())
-        val encoded = runCatching { json.encodeToString(lightweightState) }.getOrNull() ?: return
+        val encoded = json.encodeToString(lightweightState)
         appContext.wukkiStateDataStore.edit { preferences -> preferences[STATE_KEY] = encoded }
         onStateSaved(state)
     }
@@ -81,6 +98,8 @@ object LocalStore : AppStateStore {
             store = AndroidStateStore(appContext) { state -> AndroidRefreshScheduler.sync(appContext, state) }
         }
     }
+
+    suspend fun flush() = store?.flush() ?: Unit
 
     override fun load(): AppState = store?.load() ?: AppState()
     override fun save(state: AppState) = store?.save(state) ?: Unit

@@ -49,11 +49,12 @@ object AndroidRefreshScheduler {
 
 class WukkiRefreshWorker(appContext: Context, parameters: WorkerParameters) : CoroutineWorker(appContext, parameters) {
     override suspend fun doWork(): Result {
-        val model = AndroidAppGraph.install(applicationContext).createModel()
-        val refreshed = when (inputData.getString(AndroidRefreshScheduler.KEY_TYPE)) {
-            RefreshType.PLAYLIST.name -> model.refreshDuePlaylist()
-            RefreshType.EPG.name -> model.refreshOfficialEpg(showFeedback = false)
-            else -> false
+        val refreshed = try {
+            AndroidAppGraph.requestRefresh(applicationContext, inputData.getString(AndroidRefreshScheduler.KEY_TYPE))
+        } catch (exception: kotlinx.coroutines.CancellationException) {
+            throw exception
+        } catch (exception: Exception) {
+            return Result.retry()
         }
         return if (refreshed) Result.success() else Result.retry()
     }

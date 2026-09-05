@@ -41,7 +41,8 @@ class MainActivity : ComponentActivity() {
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
         val dependencies = AndroidAppGraph.install(applicationContext)
-        AndroidRefreshScheduler.sync(applicationContext, dependencies.stateStore.load())
+        val contentModel = AndroidAppGraph.model(applicationContext)
+        AndroidRefreshScheduler.sync(applicationContext, contentModel.state)
 
         setContent {
             val player = remember { AndroidPlaybackController(applicationContext).also { playbackController = it } }
@@ -56,6 +57,7 @@ class MainActivity : ComponentActivity() {
                 ) {
                     WukkiApp(
                         dependencies = dependencies,
+                        sharedModel = contentModel,
                         playbackController = player,
                         videoHost = player::VideoSurface,
                         playbackEngineLabel = "Media3 / ExoPlayer",

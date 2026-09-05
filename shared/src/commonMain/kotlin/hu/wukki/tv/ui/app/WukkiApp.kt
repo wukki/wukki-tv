@@ -45,9 +45,10 @@ fun WukkiApp(
     androidSettingsNavigation: Boolean = false,
     requireDoubleBackToExit: Boolean = false,
     onExitConfirmation: (String) -> Unit = {},
-    onPlatformBackActionChange: ((() -> Boolean)?) -> Unit = {}
+    onPlatformBackActionChange: ((() -> Boolean)?) -> Unit = {},
+    sharedModel: WukkiModel? = null
 ) {
-    val model = remember(dependencies) { dependencies.createModel() }
+    val model = sharedModel ?: remember(dependencies) { dependencies.createModel() }
     val scope = rememberCoroutineScope()
     val focusRequester = remember { FocusRequester() }
     var tick by remember { mutableStateOf(System.currentTimeMillis()) }
