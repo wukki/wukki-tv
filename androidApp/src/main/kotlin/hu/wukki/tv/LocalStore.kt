@@ -20,7 +20,7 @@ private val Context.wukkiStateDataStore by preferencesDataStore(name = "wukki_tv
 /** Android state store: compact preferences plus a separately compressed, atomic EPG cache. */
 internal class AndroidStateStore(
     context: Context,
-    private val onSettingsSaved: (AppSettings) -> Unit = {}
+    private val onStateSaved: (AppState) -> Unit = {}
 ) {
     private val appContext = context.applicationContext
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -52,7 +52,6 @@ internal class AndroidStateStore(
     }
 
     fun save(state: AppState) {
-        onSettingsSaved(state.settings ?: AppSettings())
         pendingStates.trySend(state)
     }
 
@@ -64,6 +63,7 @@ internal class AndroidStateStore(
         val lightweightState = state.copy(programmes = emptyList(), epgProgrammesBySource = emptyMap())
         val encoded = runCatching { json.encodeToString(lightweightState) }.getOrNull() ?: return
         appContext.wukkiStateDataStore.edit { preferences -> preferences[STATE_KEY] = encoded }
+        onStateSaved(state)
     }
 
     private companion object {
@@ -78,7 +78,7 @@ object LocalStore : AppStateStore {
     fun install(context: Context) {
         if (store == null) {
             val appContext = context.applicationContext
-            store = AndroidStateStore(appContext) { settings -> AndroidRefreshScheduler.sync(appContext, settings) }
+            store = AndroidStateStore(appContext) { state -> AndroidRefreshScheduler.sync(appContext, state) }
         }
     }
 

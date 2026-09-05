@@ -7,12 +7,14 @@ import kotlinx.coroutines.delay
 
 @Composable
 internal fun AutomaticRefreshEffects(model: WukkiModel) {
-    LaunchedEffect(model.settings.playlistRefresh) {
+    LaunchedEffect(model.settings.playlistRefresh, model.officialPlaylist.updatedAt) {
         val hours = model.settings.playlistRefresh.hours
         if (hours > 0) {
             while (true) {
-                delay(hours * 60L * 60L * 1000L)
-                model.refreshOfficialPlaylist(showFeedback = false)
+                delay(model.nextPlaylistRefreshDelayMillis())
+                if (!model.refreshDuePlaylist()) {
+                    delay(hours * 60L * 60L * 1000L)
+                }
             }
         }
     }

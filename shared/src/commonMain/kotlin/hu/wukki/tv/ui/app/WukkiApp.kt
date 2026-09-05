@@ -347,7 +347,6 @@ fun WukkiApp(
 
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
-        model.refreshOfficialPlaylist(showFeedback = false)
         officialSourceReady = true
         while (true) {
             delay(30_000)

@@ -41,7 +41,7 @@ class MainActivity : ComponentActivity() {
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
         val dependencies = AndroidAppGraph.install(applicationContext)
-        AndroidRefreshScheduler.sync(applicationContext, dependencies.stateStore.load().settings ?: AppSettings())
+        AndroidRefreshScheduler.sync(applicationContext, dependencies.stateStore.load())
 
         setContent {
             val player = remember { AndroidPlaybackController(applicationContext).also { playbackController = it } }

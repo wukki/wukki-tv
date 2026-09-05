@@ -60,7 +60,7 @@ object OfficialWukkiSource {
                     name = PLAYLIST_NAME,
                     location = PLAYLIST_URL,
                     source = PlaylistSource.URL,
-                    updatedAt = previousDefinition?.updatedAt ?: now
+                    updatedAt = previousDefinition?.updatedAt ?: 0L
                 )
             ),
             channels = migratedChannels,

@@ -119,7 +119,6 @@ class WukkiModel(
             }
             val restoredLastChannelId = matchingChannelId(previousLast, previousChannels, channels)
             state = state.copy(
-                playlists = listOf(officialPlaylist.copy(updatedAt = System.currentTimeMillis())),
                 channels = channels,
                 lastChannelId = restoredLastChannelId
             )
@@ -128,6 +127,7 @@ class WukkiModel(
                 ?: channels.firstOrNull()?.id
             synchronizeOfficialEpg(playlistText, showFeedback)
             rematchChannels()
+            state = state.copy(playlists = listOf(officialPlaylist.copy(updatedAt = System.currentTimeMillis())))
             persist()
             if (showFeedback && feedbackKind != AppFeedbackKind.ERROR) showStatus("status.playlist.refreshed", channels.size)
             return true
@@ -140,6 +140,12 @@ class WukkiModel(
             return false
         }
     }
+
+    fun nextPlaylistRefreshDelayMillis(now: Long = System.currentTimeMillis()): Long =
+        playlistRefreshDelayMillis(officialPlaylist.updatedAt, settings.playlistRefresh, now)
+
+    suspend fun refreshDuePlaylist(now: Long = System.currentTimeMillis()): Boolean =
+        if (nextPlaylistRefreshDelayMillis(now) == 0L) refreshOfficialPlaylist(showFeedback = false) else true
 
     /** Manually refreshes the one EPG URL currently declared by the official M3U. */
     suspend fun refreshOfficialEpg(showFeedback: Boolean = true): Boolean {
@@ -407,3 +413,10 @@ internal fun nextEpgRefreshDelayMillis(sources: List<EpgSource>, interval: Refre
 
 private fun List<Channel>.sortedChannels(): List<Channel> =
     sortedWith(compareBy<Channel> { it.tvgChno ?: Int.MAX_VALUE }.thenBy { normalize(it.name) })
+
+/** Zero denotes a due refresh; MANUAL never schedules network work. */
+fun playlistRefreshDelayMillis(updatedAt: Long, interval: RefreshInterval, now: Long): Long {
+    if (interval == RefreshInterval.MANUAL) return Long.MAX_VALUE
+    if (updatedAt <= 0L) return 0L
+    return (updatedAt + interval.hours * 60L * 60L * 1000L - now).coerceAtLeast(0L)
+}
