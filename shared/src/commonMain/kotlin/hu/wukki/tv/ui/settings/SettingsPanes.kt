@@ -67,7 +67,7 @@ internal fun PlaybackSettingsPane(
                 Text("${settings.volume}%", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                 Slider(
                     value = settings.volume.toFloat(),
-                    onValueChange = { volume -> onOptionFocus(1); callbacks.updatePlayback { it.copy(volume = volume.toInt()) } },
+                    onValueChange = { volume -> onOptionFocus(1); callbacks.setVolume(volume.toInt()) },
                     valueRange = 0f..100f,
                     modifier = Modifier.weight(1f)
                 )
@@ -81,7 +81,7 @@ internal fun PlaybackSettingsPane(
                     label = { it.label(state.language) },
                     onFocus = { onOptionFocus(2) },
                     openRequest = if (dropdownOptionIndex == 2) dropdownOpenRequest else 0
-                ) { profile -> callbacks.updatePlayback { it.copy(bufferProfile = profile) } }
+                ) { profile -> callbacks.setBufferProfile(profile) }
             }
         }
         SettingsOptionRow(state.language, "settings.playback.aspect", "settings.playback.aspect.description", focusedOption == PlaybackOption.ASPECT_RATIO, onFocus = { onOptionFocus(3) }, scale = scale) {
@@ -104,8 +104,8 @@ internal fun PlaybackSettingsPane(
         SettingsOptionRow(state.language, "settings.playback.attempts", "settings.playback.attempts.description", focusedOption == PlaybackOption.RETRIES, onFocus = { onOptionFocus(5) }, scale = scale) {
             PlaybackStepper(
                 value = settings.reconnectAttempts,
-                onDecrease = { onOptionFocus(5); callbacks.updatePlayback { it.copy(reconnectAttempts = (it.reconnectAttempts - 1).coerceAtLeast(1)) } },
-                onIncrease = { onOptionFocus(5); callbacks.updatePlayback { it.copy(reconnectAttempts = (it.reconnectAttempts + 1).coerceAtMost(10)) } }
+                onDecrease = { onOptionFocus(5); callbacks.adjustSetting(hu.wukki.tv.ui.navigation.PlaybackSettingsOption.RETRIES, -1) },
+                onIncrease = { onOptionFocus(5); callbacks.adjustSetting(hu.wukki.tv.ui.navigation.PlaybackSettingsOption.RETRIES, 1) }
             )
         }
     }

@@ -85,7 +85,13 @@ class WukkiModel(
     fun setLanguage(language: AppLanguage) = updateSettings { it.copy(language = language) }
     fun setPlaylistRefresh(interval: RefreshInterval) = updateSettings { it.copy(playlistRefresh = interval) }
     fun setEpgRefresh(interval: RefreshInterval) = updateSettings { it.copy(epgRefresh = interval) }
-    fun updatePlayback(transform: (PlaybackSettings) -> PlaybackSettings) = updateSettings { it.copy(playback = transform(it.playback)) }
+    fun updatePlayback(transform: (PlaybackSettings) -> PlaybackSettings) = updateSettings { current ->
+        val playback = transform(current.playback)
+        current.copy(playback = playback.copy(
+            volume = playback.volume.coerceIn(0, 100),
+            reconnectAttempts = playback.reconnectAttempts.coerceIn(1, 10)
+        ))
+    }
     fun updateDisplay(transform: (DisplaySettings) -> DisplaySettings) = updateSettings { it.copy(display = transform(it.display)) }
     fun setChannelQuery(value: String) { query = value }
     fun showAllChannels() {

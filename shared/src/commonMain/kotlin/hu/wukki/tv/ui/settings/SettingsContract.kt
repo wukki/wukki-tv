@@ -25,6 +25,9 @@ data class SettingsUiState(
 }
 
 data class SettingsCallbacks(
+    val setVolume: (Int) -> Unit,
+    val setBufferProfile: (hu.wukki.tv.BufferProfile) -> Unit,
+    val adjustSetting: (hu.wukki.tv.ui.navigation.SettingsOptionId, Int) -> Unit,
     val updatePlayback: ((PlaybackSettings) -> PlaybackSettings) -> Unit,
     val updateDisplay: ((DisplaySettings) -> DisplaySettings) -> Unit,
     val setPlaylistRefresh: (RefreshInterval) -> Unit,
