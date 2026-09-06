@@ -31,3 +31,22 @@ fun Key.livePreviewEvent(): LiveChannelPreviewEvent? = when (this) {
     Key.DirectionDown -> LiveChannelPreviewEvent.PREVIOUS
     else -> null
 }
+
+/** Translation only: no screen-specific routing belongs in the platform adapter. */
+fun Key.toAppRemoteKey(): AppRemoteKey = AppRemoteKey(
+    remote = toRemoteKey(), back = isBackKey(), escape = this == Key.Escape,
+    backspace = this == Key.Backspace, channelDelta = liveImmediateChannelDelta(), preview = livePreviewEvent(),
+    digit = when (this) {
+        Key.Zero, Key.NumPad0 -> "0"
+        Key.One, Key.NumPad1 -> "1"
+        Key.Two, Key.NumPad2 -> "2"
+        Key.Three, Key.NumPad3 -> "3"
+        Key.Four, Key.NumPad4 -> "4"
+        Key.Five, Key.NumPad5 -> "5"
+        Key.Six, Key.NumPad6 -> "6"
+        Key.Seven, Key.NumPad7 -> "7"
+        Key.Eight, Key.NumPad8 -> "8"
+        Key.Nine, Key.NumPad9 -> "9"
+        else -> null
+    }
+)

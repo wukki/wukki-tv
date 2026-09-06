@@ -10,7 +10,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.input.key.Key
+import hu.wukki.tv.ui.navigation.RemoteKey
 import hu.wukki.tv.Channel
 import hu.wukki.tv.Programme
 import hu.wukki.tv.ui.components.platformStartOfDay
@@ -101,15 +101,14 @@ class EpgGuideState internal constructor(
         initiallyScrolledTimelineStart = timeline.start
     }
 
-    fun handleKey(key: Key, data: GuideDataSource, scope: CoroutineScope, timeline: GuideTimeline): Boolean {
+    fun handleRemoteKey(key: RemoteKey, data: GuideDataSource, scope: CoroutineScope, timeline: GuideTimeline): Boolean {
         val channels = data.channels()
         return when (key) {
-            Key.DirectionUp, Key.PageUp -> true.also { scope.launch { moveChannel(data, channels, timeline, -1) } }
-            Key.DirectionDown, Key.PageDown -> true.also { scope.launch { moveChannel(data, channels, timeline, 1) } }
-            Key.DirectionLeft -> true.also { scope.launch { moveProgramme(data, channels, timeline, -1) } }
-            Key.DirectionRight -> true.also { scope.launch { moveProgramme(data, channels, timeline, 1) } }
-            Key.Enter, Key.NumPadEnter -> true
-            else -> false
+            RemoteKey.UP -> true.also { scope.launch { moveChannel(data, channels, timeline, -1) } }
+            RemoteKey.DOWN -> true.also { scope.launch { moveChannel(data, channels, timeline, 1) } }
+            RemoteKey.LEFT -> true.also { scope.launch { moveProgramme(data, channels, timeline, -1) } }
+            RemoteKey.RIGHT -> true.also { scope.launch { moveProgramme(data, channels, timeline, 1) } }
+            RemoteKey.CONFIRM -> true
         }
     }
 

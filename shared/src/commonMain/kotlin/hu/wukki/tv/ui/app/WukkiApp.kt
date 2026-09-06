@@ -288,20 +288,7 @@ fun WukkiApp(
         }
     }
 
-    fun handleBackNavigation(): Boolean {
-        if (activeSection == DashboardSection.LIVE && !liveNavigationState.visible) {
-            exitConfirmationState = ExitConfirmationState()
-            handleLiveNavigation(LiveNavigationVisibilityEvent.Reveal(focusNavigation = true))
-            return true
-        }
-        val effect = AppBackNavigationState(
-            guideDialogVisible = guideProgrammeDetailsVisible,
-            channelSearchOpen = activeSection == DashboardSection.CHANNELS && channelSearchOpen,
-            liveOverlayVisible = activeSection == DashboardSection.LIVE &&
-                (liveChannelPreviewState.isActive || programmeOverlayVisible),
-            settingsDetailOpen = activeSection == DashboardSection.SETTINGS && settingsNavigation.section != null,
-            focusZone = focusZone
-        ).reduce()
+    fun applyBackEffect(effect: AppBackNavigationEffect): Boolean {
         return when (effect) {
             AppBackNavigationEffect.DISMISS_GUIDE_DIALOG -> {
                 exitConfirmationState = ExitConfirmationState()
@@ -331,20 +318,83 @@ fun WukkiApp(
                 focusZone = TvFocusZone.MAIN_NAVIGATION
                 true
             }
-            AppBackNavigationEffect.EXIT_APPLICATION -> {
-                if (!requireDoubleBackToExit) return false
-                val result = exitConfirmationState.requestExit(System.currentTimeMillis())
-                exitConfirmationState = result.state
-                when (result.effect) {
-                    ExitConfirmationEffect.SHOW_HINT -> {
-                        onExitConfirmation(tr(model.settings.language, "app.exit.confirm"))
-                        true
+            AppBackNavigationEffect.EXIT_APPLICATION -> false
+        }
+    }
+
+    fun dispatchRemote(key: AppRemoteKey): Boolean {
+        val result = AppRemoteState(
+            section = activeSection, focus = focusZone, menuIndex = mainNavigationIndex,
+            exitConfirmation = exitConfirmationState, requireDoubleBack = requireDoubleBackToExit,
+            nowMillis = System.currentTimeMillis(),
+            settings = settingsNavigation,
+            channels = ChannelNavigationState(channelRemoteFocus, channelFilterIndex, channelListIndex),
+            filterCount = model.categories().size + 2, channelIds = visibleChannelIds,
+            selectedChannelId = model.selectedChannelId, searchHasText = model.query.isNotEmpty(),
+            searchOpen = channelSearchOpen, dialogVisible = guideProgrammeDetailsVisible,
+            overlayVisible = programmeOverlayVisible, preview = liveChannelPreviewState,
+            number = channelNumberInput, navigationVisible = liveNavigationState.visible
+        ).reduce(key)
+        val next = result.state
+        exitConfirmationState = next.exitConfirmation
+        focusZone = next.focus
+        mainNavigationIndex = next.menuIndex
+        settingsNavigation = next.settings
+        channelRemoteFocus = next.channels.focus
+        channelFilterIndex = next.channels.filterIndex
+        channelListIndex = next.channels.channelIndex
+        channelSearchOpen = next.searchOpen
+        guideProgrammeDetailsVisible = next.dialogVisible
+        programmeOverlayVisible = next.overlayVisible
+        liveChannelPreviewState = next.preview
+        channelNumberInput = next.number
+        var handled = result.handled
+        result.effects.forEach { effect ->
+            when (effect) {
+                AppRemoteEffect.ShowExitHint -> onExitConfirmation(tr(model.settings.language, "app.exit.confirm"))
+                AppRemoteEffect.ResetExit -> exitConfirmationState = ExitConfirmationState()
+                is AppRemoteEffect.Dialog -> handleGuideProgrammeDialogEvent(effect.event)
+                is AppRemoteEffect.Back -> handled = applyBackEffect(effect.effect)
+                AppRemoteEffect.RevealNavigation -> {
+                    exitConfirmationState = ExitConfirmationState()
+                    handleLiveNavigation(LiveNavigationVisibilityEvent.Reveal(focusNavigation = true))
+                }
+                is AppRemoteEffect.SwitchChannel -> switchLiveChannel(effect.delta)
+                is AppRemoteEffect.ActivateSection -> activateSection(effect.section)
+                AppRemoteEffect.InteractNavigation -> handleLiveNavigation(LiveNavigationVisibilityEvent.Interact)
+                AppRemoteEffect.ShowGuideDetails -> showGuideProgrammeDetails()
+                is AppRemoteEffect.GuideKey -> guideState.handleRemoteKey(effect.key, guideDataSource, scope, guideTimeline(tick, model.guideLatestProgrammeEnd()))
+                is AppRemoteEffect.SelectNumber -> if (model.selectChannelByNumber(effect.number)) overlayRequest++
+                AppRemoteEffect.ShowOverlay -> overlayRequest++
+                is AppRemoteEffect.Preview -> when (effect.result.effect) {
+                    LiveChannelPreviewEffect.NONE -> if (effect.result.handled) overlayRequest++
+                    LiveChannelPreviewEffect.DISMISS -> programmeOverlayVisible = false
+                    LiveChannelPreviewEffect.OPEN_CHANNEL -> effect.result.channelIdToOpen?.let { id ->
+                        if (id != model.selectedChannelId) model.selectChannel(id)
+                        overlayRequest++
                     }
-                    ExitConfirmationEffect.EXIT -> false
+                }
+                is AppRemoteEffect.Settings -> applySettingsEffect(effect.effect)
+                is AppRemoteEffect.Channels -> when (val action = effect.effect) {
+                    ChannelNavigationEffect.None -> Unit
+                    ChannelNavigationEffect.ExitToMainMenu -> focusZone = TvFocusZone.MAIN_NAVIGATION
+                    is ChannelNavigationEffect.ActivateFilter -> {
+                        when (action.index) {
+                            0 -> model.showAllChannels()
+                            1 -> model.showFavoriteChannels()
+                            else -> model.showChannelCategory(model.categories()[action.index - 2])
+                        }
+                        channelListIndex = 0
+                    }
+                    is ChannelNavigationEffect.OpenChannel -> visibleChannels.getOrNull(action.index)?.let { openChannelFromBrowser(it.id) }
+                    is ChannelNavigationEffect.ToggleFavorite -> visibleChannels.getOrNull(action.index)?.let { model.toggleFavorite(it.id) }
                 }
             }
         }
+        return handled
     }
+
+    fun handleBackNavigation(): Boolean = dispatchRemote(AppRemoteKey(back = true))
 
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
@@ -499,135 +549,7 @@ fun WukkiApp(
                     // Android forwards the system Back key to OnBackPressedDispatcher.
                     // Consuming it here too would advance the back hierarchy twice.
                     if (androidSettingsNavigation && event.key == Key.Back) return@onPreviewKeyEvent false
-                    if (!event.key.isBackKey()) exitConfirmationState = ExitConfirmationState()
-                    if (guideProgrammeDetailsVisible) {
-                        val dialogEvent = when {
-                            event.key.isBackKey() -> GuideProgrammeDialogEvent.BACK
-                            event.key == Key.DirectionLeft -> GuideProgrammeDialogEvent.LEFT
-                            event.key == Key.DirectionRight -> GuideProgrammeDialogEvent.RIGHT
-                            event.key.isConfirmKey() -> GuideProgrammeDialogEvent.CONFIRM
-                            else -> null
-                        }
-                        if (dialogEvent != null) {
-                            handleGuideProgrammeDialogEvent(dialogEvent)
-                            return@onPreviewKeyEvent true
-                        }
-                        return@onPreviewKeyEvent false
-                    }
-                    if (activeSection == DashboardSection.CHANNELS && channelRemoteFocus == ChannelRemoteFocus.SEARCH) {
-                        if (event.key == Key.Escape) {
-                            model.setChannelQuery("")
-                            channelSearchOpen = false
-                            channelRemoteFocus = ChannelRemoteFocus.LIST
-                            return@onPreviewKeyEvent true
-                        }
-                        if (event.key == Key.Backspace) {
-                            // Let the focused text field consume Backspace character-by-character.
-                            // For an empty value this is intentionally a no-op, not global Back navigation.
-                            return@onPreviewKeyEvent false
-                        }
-                    }
-                    if (event.key.isBackKey()) {
-                        return@onPreviewKeyEvent handleBackNavigation()
-                    }
-                    if (activeSection == DashboardSection.LIVE) {
-                        event.key.liveImmediateChannelDelta()?.let { delta ->
-                            switchLiveChannel(delta)
-                            return@onPreviewKeyEvent true
-                        }
-                    }
-                    if (focusZone == TvFocusZone.MAIN_NAVIGATION) {
-                        val wasLive = activeSection == DashboardSection.LIVE
-                        val remoteKey = event.key.toRemoteKey() ?: return@onPreviewKeyEvent false
-                        val result = MainMenuNavigationState(mainNavigationIndex).reduce(remoteKey, mainSections.size)
-                        mainNavigationIndex = result.state.index
-                        when (val effect = result.effect) {
-                            MainMenuNavigationEffect.None -> Unit
-                            MainMenuNavigationEffect.EnterContent -> focusZone = TvFocusZone.CONTENT
-                            is MainMenuNavigationEffect.Activate -> activateSection(mainSections[effect.index])
-                        }
-                        if (result.handled && wasLive && activeSection == DashboardSection.LIVE) {
-                            handleLiveNavigation(LiveNavigationVisibilityEvent.Interact)
-                        }
-                        return@onPreviewKeyEvent result.handled
-                    }
-                    if (activeSection == DashboardSection.GUIDE) {
-                        if (event.key.isConfirmKey()) {
-                            showGuideProgrammeDetails()
-                            return@onPreviewKeyEvent true
-                        }
-                        if (guideState.handleKey(event.key, guideDataSource, scope, guideTimeline(tick, model.guideLatestProgrammeEnd()))) return@onPreviewKeyEvent true
-                    }
-                    if (activeSection == DashboardSection.LIVE && event.key.isConfirmKey()) {
-                        if (channelNumberInput.isNotEmpty()) {
-                            dismissLiveChannelPreview()
-                            val selected = model.selectChannelByNumber(channelNumberInput)
-                            channelNumberInput = ""
-                            if (selected) overlayRequest++
-                        } else if (liveChannelPreviewState.isActive) {
-                            handleLiveChannelPreview(LiveChannelPreviewEvent.CONFIRM)
-                        } else {
-                            overlayRequest++
-                        }
-                        return@onPreviewKeyEvent true
-                    }
-                    if (activeSection == DashboardSection.SETTINGS) {
-                        val remoteKey = event.key.toRemoteKey() ?: return@onPreviewKeyEvent false
-                        val result = settingsNavigation.reduce(remoteKey)
-                        settingsNavigation = result.state
-                        applySettingsEffect(result.effect)
-                        return@onPreviewKeyEvent result.handled
-                    }
-                    if (activeSection == DashboardSection.CHANNELS) {
-                        val filterCount = model.categories().size + 2
-                        val remoteKey = event.key.toRemoteKey() ?: return@onPreviewKeyEvent false
-                        val result = ChannelNavigationState(channelRemoteFocus, channelFilterIndex, channelListIndex).reduce(
-                            remoteKey, filterCount, model.filteredChannels().size, model.query.isNotEmpty()
-                        )
-                        channelRemoteFocus = result.state.focus
-                        channelFilterIndex = result.state.filterIndex
-                        channelListIndex = result.state.channelIndex
-                        when (val effect = result.effect) {
-                            ChannelNavigationEffect.None -> Unit
-                            ChannelNavigationEffect.ExitToMainMenu -> focusZone = TvFocusZone.MAIN_NAVIGATION
-                            is ChannelNavigationEffect.ActivateFilter -> {
-                                when (effect.index) {
-                                    0 -> model.showAllChannels()
-                                    1 -> model.showFavoriteChannels()
-                                    else -> model.showChannelCategory(model.categories()[effect.index - 2])
-                                }
-                                channelListIndex = 0
-                            }
-                            is ChannelNavigationEffect.OpenChannel -> model.filteredChannels().getOrNull(effect.index)?.let {
-                                openChannelFromBrowser(it.id)
-                            }
-                            is ChannelNavigationEffect.ToggleFavorite -> model.filteredChannels().getOrNull(effect.index)?.let { model.toggleFavorite(it.id) }
-                        }
-                        return@onPreviewKeyEvent result.handled
-                    }
-                    val digit = when (event.key) {
-                        Key.One, Key.NumPad1 -> "1"
-                        Key.Two, Key.NumPad2 -> "2"
-                        Key.Three, Key.NumPad3 -> "3"
-                        Key.Four, Key.NumPad4 -> "4"
-                        Key.Five, Key.NumPad5 -> "5"
-                        Key.Six, Key.NumPad6 -> "6"
-                        Key.Seven, Key.NumPad7 -> "7"
-                        Key.Eight, Key.NumPad8 -> "8"
-                        Key.Nine, Key.NumPad9 -> "9"
-                        Key.Zero, Key.NumPad0 -> "0"
-                        else -> null
-                    }
-                    if (digit != null) {
-                        if (activeSection != DashboardSection.LIVE) return@onPreviewKeyEvent false
-                        dismissLiveChannelPreview(hidePanel = true)
-                        channelNumberInput = (channelNumberInput + digit).take(4)
-                        return@onPreviewKeyEvent true
-                    }
-                    val livePreviewEvent = event.key.livePreviewEvent()
-                        ?: return@onPreviewKeyEvent false
-                    handleLiveChannelPreview(livePreviewEvent)
-                    true
+                    dispatchRemote(event.key.toAppRemoteKey())
                 }
         ) {
             DashboardScreen(
