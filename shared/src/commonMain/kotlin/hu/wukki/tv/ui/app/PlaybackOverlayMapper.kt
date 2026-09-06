@@ -3,9 +3,12 @@ package hu.wukki.tv.ui.app
 import hu.wukki.tv.AppLanguage
 import hu.wukki.tv.Channel
 import hu.wukki.tv.PlaybackOverlayData
+import hu.wukki.tv.PlaybackBufferingOverlay
+import hu.wukki.tv.PlaybackProgrammeOverlay
 import hu.wukki.tv.PlaybackState
 import hu.wukki.tv.Programme
 import hu.wukki.tv.ui.components.displayTitle
+import hu.wukki.tv.ui.components.formatTime
 import hu.wukki.tv.ui.components.tr
 import hu.wukki.tv.ui.navigation.DashboardSection
 
@@ -29,6 +32,9 @@ internal fun playbackOverlayData(
         PlaybackState.RECONNECTING -> tr(language, "playback.reconnecting")
         PlaybackState.ERROR -> tr(language, "playback.error")
     }?.let { label -> listOf(label, playbackDetail).filterNotNull().joinToString(" · ") }
+    val currentStart = currentProgramme?.start
+    val currentEnd = currentProgramme?.end
+    val hasTiming = currentStart != null && currentEnd != null && currentEnd > currentStart
     return PlaybackOverlayData(
         channelId = channel.id,
         channelNumber = channel.tvgChno?.toString() ?: "–",
@@ -40,16 +46,17 @@ internal fun playbackOverlayData(
         showProgrammeInfo = section == DashboardSection.LIVE && showProgrammeInfo,
         showPreviewLogo = section == DashboardSection.CHANNELS,
         channelNumberInput = channelNumberInput.takeIf { section == DashboardSection.LIVE && it.isNotEmpty() },
-        noEpgLabel = tr(language, "epg.none"),
-        nextLabel = tr(language, "epg.next"),
-        currentTitle = currentProgramme?.displayTitle(language),
-        currentStart = currentProgramme?.start,
-        currentEnd = currentProgramme?.end,
-        nextTitle = nextProgramme?.displayTitle(language),
-        now = now,
+        programme = PlaybackProgrammeOverlay(
+            title = currentProgramme?.displayTitle(language) ?: tr(language, "epg.none"),
+            timeRange = if (hasTiming) "${formatTime(currentStart)} – ${formatTime(currentEnd)}" else null,
+            progress = if (hasTiming) {
+                ((now - currentStart).toFloat() / (currentEnd - currentStart)).coerceIn(0f, 1f)
+            } else null,
+            nextLine = nextProgramme?.displayTitle(language)?.let { "${tr(language, "epg.next")}: $it" }
+        ),
         playbackStatus = playbackStatus,
         playbackError = playbackState == PlaybackState.ERROR,
-        showBufferingSpinner = playbackState == PlaybackState.BUFFERING,
-        bufferingLabel = tr(language, "playback.buffering")
+        buffering = PlaybackBufferingOverlay(tr(language, "playback.buffering"))
+            .takeIf { playbackState == PlaybackState.BUFFERING }
     )
 }

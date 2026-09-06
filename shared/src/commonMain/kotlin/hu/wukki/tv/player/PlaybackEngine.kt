@@ -57,15 +57,19 @@ data class PlaybackOverlayData(
     val showProgrammeInfo: Boolean,
     val showPreviewLogo: Boolean,
     val channelNumberInput: String?,
-    val noEpgLabel: String,
-    val nextLabel: String,
-    val currentTitle: String?,
-    val currentStart: Long?,
-    val currentEnd: Long?,
-    val nextTitle: String?,
-    val now: Long,
+    val programme: PlaybackProgrammeOverlay,
     val playbackStatus: String? = null,
     val playbackError: Boolean = false,
-    val showBufferingSpinner: Boolean = false,
-    val bufferingLabel: String? = null
+    val buffering: PlaybackBufferingOverlay? = null
 )
+
+/** Fully mapped programme copy. Platform renderers only choose its size and position. */
+data class PlaybackProgrammeOverlay(
+    val title: String,
+    val timeRange: String? = null,
+    val progress: Float? = null,
+    val nextLine: String? = null
+)
+
+/** Keeping spinner visibility and its label together prevents partial platform rendering. */
+data class PlaybackBufferingOverlay(val label: String)

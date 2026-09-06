@@ -8,6 +8,7 @@ import hu.wukki.tv.ui.navigation.DashboardSection
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertNotNull
 
 class PlaybackOverlayMapperTest {
     private val channel = Channel(
@@ -36,7 +37,34 @@ class PlaybackOverlayMapperTest {
         assertNull(overlay(DashboardSection.LIVE, showImages = false).programmeImageUrl)
     }
 
-    private fun overlay(section: DashboardSection, showImages: Boolean) = playbackOverlayData(
+    @Test
+    fun `buffering maps spinner and label as one render value`() {
+        val buffering = overlay(DashboardSection.LIVE, showImages = true, PlaybackState.BUFFERING).buffering
+
+        assertNotNull(buffering)
+        assertEquals("Pufferelés", buffering.label)
+        assertNull(overlay(DashboardSection.LIVE, showImages = true).buffering)
+    }
+
+    @Test
+    fun `programme text timing progress and next line are mapped once`() {
+        val data = playbackOverlayData(
+            channel, programme, programme.copy(title = "Next", start = 61_000L, end = 121_000L),
+            now = 31_000L, section = DashboardSection.LIVE, showProgrammeInfo = true,
+            channelNumberInput = "", language = AppLanguage.HUNGARIAN, showLogos = true,
+            showProgrammeImages = true, playbackState = PlaybackState.PLAYING, playbackDetail = null
+        )
+
+        assertEquals("Programme", data.programme.title)
+        assertEquals(0.5f, data.programme.progress)
+        assertEquals("Következő: Next", data.programme.nextLine)
+    }
+
+    private fun overlay(
+        section: DashboardSection,
+        showImages: Boolean,
+        state: PlaybackState = PlaybackState.PLAYING
+    ) = playbackOverlayData(
         channel = channel,
         currentProgramme = programme,
         nextProgramme = null,
@@ -47,7 +75,7 @@ class PlaybackOverlayMapperTest {
         language = AppLanguage.HUNGARIAN,
         showLogos = true,
         showProgrammeImages = showImages,
-        playbackState = PlaybackState.PLAYING,
+        playbackState = state,
         playbackDetail = null
     )
 }

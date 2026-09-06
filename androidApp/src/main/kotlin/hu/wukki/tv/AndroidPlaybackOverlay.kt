@@ -38,21 +38,25 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import coil3.compose.SubcomposeAsyncImage
 import hu.wukki.tv.ui.components.WukkiColors
-import hu.wukki.tv.ui.components.formatTime
 import hu.wukki.tv.ui.components.rememberWukkiImageRequest
-import kotlin.math.max
+
+internal data class AndroidBufferingOverlaySnapshot(val spinner: Boolean, val label: String)
+
+internal fun androidBufferingOverlaySnapshot(data: PlaybackOverlayData): AndroidBufferingOverlaySnapshot? =
+    data.buffering?.let { AndroidBufferingOverlaySnapshot(spinner = true, label = it.label) }
 
 @Composable
 internal fun AndroidPlaybackOverlay(data: PlaybackOverlayData?, modifier: Modifier) {
     val overlay = data ?: return
     Box(modifier) {
-        if (overlay.showBufferingSpinner) {
+        androidBufferingOverlaySnapshot(overlay)?.let { buffering ->
             Column(
                 modifier = Modifier.align(Alignment.Center).background(WukkiColors.surfaceOverlay).padding(horizontal = 26.dp, vertical = 20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 CircularProgressIndicator(color = WukkiColors.primary)
-                overlay.bufferingLabel?.let { label -> Spacer(Modifier.height(12.dp)); Text(label, color = WukkiColors.textPrimary) }
+                Spacer(Modifier.height(12.dp))
+                Text(buffering.label, color = WukkiColors.textPrimary)
             }
         }
         overlay.channelNumberInput?.let { channelNumberInput ->
@@ -147,19 +151,18 @@ private fun ProgrammePanel(data: PlaybackOverlayData, modifier: Modifier) {
             verticalArrangement = Arrangement.spacedBy(PlaybackInfoPanelStyle.ITEM_GAP.dp)
         ) {
             Text(
-                data.currentTitle ?: data.noEpgLabel,
+                data.programme.title,
                 color = WukkiColors.textPrimary,
                 fontWeight = FontWeight.Bold,
                 fontSize = PlaybackInfoPanelStyle.TITLE_TEXT_SIZE.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            val currentStart = data.currentStart
-            val currentEnd = data.currentEnd
-            if (currentStart != null && currentEnd != null) {
-                val progress = ((data.now - currentStart).toFloat() / max(1L, currentEnd - currentStart)).coerceIn(0f, 1f)
+            val timeRange = data.programme.timeRange
+            val progress = data.programme.progress
+            if (timeRange != null && progress != null) {
                 Text(
-                    "${formatTime(currentStart)} – ${formatTime(currentEnd)}",
+                    timeRange,
                     color = WukkiColors.textSecondary,
                     fontSize = PlaybackInfoPanelStyle.META_TEXT_SIZE.sp
                 )
@@ -170,9 +173,9 @@ private fun ProgrammePanel(data: PlaybackOverlayData, modifier: Modifier) {
                     modifier = Modifier.fillMaxWidth().height(PlaybackInfoPanelStyle.PROGRESS_HEIGHT.dp)
                 )
             }
-            data.nextTitle?.let { next ->
+            data.programme.nextLine?.let { next ->
                 Text(
-                    "${data.nextLabel}: $next",
+                    next,
                     color = WukkiColors.textSecondary,
                     fontSize = PlaybackInfoPanelStyle.NEXT_TEXT_SIZE.sp,
                     maxLines = 1,

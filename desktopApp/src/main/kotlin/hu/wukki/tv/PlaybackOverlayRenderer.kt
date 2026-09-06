@@ -11,9 +11,6 @@ import java.awt.geom.Arc2D
 import java.awt.geom.Path2D
 import java.awt.geom.RoundRectangle2D
 import java.awt.image.BufferedImage
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import kotlin.math.min
@@ -24,6 +21,11 @@ internal data class RenderedPlaybackOverlay(
     val programmeImage: BufferedImage? = null,
     val programmeImageFailed: Boolean = false
 )
+
+internal data class DesktopBufferingOverlaySnapshot(val spinner: Boolean, val label: String)
+
+internal fun desktopBufferingOverlaySnapshot(data: PlaybackOverlayData): DesktopBufferingOverlaySnapshot? =
+    data.buffering?.let { DesktopBufferingOverlaySnapshot(spinner = true, label = it.label) }
 
 internal class DesktopPlaybackOverlayCoordinator(
     private val component: OverlayCallbackMediaPlayerComponent,
@@ -109,7 +111,9 @@ internal class OverlayCallbackMediaPlayerComponent(vararg factoryArguments: Stri
 
         if (data.showPreviewLogo) drawPreviewLogo(graphics, content, width, scale)
         if (data.showProgrammeInfo) drawProgrammePanel(graphics, content, width, height, scale)
-        if (data.showBufferingSpinner) drawBufferingSpinner(graphics, data.bufferingLabel.orEmpty(), width, height, scale)
+        desktopBufferingOverlaySnapshot(data)?.let {
+            drawBufferingSpinner(graphics, it.label, width, height, scale)
+        }
         data.playbackStatus?.let {
             drawPlaybackStatus(graphics, it, data.playbackError, data.showProgrammeInfo, width, height, scale)
         }
@@ -282,16 +286,14 @@ private fun drawProgrammePanel(
     }
     val contentRight = margin + panelWidth - padding
     val availableContentWidth = (contentRight - contentLeft).coerceAtLeast(1)
-    val title = data.currentTitle ?: data.noEpgLabel
+    val title = data.programme.title
     val titleFont = Font(Font.SANS_SERIF, Font.BOLD, scaled(PlaybackInfoPanelStyle.TITLE_TEXT_SIZE, 12))
     val metaFont = Font(Font.SANS_SERIF, Font.PLAIN, scaled(PlaybackInfoPanelStyle.META_TEXT_SIZE, 9))
     val nextFont = Font(Font.SANS_SERIF, Font.PLAIN, scaled(PlaybackInfoPanelStyle.NEXT_TEXT_SIZE, 9))
     val itemGap = scaled(PlaybackInfoPanelStyle.ITEM_GAP, 2)
     val progressHeight = scaled(PlaybackInfoPanelStyle.PROGRESS_HEIGHT, 3)
-    val currentStart = data.currentStart
-    val currentEnd = data.currentEnd
-    val hasTiming = currentStart != null && currentEnd != null && currentEnd > currentStart
-    val hasNext = data.nextTitle != null
+    val hasTiming = data.programme.timeRange != null && data.programme.progress != null
+    val hasNext = data.programme.nextLine != null
     val contentHeight = graphics.getFontMetrics(titleFont).height +
         (if (hasTiming) itemGap + graphics.getFontMetrics(metaFont).height + itemGap + progressHeight else 0) +
         (if (hasNext) itemGap + graphics.getFontMetrics(nextFont).height else 0)
@@ -306,9 +308,9 @@ private fun drawProgrammePanel(
         contentY += itemGap
         graphics.font = metaFont
         graphics.color = WukkiOverlayColors.text
-        graphics.drawString("${overlayTime(currentStart)} – ${overlayTime(currentEnd)}", contentLeft, contentY + graphics.fontMetrics.ascent)
+        graphics.drawString(data.programme.timeRange.orEmpty(), contentLeft, contentY + graphics.fontMetrics.ascent)
         contentY += graphics.fontMetrics.height + itemGap
-        val progress = ((data.now - currentStart).toDouble() / (currentEnd - currentStart)).coerceIn(0.0, 1.0)
+        val progress = data.programme.progress?.toDouble() ?: 0.0
         graphics.color = WukkiOverlayColors.divider
         graphics.fillRoundRect(contentLeft, contentY, availableContentWidth, progressHeight, progressHeight, progressHeight)
         graphics.color = WukkiOverlayColors.accent
@@ -322,13 +324,13 @@ private fun drawProgrammePanel(
         )
         contentY += progressHeight
     }
-    data.nextTitle?.let { nextTitle ->
+    data.programme.nextLine?.let { nextLine ->
         contentY += itemGap
         graphics.font = nextFont
         graphics.color = WukkiOverlayColors.text
         drawClippedText(
             graphics,
-            "${data.nextLabel}: $nextTitle",
+            nextLine,
             contentLeft,
             contentY + graphics.fontMetrics.ascent,
             availableContentWidth
@@ -439,6 +441,3 @@ private fun clippedText(graphics: Graphics2D, text: String, maxWidth: Int): Stri
     while (end > 0 && graphics.fontMetrics.stringWidth(text.substring(0, end) + ellipsis) > maxWidth) end--
     return text.substring(0, end) + ellipsis
 }
-
-private val OverlayTimeFormatter = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())
-private fun overlayTime(timestamp: Long): String = OverlayTimeFormatter.format(Instant.ofEpochMilli(timestamp))
