@@ -1,16 +1,10 @@
 package hu.wukki.tv
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import hu.wukki.tv.ui.components.tr
 import uk.co.caprica.vlcj.factory.discovery.NativeDiscovery
 import uk.co.caprica.vlcj.player.base.MediaPlayer
 import uk.co.caprica.vlcj.player.base.MediaPlayerEventAdapter
 import uk.co.caprica.vlcj.player.component.CallbackMediaPlayerComponent
-import java.util.concurrent.Executors
-import java.util.concurrent.ScheduledFuture
-import java.util.concurrent.TimeUnit
 import javax.swing.SwingUtilities
 
 /**
@@ -18,26 +12,42 @@ import javax.swing.SwingUtilities
  * The Swing host may be removed while browsing other screens; audio and the stream keep running.
  */
 class PlaybackController(initialLanguage: AppLanguage = AppLanguage.HUNGARIAN) : PlaybackEngine {
-    private val retryExecutor = Executors.newSingleThreadScheduledExecutor { runnable ->
-        Thread(runnable, "wukki-vlc-reconnect").apply { isDaemon = true }
-    }
-    private var retryTask: ScheduledFuture<*>? = null
-    private var bufferingTask: ScheduledFuture<*>? = null
-    private var spinnerRepaintTask: ScheduledFuture<*>? = null
-    private var currentChannel: Channel? = null
-    private var currentSettings: PlaybackSettings = PlaybackSettings()
-    private var currentShowLogos = true
-    private var currentLanguage = initialLanguage
-    private var attempt = 0
+    private var runtimeError: String? = null
     private var released = false
-
-    override var state by mutableStateOf(PlaybackState.IDLE)
-        private set
-    override var detail by mutableStateOf<String?>(null)
-        private set
-    /** Set from libVLC's `playing` event; consumed by the Compose application layer. */
-    override var successfullyPlayedChannelId by mutableStateOf<String?>(null)
-        private set
+    private var listener: MediaPlayerEventAdapter? = null
+    private val session: PlaybackSession = PlaybackSession(object : PlaybackAdapter {
+        override fun play(channel: Channel, buffers: PlaybackBufferPolicy, generation: Long) {
+            val native = component?.mediaPlayer() ?: error(runtimeError ?: "Player unavailable")
+            listener?.let { native.events().removeMediaPlayerEventListener(it) }
+            listener = object : MediaPlayerEventAdapter() {
+                override fun buffering(mediaPlayer: MediaPlayer, newCache: Float) {
+                    if (newCache < 100f) SwingUtilities.invokeLater { session.buffering(generation) }
+                }
+                override fun playing(mediaPlayer: MediaPlayer) { SwingUtilities.invokeLater { session.playing(generation) } }
+                override fun error(mediaPlayer: MediaPlayer) { SwingUtilities.invokeLater { session.failed(generation) } }
+                override fun finished(mediaPlayer: MediaPlayer) { SwingUtilities.invokeLater { session.failed(generation) } }
+            }.also { native.events().addMediaPlayerEventListener(it) }
+            native.media().play(channel.streamUrl, ":network-caching=${buffers.networkCacheMs}")
+        }
+        override fun stop() {
+            val native = component?.mediaPlayer() ?: return
+            listener?.let { native.events().removeMediaPlayerEventListener(it) }
+            listener = null
+            native.controls().stop()
+        }
+        override fun volume(value: Int) { component?.mediaPlayer()?.audio()?.setVolume(value) }
+        override fun aspect(value: AspectRatioMode) { applyAspectRatio(value) }
+    }, PlaybackScheduler { delay, action ->
+        val timer = javax.swing.Timer(delay.toInt()) { action() }.apply { isRepeats = false; start() }
+        PlaybackCancellation { timer.stop() }
+    })
+    override val state get() = session.state
+    override val detail get() = session.detail ?: runtimeError
+    override val successfullyPlayedChannelId get() = session.successfullyPlayedChannelId
+    private val spinnerTimer = javax.swing.Timer(33) {
+        if (state == PlaybackState.BUFFERING) requestRepaint()
+    }.apply { start() }
+    private var currentLanguage = initialLanguage
 
     private val runtimeResolution = VlcRuntimeResolver.resolve()
     private val runtime = runtimeResolution.runtime
@@ -51,73 +61,20 @@ class PlaybackController(initialLanguage: AppLanguage = AppLanguage.HUNGARIAN) :
     }
     val component: CallbackMediaPlayerComponent? get() = overlayComponent
 
-    init {
-        component?.mediaPlayer()?.events()?.addMediaPlayerEventListener(object : MediaPlayerEventAdapter() {
-            override fun opening(mediaPlayer: MediaPlayer) = updateState(PlaybackState.OPENING, null)
-
-            override fun buffering(mediaPlayer: MediaPlayer, newCache: Float) {
-                if (newCache < 100f) scheduleBufferingIndicator()
-            }
-
-            override fun playing(mediaPlayer: MediaPlayer) {
-                attempt = 0
-                retryTask?.cancel(false)
-                retryTask = null
-                cancelBufferingIndicator()
-                successfullyPlayedChannelId = currentChannel?.id
-                updateState(PlaybackState.PLAYING, null)
-            }
-
-            override fun error(mediaPlayer: MediaPlayer) = onPlaybackFailure()
-            override fun finished(mediaPlayer: MediaPlayer) = onPlaybackFailure()
-        })
-    }
-
     override fun play(channel: Channel?, settings: PlaybackSettings, showLogos: Boolean, language: AppLanguage) {
-        if (channel == null || released) return
-        val changedChannel = currentChannel?.streamUrl != channel.streamUrl
-        val changedBuffer = currentSettings.bufferProfile != settings.bufferProfile
-        currentChannel = channel
-        currentSettings = settings
-        currentShowLogos = showLogos
         currentLanguage = language
-        applyAspectRatio(settings.aspectRatio ?: AspectRatioMode.AUTO)
-        component?.mediaPlayer()?.audio()?.setVolume(settings.volume)
-
-        if (changedChannel || changedBuffer || state == PlaybackState.IDLE || state == PlaybackState.ERROR) {
-            attempt = 0
-            retryTask?.cancel(false)
-            retryTask = null
-            cancelBufferingIndicator()
-            startCurrentChannel()
-        }
+        session.play(channel, settings, language)
     }
-
-    override fun updateSettings(settings: PlaybackSettings) {
-        val channel = currentChannel ?: return
-        play(channel, settings, currentShowLogos, currentLanguage)
-    }
-
-    /** Updates the Java2D video overlay without restarting or reconfiguring the stream. */
+    override fun updateSettings(settings: PlaybackSettings) = session.updateSettings(settings)
     override fun updateOverlay(data: PlaybackOverlayData) {
-        if (released) return
-        overlayCoordinator?.update(data)
+        if (!released) overlayCoordinator?.update(data)
     }
-
-    override fun stop() {
-        retryTask?.cancel(false)
-        retryTask = null
-        cancelBufferingIndicator()
-        component?.mediaPlayer()?.controls()?.stop()
-        updateState(PlaybackState.IDLE, null)
-    }
-
+    override fun stop() = session.stop()
     override fun release() {
         if (released) return
+        session.release()
         released = true
-        retryTask?.cancel(true)
-        bufferingTask?.cancel(true)
-        retryExecutor.shutdownNow()
+        spinnerTimer.stop()
         overlayCoordinator?.release()
         runCatching { component?.release() }
     }
@@ -128,32 +85,14 @@ class PlaybackController(initialLanguage: AppLanguage = AppLanguage.HUNGARIAN) :
                 VlcRuntimeIssue.VIDEO_PLUGIN_MISSING -> "playback.runtime.video.plugin.missing"
                 VlcRuntimeIssue.MISSING -> "playback.runtime.missing"
             }
-            updateState(PlaybackState.ERROR, tr(currentLanguage, messageKey))
+            runtimeError = tr(currentLanguage, messageKey)
             null
         } else {
             OverlayCallbackMediaPlayerComponent(*runtime?.factoryArguments.orEmpty())
         }
     } catch (exception: Exception) {
-        updateState(PlaybackState.ERROR, tr(currentLanguage, "playback.runtime.initialization", exception.message ?: tr(currentLanguage, "error.unknown")))
+        runtimeError = tr(currentLanguage, "playback.runtime.initialization", exception.message ?: tr(currentLanguage, "error.unknown"))
         null
-    }
-
-    private fun startCurrentChannel() {
-        val channel = currentChannel ?: return
-        val player = component?.mediaPlayer()
-        if (player == null) {
-            updateState(PlaybackState.ERROR, detail ?: tr(currentLanguage, "playback.player.unavailable"))
-            return
-        }
-        try {
-            cancelBufferingIndicator()
-            player.controls().stop()
-            player.audio().setVolume(currentSettings.volume)
-            updateState(PlaybackState.OPENING, tr(currentLanguage, "playback.channel.opening", channel.name))
-            player.media().play(channel.streamUrl, currentSettings.bufferProfile.vlcOption(), ":http-reconnect")
-        } catch (exception: Exception) {
-            onPlaybackFailure(exception.message)
-        }
     }
 
     /** Changes only how already-decoded frames are painted, so the stream keeps playing. */
@@ -166,58 +105,4 @@ class PlaybackController(initialLanguage: AppLanguage = AppLanguage.HUNGARIAN) :
         SwingUtilities.invokeLater { component?.videoSurfaceComponent()?.repaint() }
     }
 
-    private fun onPlaybackFailure(reason: String? = null) {
-        val channel = currentChannel ?: return
-        if (released || retryTask != null) return
-        cancelBufferingIndicator()
-        val nextAttempt = attempt + 1
-        if (!currentSettings.autoReconnect || nextAttempt > currentSettings.reconnectAttempts) {
-            updateState(PlaybackState.ERROR, tr(currentLanguage, "playback.stream.failed", channel.name, reason ?: tr(currentLanguage, "error.unknown")))
-            return
-        }
-        attempt = nextAttempt
-        updateState(PlaybackState.RECONNECTING, tr(currentLanguage, "playback.reconnect.attempt", channel.name, attempt, currentSettings.reconnectAttempts))
-        retryTask = retryExecutor.schedule({
-            retryTask = null
-            startCurrentChannel()
-        }, attempt.toLong(), TimeUnit.SECONDS)
-    }
-
-    private fun updateState(newState: PlaybackState, newDetail: String?) {
-        state = newState
-        detail = newDetail
-    }
-
-    private fun scheduleBufferingIndicator() {
-        if (state == PlaybackState.BUFFERING || bufferingTask != null || released) return
-        bufferingTask = retryExecutor.schedule({
-            bufferingTask = null
-            if (!released && state != PlaybackState.PLAYING) {
-                updateState(PlaybackState.BUFFERING, null)
-                startSpinnerRepaintLoop()
-            }
-        }, BUFFERING_INDICATOR_DELAY_MS, TimeUnit.MILLISECONDS)
-    }
-
-    private fun cancelBufferingIndicator() {
-        bufferingTask?.cancel(false)
-        bufferingTask = null
-        spinnerRepaintTask?.cancel(false)
-        spinnerRepaintTask = null
-    }
-
-    private fun startSpinnerRepaintLoop() {
-        if (spinnerRepaintTask != null) return
-        spinnerRepaintTask = retryExecutor.scheduleAtFixedRate(
-            { if (!released && state == PlaybackState.BUFFERING) requestRepaint() },
-            0L,
-            SPINNER_FRAME_INTERVAL_MS,
-            TimeUnit.MILLISECONDS
-        )
-    }
-
-    private companion object {
-        const val BUFFERING_INDICATOR_DELAY_MS = 250L
-        const val SPINNER_FRAME_INTERVAL_MS = 33L
-    }
 }

@@ -44,8 +44,4 @@ private fun forwardToCompose(interopView: Component, event: MouseEvent) {
     event.consume()
 }
 
-internal fun BufferProfile.vlcOption(): String = when (this) {
-    BufferProfile.LOW_LATENCY -> ":network-caching=300"
-    BufferProfile.BALANCED -> ":network-caching=1000"
-    BufferProfile.STABLE -> ":network-caching=3000"
-}
+internal fun BufferProfile.vlcOption(): String = ":network-caching=${bufferPolicy().networkCacheMs}"
