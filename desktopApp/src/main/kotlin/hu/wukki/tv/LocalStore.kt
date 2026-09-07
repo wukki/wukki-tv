@@ -1,8 +1,5 @@
 package hu.wukki.tv
 
-import java.io.BufferedInputStream
-import java.io.FileInputStream
-import java.io.ObjectInputStream
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
@@ -12,7 +9,7 @@ import kotlinx.serialization.json.Json
 internal class DesktopStateStore(private val directory: Path) : AppStateStore {
     private val jsonPath: Path = directory.resolve("state.json")
     private val legacyPath: Path = directory.resolve("state.bin")
-    private val json = Json { encodeDefaults = true; ignoreUnknownKeys = true }
+    private val json = Json { encodeDefaults = true; ignoreUnknownKeys = true; coerceInputValues = true }
 
     override fun load(): AppState = loadJson() ?: loadLegacy()
 
@@ -32,9 +29,7 @@ internal class DesktopStateStore(private val directory: Path) : AppStateStore {
 
     private fun loadLegacy(): AppState = runCatching {
         if (!Files.isRegularFile(legacyPath)) return AppState()
-        ObjectInputStream(BufferedInputStream(FileInputStream(legacyPath.toFile()))).use { stream ->
-            (stream.readObject() as? AppState ?: AppState()).also(::save)
-        }
+        (LegacyStateBinAdapter.load(legacyPath) ?: AppState()).also(::save)
     }.getOrElse { AppState() }
 }
 

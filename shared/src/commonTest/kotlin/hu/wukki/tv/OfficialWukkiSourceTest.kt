@@ -36,8 +36,8 @@ class OfficialWukkiSourceTest {
         assertEquals(OfficialWukkiSource.PLAYLIST_ID, migrated.channels.single().playlistId)
         assertTrue(migrated.channels.single().favorite)
         assertEquals(officialChannel.id, migrated.lastChannelId)
-        assertEquals(listOf(OfficialWukkiSource.EPG_SOURCE_ID), migrated.epgSources.orEmpty().map { it.id })
-        assertEquals(listOf(programme), migrated.epgProgrammesBySource.orEmpty()[OfficialWukkiSource.EPG_SOURCE_ID])
+        assertEquals(listOf(OfficialWukkiSource.EPG_SOURCE_ID), migrated.epgSources.map { it.id })
+        assertEquals(listOf(programme), migrated.epgProgrammesBySource[OfficialWukkiSource.EPG_SOURCE_ID])
     }
 
     @Test
@@ -107,7 +107,7 @@ class OfficialWukkiSourceTest {
         assertEquals("https://epg.example/second.xml", model.officialEpgSource?.url)
         assertEquals(
             "Második",
-            model.state.epgProgrammesBySource.orEmpty()[OfficialWukkiSource.EPG_SOURCE_ID]?.single()?.title
+            model.state.epgProgrammesBySource[OfficialWukkiSource.EPG_SOURCE_ID]?.single()?.title
         )
 
         playlist = m3u(null)

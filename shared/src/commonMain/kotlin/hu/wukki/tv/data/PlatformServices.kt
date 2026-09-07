@@ -6,9 +6,6 @@ interface AppStateStore {
     fun save(state: AppState)
 }
 
-/** Keeps the legacy desktop binary reader source-compatible without exposing `java.io` to common code. */
-expect interface Persistable
-
 /** Synchronous boundary used inside the model's background dispatcher. */
 fun interface RemoteTextLoader {
     fun load(url: String): String

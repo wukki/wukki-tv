@@ -46,7 +46,7 @@ fun WukkiApp(
     val model = sharedModel ?: remember(dependencies) { dependencies.createModel() }
     val scope = rememberCoroutineScope()
     val focusRequester = remember { FocusRequester() }
-    val autoPlayOnLaunch = model.settings.playback.autoPlayOnLaunch != false
+    val autoPlayOnLaunch = model.settings.playback.autoPlayOnLaunch
     val guideState = rememberEpgGuideState()
     val guideDataSource = remember(model) { model.guideDataSource() }
     val baseDensity = LocalDensity.current
@@ -208,7 +208,7 @@ fun WukkiApp(
                             channelNumberInput = channelNumberInput,
                             language = model.settings.language,
                             showLogos = model.settings.display.showLogos,
-                            showProgrammeImages = model.settings.display.showProgrammeImages != false,
+                            showProgrammeImages = model.settings.display.showProgrammeImages,
                             playbackState = playbackController.state,
                             playbackDetail = playbackController.detail
                         )

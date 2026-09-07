@@ -68,8 +68,8 @@ class WukkiModel(
         if (provisionedState != initialState) persist()
     }
 
-    val settings: AppSettings get() = state.settings ?: AppSettings()
-    val epgSources: List<EpgSource> get() = state.epgSources.orEmpty()
+    val settings: AppSettings get() = state.settings
+    val epgSources: List<EpgSource> get() = state.epgSources
     val officialPlaylist: PlaylistDefinition get() = state.playlists.single()
     val officialEpgSource: EpgSource? get() = epgSources.singleOrNull()
     val hasChannels: Boolean get() = state.channels.isNotEmpty()
@@ -271,7 +271,7 @@ class WukkiModel(
     /** The continuous guide only spans programmes that can actually be shown for this playlist. */
     fun guideLatestProgrammeEnd(): Long? {
         val channels = state.channels
-        val programmeSources = state.epgProgrammesBySource.orEmpty()
+        val programmeSources = state.epgProgrammesBySource
         if (channels !== latestEndChannelSource || programmeSources !== latestEndProgrammeSources) {
             cachedGuideLatestProgrammeEnd = currentProgrammeIndex().latestEnd(guideChannels())
             latestEndChannelSource = channels
@@ -319,7 +319,7 @@ class WukkiModel(
 
         val previous = officialEpgSource
         val sameUrl = previous?.url?.equals(url, ignoreCase = true) == true
-        val previousCache = state.epgProgrammesBySource.orEmpty()
+        val previousCache = state.epgProgrammesBySource
         val cachedProgrammes = if (sameUrl) previousCache[OfficialWukkiSource.EPG_SOURCE_ID].orEmpty() else emptyList()
         val synchronizedCache = if (sameUrl && previousCache.keys.all { it == OfficialWukkiSource.EPG_SOURCE_ID }) {
             previousCache
@@ -356,7 +356,7 @@ class WukkiModel(
     }
 
     private fun rematchChannels() {
-        state = state.copy(channels = EpgMatcher.matchFromSources(state.channels, epgSources, state.epgProgrammesBySource.orEmpty()))
+        state = state.copy(channels = EpgMatcher.matchFromSources(state.channels, epgSources, state.epgProgrammesBySource))
     }
 
     private fun channelProgrammes(channel: Channel): List<Programme> {
@@ -364,7 +364,7 @@ class WukkiModel(
     }
 
     private fun currentProgrammeIndex(): ProgrammeIndex {
-        val sources = state.epgProgrammesBySource.orEmpty()
+        val sources = state.epgProgrammesBySource
         if (sources !== indexedProgrammeSources) {
             indexedProgrammeSources = sources
             programmeIndex = ProgrammeIndex(sources)

@@ -33,7 +33,7 @@ class WukkiAppDependenciesTest {
         val model = dependencies.createModel()
 
         assertTrue(model.refreshOfficialPlaylist(showFeedback = false))
-        assertEquals("Híradó", model.state.epgProgrammesBySource.orEmpty().values.single().single().title)
+        assertEquals("Híradó", model.state.epgProgrammesBySource.values.single().single().title)
         assertEquals(model.state, savedState)
     }
 }

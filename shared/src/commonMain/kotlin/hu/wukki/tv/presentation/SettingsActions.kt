@@ -10,9 +10,9 @@ fun WukkiModel.adjustSetting(option: SettingsOptionId, delta: Int) {
             PlaybackSettingsOption.VOLUME -> setVolume(settings.playback.volume + delta * 5)
             PlaybackSettingsOption.BUFFER -> setBufferProfile(BufferProfile.entries[
                 (settings.playback.bufferProfile.ordinal + delta).mod(BufferProfile.entries.size)])
-            PlaybackSettingsOption.AUTOPLAY -> updatePlayback { it.copy(autoPlayOnLaunch = !(it.autoPlayOnLaunch != false)) }
+            PlaybackSettingsOption.AUTOPLAY -> updatePlayback { it.copy(autoPlayOnLaunch = !it.autoPlayOnLaunch) }
             PlaybackSettingsOption.ASPECT_RATIO -> updatePlayback { it.copy(aspectRatio = AspectRatioMode.entries[
-                ((it.aspectRatio ?: AspectRatioMode.AUTO).ordinal + delta).mod(AspectRatioMode.entries.size)]) }
+                (it.aspectRatio.ordinal + delta).mod(AspectRatioMode.entries.size)]) }
             PlaybackSettingsOption.RECONNECT -> updatePlayback { it.copy(autoReconnect = !it.autoReconnect) }
             PlaybackSettingsOption.RETRIES -> updatePlayback { it.copy(reconnectAttempts = it.reconnectAttempts + delta) }
         }
@@ -45,13 +45,12 @@ private fun WukkiModel.adjustDisplayOption(option: DisplaySettingsOption, delta:
             display.copy(uiScale = values[(current + delta).mod(values.size)])
         }
         DisplaySettingsOption.CHANNEL_LIST -> {
-            val current = (display.channelListMode ?: ChannelListDisplayMode.NORMAL).ordinal
+            val current = display.channelListMode.ordinal
             display.copy(channelListMode = ChannelListDisplayMode.entries[(current + delta).mod(ChannelListDisplayMode.entries.size)])
         }
         DisplaySettingsOption.PROGRAMME -> display.copy(showChannelProgramme = !display.showChannelProgramme)
         DisplaySettingsOption.MINI_GUIDE -> display.copy(showMiniGuide = !display.showMiniGuide)
         DisplaySettingsOption.LOGOS -> display.copy(showLogos = !display.showLogos)
-        DisplaySettingsOption.PROGRAMME_IMAGES -> display.copy(showProgrammeImages = !(display.showProgrammeImages != false))
+        DisplaySettingsOption.PROGRAMME_IMAGES -> display.copy(showProgrammeImages = !display.showProgrammeImages)
     }
 }
-

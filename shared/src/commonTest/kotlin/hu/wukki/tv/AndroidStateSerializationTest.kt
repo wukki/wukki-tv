@@ -19,4 +19,20 @@ class AndroidStateSerializationTest {
         val json = Json { encodeDefaults = true; ignoreUnknownKeys = true }
         assertEquals(original, json.decodeFromString<AppState>(json.encodeToString(original)))
     }
+
+    @Test
+    fun `missing json fields use non-null domain defaults`() {
+        val json = Json { ignoreUnknownKeys = true; coerceInputValues = true }
+
+        val state = json.decodeFromString<AppState>(
+            """{"settings":{"playback":{"autoPlayOnLaunch":null},"display":{"channelListMode":null,"showProgrammeImages":null}},"epgSources":null,"epgProgrammesBySource":null}"""
+        )
+
+        assertEquals(AppSettings(), state.settings)
+        assertEquals(emptyList(), state.epgSources)
+        assertEquals(emptyMap(), state.epgProgrammesBySource)
+        assertEquals(true, state.settings.playback.autoPlayOnLaunch)
+        assertEquals(ChannelListDisplayMode.NORMAL, state.settings.display.channelListMode)
+        assertEquals(true, state.settings.display.showProgrammeImages)
+    }
 }

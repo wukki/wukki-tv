@@ -41,15 +41,6 @@ class JvmXmlTvParserTest {
     }
 
     @Test
-    fun `old display settings enable programme images during normalisation`() {
-        val normalized = AppState(
-            settings = AppSettings(display = DisplaySettings(showProgrammeImages = null))
-        ).normalized()
-
-        assertEquals(true, normalized.settings?.display?.showProgrammeImages)
-    }
-
-    @Test
     fun `rejects XMLTV text above the production limit before SAX parsing`() {
         assertFailsWith<IllegalArgumentException> {
             JvmXmlTvParser.parse(" ".repeat(RemoteTextKind.EPG.maxBodyBytes + 1))

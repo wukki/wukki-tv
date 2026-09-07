@@ -54,7 +54,7 @@ internal fun PlaybackSettingsPane(
     Column(modifier = Modifier.fillMaxWidth()) {
         SettingsOptionRow(state.language, "settings.playback.autoplay", "settings.playback.autoplay.description", focusedOption == PlaybackOption.AUTOPLAY, onFocus = { onOptionFocus(0) }, scale = scale) {
             Switch(
-                checked = settings.autoPlayOnLaunch != false,
+                checked = settings.autoPlayOnLaunch,
                 onCheckedChange = { enabled -> onOptionFocus(0); callbacks.updatePlayback { it.copy(autoPlayOnLaunch = enabled) } }
             )
         }
@@ -87,7 +87,7 @@ internal fun PlaybackSettingsPane(
         SettingsOptionRow(state.language, "settings.playback.aspect", "settings.playback.aspect.description", focusedOption == PlaybackOption.ASPECT_RATIO, onFocus = { onOptionFocus(3) }, scale = scale) {
             Column(modifier = Modifier.widthIn(min = 150.dp, max = 205.dp)) {
                 SettingsExposedDropdown(
-                    value = settings.aspectRatio ?: AspectRatioMode.AUTO,
+                    value = settings.aspectRatio,
                     entries = AspectRatioMode.entries.toList(),
                     label = { it.label(state.language) },
                     onFocus = { onOptionFocus(3) },
@@ -157,7 +157,7 @@ internal fun DisplaySettingsPane(state: SettingsUiState, callbacks: SettingsCall
         SettingsOptionRow(state.language, "settings.display.channel.list", "settings.display.channel.list.description", selected = remoteOptionIndex == 1, onFocus = { onOptionFocus(1) }, scale = scale) {
             SettingsSegmentedChoice(
                 entries = ChannelListDisplayMode.entries,
-                selected = state.settings.display.channelListMode ?: ChannelListDisplayMode.NORMAL,
+                selected = state.settings.display.channelListMode,
                 label = { it.label(state.language) },
                 onSelect = { mode -> onOptionFocus(1); callbacks.updateDisplay { it.copy(channelListMode = mode) } }
             )
@@ -165,7 +165,7 @@ internal fun DisplaySettingsPane(state: SettingsUiState, callbacks: SettingsCall
         SettingsToggle(state.language, "settings.display.programme", "settings.display.programme.description", state.settings.display.showChannelProgramme, remoteOptionIndex == 2, { onOptionFocus(2) }, scale) { callbacks.updateDisplay { current -> current.copy(showChannelProgramme = it) } }
         SettingsToggle(state.language, "settings.display.mini.guide", "settings.display.mini.guide.description", state.settings.display.showMiniGuide, remoteOptionIndex == 3, { onOptionFocus(3) }, scale) { callbacks.updateDisplay { current -> current.copy(showMiniGuide = it) } }
         SettingsToggle(state.language, "settings.display.logos", "settings.display.logos.description", state.settings.display.showLogos, remoteOptionIndex == 4, { onOptionFocus(4) }, scale) { callbacks.updateDisplay { current -> current.copy(showLogos = it) } }
-        SettingsToggle(state.language, "settings.display.programme.images", "settings.display.programme.images.description", state.settings.display.showProgrammeImages != false, remoteOptionIndex == 5, { onOptionFocus(5) }, scale) { callbacks.updateDisplay { current -> current.copy(showProgrammeImages = it) } }
+        SettingsToggle(state.language, "settings.display.programme.images", "settings.display.programme.images.description", state.settings.display.showProgrammeImages, remoteOptionIndex == 5, { onOptionFocus(5) }, scale) { callbacks.updateDisplay { current -> current.copy(showProgrammeImages = it) } }
     }
 }
 

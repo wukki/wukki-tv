@@ -25,7 +25,7 @@ internal class AndroidStateStore(
 ) {
     private val appContext = context.applicationContext
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val json = Json { encodeDefaults = true; ignoreUnknownKeys = true }
+    private val json = Json { encodeDefaults = true; ignoreUnknownKeys = true; coerceInputValues = true }
     private data class PendingSave(val state: AppState, val completion: CompletableDeferred<Unit>)
     private val pendingStates = Channel<PendingSave>(Channel.UNLIMITED)
     private var lastSave: CompletableDeferred<Unit>? = null
@@ -50,8 +50,8 @@ internal class AndroidStateStore(
             ?.let { saved -> runCatching { json.decodeFromString<AppState>(saved) }.getOrNull() }
             ?: AppState()
         val fileCache = epgCacheFile.read()
-        val embeddedCache = stored.epgProgrammesBySource
-            ?: stored.epgSources.orEmpty().firstOrNull()?.let { source ->
+        val embeddedCache = stored.epgProgrammesBySource.takeIf { it.isNotEmpty() }
+            ?: stored.epgSources.firstOrNull()?.let { source ->
                 stored.programmes.takeIf { it.isNotEmpty() }?.let { mapOf(source.id to it) }
             }
         val cache = fileCache ?: embeddedCache.orEmpty()
@@ -72,7 +72,7 @@ internal class AndroidStateStore(
     }
 
     private suspend fun persistLatest(state: AppState) {
-        val cache = state.epgProgrammesBySource.orEmpty()
+        val cache = state.epgProgrammesBySource
         if (cache !== lastPersistedCache) {
             check(cache == lastPersistedCache || epgCacheFile.write(cache)) { "Could not persist EPG cache" }
             lastPersistedCache = cache

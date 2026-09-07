@@ -13,29 +13,21 @@ import kotlinx.serialization.Serializable as KotlinSerializable
 data class PlaybackSettings(
     val volume: Int = 100,
     val bufferProfile: BufferProfile = BufferProfile.BALANCED,
-    /** Nullable only for compatibility with settings serialized before autoplay support. */
-    val autoPlayOnLaunch: Boolean? = true,
+    val autoPlayOnLaunch: Boolean = true,
     val autoReconnect: Boolean = true,
     val reconnectAttempts: Int = 3,
-    /** Nullable only for compatibility with settings serialized before this field existed. */
-    val aspectRatio: AspectRatioMode? = AspectRatioMode.AUTO
-) : Persistable {
-    companion object { const val serialVersionUID: Long = -8523174791077887180L }
-}
+    val aspectRatio: AspectRatioMode = AspectRatioMode.AUTO
+)
 
 @KotlinSerializable
 data class DisplaySettings(
     val uiScale: Float = 1f,
-    /** Nullable only for compatibility with state written before channel-list modes existed. */
-    val channelListMode: ChannelListDisplayMode? = ChannelListDisplayMode.NORMAL,
+    val channelListMode: ChannelListDisplayMode = ChannelListDisplayMode.NORMAL,
     val showChannelProgramme: Boolean = true,
     val showMiniGuide: Boolean = true,
     val showLogos: Boolean = true,
-    /** Nullable only for compatibility with state written before programme-image support. */
-    val showProgrammeImages: Boolean? = true
-) : Persistable {
-    companion object { const val serialVersionUID: Long = -4713068168860025348L }
-}
+    val showProgrammeImages: Boolean = true
+)
 
 @KotlinSerializable
 data class AppSettings(
@@ -44,7 +36,7 @@ data class AppSettings(
     val epgRefresh: RefreshInterval = RefreshInterval.MANUAL,
     val playback: PlaybackSettings = PlaybackSettings(),
     val display: DisplaySettings = DisplaySettings()
-) : Persistable
+)
 
 @KotlinSerializable
 data class EpgSource(
@@ -55,7 +47,7 @@ data class EpgSource(
     val priority: Int = 0,
     val lastUpdatedAt: Long? = null,
     val managedByPlaylist: Boolean = false
-) : Persistable
+)
 
 @KotlinSerializable
 data class PlaylistDefinition(
@@ -64,7 +56,7 @@ data class PlaylistDefinition(
     val location: String,
     val source: PlaylistSource,
     val updatedAt: Long
-) : Persistable
+)
 
 @KotlinSerializable
 data class Channel(
@@ -82,9 +74,7 @@ data class Channel(
     val epgSourceId: String? = null,
     /** Optional M3U `tvg-shift`, expressed in hours, applied when this channel's EPG is shown. */
     val tvgShiftHours: Double? = null
-) : Persistable {
-    companion object { const val serialVersionUID: Long = -1321689634413548830L }
-}
+)
 
 @KotlinSerializable
 data class Programme(
@@ -95,9 +85,7 @@ data class Programme(
     val description: String? = null,
     /** Optional artwork URL supplied by XMLTV's programme icon metadata. */
     val imageUrl: String? = null
-) : Persistable {
-    companion object { const val serialVersionUID: Long = -2907961961909864784L }
-}
+)
 
 @KotlinSerializable
 data class AppState(
@@ -107,28 +95,22 @@ data class AppState(
     val epgUrl: String = "",
     val autoRefreshHours: Int = 0,
     val lastChannelId: String? = null,
-    val settings: AppSettings? = null,
-    val epgSources: List<EpgSource>? = null,
-    val epgProgrammesBySource: Map<String, List<Programme>>? = null
-) : Persistable {
-    companion object { const val serialVersionUID: Long = -8266148574268495181L }
+    val settings: AppSettings = AppSettings(),
+    val epgSources: List<EpgSource> = emptyList(),
+    val epgProgrammesBySource: Map<String, List<Programme>> = emptyMap()
+) {
     fun normalized(): AppState {
         val legacyPlaylistRefresh = RefreshInterval.entries.firstOrNull { it.hours == autoRefreshHours }
             ?: RefreshInterval.MANUAL
-        val loadedSettings = settings ?: AppSettings(playlistRefresh = legacyPlaylistRefresh)
-        // Java serialization supplies null for fields that did not exist in older state files.
-        // Normalising here preserves the intended, enabled-by-default autoplay behaviour.
-        val migratedSettings = loadedSettings.copy(
-            playback = loadedSettings.playback.copy(autoPlayOnLaunch = loadedSettings.playback.autoPlayOnLaunch ?: true),
-            display = loadedSettings.display.copy(
-                channelListMode = loadedSettings.display.channelListMode ?: ChannelListDisplayMode.NORMAL,
-                showProgrammeImages = loadedSettings.display.showProgrammeImages ?: true
-            )
-        )
-        val migratedSources = epgSources ?: epgUrl.takeIf { it.isNotBlank() }?.let {
+        val migratedSettings = if (autoRefreshHours > 0 && settings.playlistRefresh == RefreshInterval.MANUAL) {
+            settings.copy(playlistRefresh = legacyPlaylistRefresh)
+        } else settings
+        val migratedSources = epgSources.ifEmpty { epgUrl.takeIf { it.isNotBlank() }?.let {
             listOf(EpgSource(id = "legacy-epg", name = "EPG", url = it, lastUpdatedAt = null))
-        }.orEmpty()
-        val migratedCache = epgProgrammesBySource ?: migratedSources.firstOrNull()?.let { mapOf(it.id to programmes) }.orEmpty()
+        }.orEmpty() }
+        val migratedCache = epgProgrammesBySource.ifEmpty {
+            migratedSources.firstOrNull()?.let { mapOf(it.id to programmes) }.orEmpty()
+        }
         val migratedChannels = channels.map { channel ->
             channel.copy(
                 name = channel.name.takeUnless { it.trim().equals(LEGACY_UNKNOWN_CHANNEL_NAME, ignoreCase = true) }
@@ -139,6 +121,7 @@ data class AppState(
         }
         return copy(
             settings = migratedSettings,
+            autoRefreshHours = 0,
             channels = migratedChannels,
             programmes = emptyList(),
             epgSources = migratedSources,

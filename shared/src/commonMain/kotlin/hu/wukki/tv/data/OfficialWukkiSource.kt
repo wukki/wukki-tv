@@ -25,11 +25,11 @@ object OfficialWukkiSource {
         val cachedChannels = state.channels
             .filter { it.playlistId in previousOfficialIds }
 
-        val cachedEpgSource = state.epgSources.orEmpty().firstOrNull { source ->
-            source.managedByPlaylist && state.epgProgrammesBySource.orEmpty()[source.id] != null
+        val cachedEpgSource = state.epgSources.firstOrNull { source ->
+            source.managedByPlaylist && state.epgProgrammesBySource[source.id] != null
         }
         val cachedProgrammes = cachedEpgSource
-            ?.let { source -> state.epgProgrammesBySource.orEmpty()[source.id].orEmpty() }
+            ?.let { source -> state.epgProgrammesBySource[source.id].orEmpty() }
             .orEmpty()
         val officialEpg = cachedEpgSource?.let { source ->
             EpgSource(

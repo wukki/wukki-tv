@@ -17,7 +17,7 @@ object AndroidRefreshScheduler {
 
     @Synchronized
     fun sync(context: Context, state: AppState) {
-        val settings = state.normalized().settings ?: AppSettings()
+        val settings = state.normalized().settings
         val updatedAt = state.playlists.firstOrNull { it.location == OfficialWukkiSource.PLAYLIST_URL }?.updatedAt ?: 0L
         val scheduleKey = settings.playlistRefresh to updatedAt
         if (playlistSchedule != scheduleKey) {

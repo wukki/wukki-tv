@@ -62,7 +62,7 @@ class PlaybackSession(private val adapter: PlaybackAdapter, private val schedule
         language = nextLanguage
         paused = false
         adapter.volume(settings.volume)
-        adapter.aspect(settings.aspectRatio ?: AspectRatioMode.AUTO)
+        adapter.aspect(settings.aspectRatio)
         if (restart) {
             attempts = 0
             start()
@@ -85,7 +85,7 @@ class PlaybackSession(private val adapter: PlaybackAdapter, private val schedule
         try {
             adapter.play(selected, settings.bufferProfile.bufferPolicy(), generation)
             adapter.volume(settings.volume)
-            adapter.aspect(settings.aspectRatio ?: AspectRatioMode.AUTO)
+            adapter.aspect(settings.aspectRatio)
         } catch (exception: Exception) {
             failed(generation, exception.message)
         }

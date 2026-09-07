@@ -41,17 +41,10 @@ class EpgRefreshScheduleTest {
     }
 
     @Test
-    fun `missing channel list mode normalizes to normal`() {
-        val state = AppState(settings = AppSettings(display = DisplaySettings(channelListMode = null))).normalized()
-
-        assertEquals(ChannelListDisplayMode.NORMAL, state.settings?.display?.channelListMode)
-    }
-
-    @Test
     fun `unknown legacy refresh interval normalizes to manual`() {
-        val state = AppState(settings = null, autoRefreshHours = 17).normalized()
+        val state = AppState(autoRefreshHours = 17).normalized()
 
-        assertEquals(RefreshInterval.MANUAL, state.settings?.playlistRefresh)
+        assertEquals(RefreshInterval.MANUAL, state.settings.playlistRefresh)
     }
 
     @Test
@@ -59,12 +52,10 @@ class EpgRefreshScheduleTest {
         val programme = Programme("rtl", "Híradó", 100L, 200L)
         val state = AppState(
             programmes = listOf(programme),
-            epgUrl = "https://example.test/epg.xml",
-            epgSources = null,
-            epgProgrammesBySource = null
+            epgUrl = "https://example.test/epg.xml"
         ).normalized()
 
         assertTrue(state.programmes.isEmpty())
-        assertEquals(listOf(programme), state.epgProgrammesBySource.orEmpty()["legacy-epg"])
+        assertEquals(listOf(programme), state.epgProgrammesBySource["legacy-epg"])
     }
 }

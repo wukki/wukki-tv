@@ -74,11 +74,11 @@ private fun channelBrowserUiState(model: WukkiModel, tick: Long): ChannelBrowser
         selectedCategory = model.category,
         onlyFavorites = model.onlyFavorites,
         channels = rows,
-        displayMode = model.settings.display.channelListMode ?: hu.wukki.tv.ChannelListDisplayMode.NORMAL,
+        displayMode = model.settings.display.channelListMode,
         showChannelProgramme = model.settings.display.showChannelProgramme,
         showMiniGuide = model.settings.display.showMiniGuide,
         showLogos = model.settings.display.showLogos,
-        showProgrammeImages = model.settings.display.showProgrammeImages != false,
+        showProgrammeImages = model.settings.display.showProgrammeImages,
         preview = null
     )
 }
