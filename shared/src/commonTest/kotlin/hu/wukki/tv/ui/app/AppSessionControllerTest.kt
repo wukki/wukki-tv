@@ -35,25 +35,29 @@ class AppSessionControllerTest {
         assertTrue(actions.handleBackNavigation())
         assertEquals(null, session.settingsNavigation.section)
         assertEquals(DashboardSection.SETTINGS, session.activeSection)
+        assertTrue(actions.handleBackNavigation())
+        assertEquals(DashboardSection.LIVE, session.activeSection)
     }
 
     @Test
-    fun `controller recreation keeps session and touch overlay shares remote back state`() = runBlocking {
-        val session = AppSessionState(true)
-        val model = model()
-        val first = controller(session, this, model)
-        first.dispatchRemote(AppRemoteKey(digit = "1"))
-        val recreated = controller(session, this, model)
-        recreated.dispatchRemote(AppRemoteKey(digit = "2"))
-        assertEquals("12", session.channelNumberInput)
-        session.programmeOverlayVisible = true
-        recreated.liveVideoGestures.onTap()
-        assertFalse(session.programmeOverlayVisible)
-        recreated.liveVideoGestures.onTap()
-        assertEquals(1, session.overlayRequest)
-        session.programmeOverlayVisible = true
-        recreated.handleBackNavigation()
-        assertFalse(session.programmeOverlayVisible)
-        assertEquals("", AppSessionState(true).channelNumberInput)
-    }
+    fun `controller recreation keeps session and touch overlay shares remote back state`() =
+        runBlocking {
+            val session = AppSessionState(true)
+            val model = model()
+            val first = controller(session, this, model)
+            first.dispatchRemote(AppRemoteKey(digit = "1"))
+            val recreated = controller(session, this, model)
+            recreated.dispatchRemote(AppRemoteKey(digit = "2"))
+            assertEquals("12", session.channelNumberInput)
+            session.programmeOverlayVisible = true
+            recreated.liveVideoGestures.onTap()
+            assertFalse(session.programmeOverlayVisible)
+            recreated.liveVideoGestures.onTap()
+            assertEquals(1, session.overlayRequest)
+            session.programmeOverlayVisible = true
+            assertTrue(recreated.handleBackNavigation())
+            assertFalse(session.programmeOverlayVisible)
+            assertFalse(recreated.handleBackNavigation())
+            assertEquals("", AppSessionState(true).channelNumberInput)
+        }
 }

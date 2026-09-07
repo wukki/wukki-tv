@@ -205,29 +205,29 @@ internal class AppSessionController(
         return with(session) {
             return when (effect) {
                 AppBackNavigationEffect.DISMISS_GUIDE_DIALOG -> {
-                    exitConfirmationState = ExitConfirmationState()
+                    // Keep the reducer's exit confirmation state.
                     guideProgrammeDetailsVisible = false
                     true
                 }
                 AppBackNavigationEffect.CLOSE_CHANNEL_SEARCH -> {
-                    exitConfirmationState = ExitConfirmationState()
+                    // Keep the reducer's exit confirmation state.
                     model.setChannelQuery("")
                     channelSearchOpen = false
                     channelRemoteFocus = ChannelRemoteFocus.LIST
                     true
                 }
                 AppBackNavigationEffect.DISMISS_LIVE_OVERLAY -> {
-                    exitConfirmationState = ExitConfirmationState()
+                    // Keep the reducer's exit confirmation state.
                     dismissLiveChannelPreview(hidePanel = true)
                     true
                 }
                 AppBackNavigationEffect.CLOSE_SETTINGS_DETAIL -> {
-                    exitConfirmationState = ExitConfirmationState()
+                    // Keep the reducer's exit confirmation state.
                     settingsNavigation = settingsNavigation.copy(section = null, option = null)
                     true
                 }
                 AppBackNavigationEffect.FOCUS_MAIN_NAVIGATION -> {
-                    exitConfirmationState = ExitConfirmationState()
+                    // Keep the reducer's exit confirmation state.
                     mainNavigationIndex = mainSections.indexOf(activeSection).coerceAtLeast(0)
                     focusZone = TvFocusZone.MAIN_NAVIGATION
                     true
@@ -272,7 +272,7 @@ internal class AppSessionController(
                     is AppRemoteEffect.Dialog -> handleGuideProgrammeDialogEvent(effect.event)
                     is AppRemoteEffect.Back -> handled = applyBackEffect(effect.effect)
                     AppRemoteEffect.RevealNavigation -> {
-                        exitConfirmationState = ExitConfirmationState()
+                        // Keep the reducer's exit confirmation state.
                         handleLiveNavigation(LiveNavigationVisibilityEvent.Reveal(focusNavigation = true))
                     }
                     is AppRemoteEffect.SwitchChannel -> switchLiveChannel(effect.delta)
