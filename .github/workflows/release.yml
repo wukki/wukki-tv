@@ -21,6 +21,7 @@ concurrency:
 
 env:
   VLC_VERSION: 3.0.23
+  VLC_WINDOWS_SHA256: 992d19dbd0b8a7cde9167d2f7780b1ef6f92acc8a71acfa736101a21f35181e1
 
 jobs:
   metadata:
@@ -277,12 +278,55 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-          Invoke-WebRequest "https://get.videolan.org/vlc/$env:VLC_VERSION/win64/vlc-$env:VLC_VERSION-win64.zip" -OutFile "$env:RUNNER_TEMP\vlc.zip"
-          Expand-Archive "$env:RUNNER_TEMP\vlc.zip" -DestinationPath "$env:RUNNER_TEMP\extracted-vlc"
-          New-Item -ItemType Directory -Force -Path desktopApp/build/vlc-runtime | Out-Null
-          Copy-Item "$env:RUNNER_TEMP\extracted-vlc\vlc-$env:VLC_VERSION\*" desktopApp/build/vlc-runtime -Recurse -Force
-          if (!(Test-Path desktopApp/build/vlc-runtime/libvlc.dll)) { throw "libvlc.dll is missing" }
-          if (!(Test-Path desktopApp/build/vlc-runtime/plugins/video_output/libvmem_plugin.dll)) { throw "libvmem_plugin.dll is missing" }
+
+          $archive = Join-Path $env:RUNNER_TEMP "vlc.zip"
+          $extractDirectory = Join-Path $env:RUNNER_TEMP "extracted-vlc"
+          $sourceDirectory = Join-Path $extractDirectory "vlc-$env:VLC_VERSION"
+          $runtimeDirectory = "desktopApp/build/vlc-runtime"
+          $url = "https://get.videolan.org/vlc/$env:VLC_VERSION/win64/vlc-$env:VLC_VERSION-win64.zip"
+
+          & curl.exe `
+            --fail `
+            --location `
+            --retry 5 `
+            --retry-all-errors `
+            --connect-timeout 30 `
+            --output $archive `
+            $url
+          if ($LASTEXITCODE -ne 0) {
+            throw "VLC download failed with exit code $LASTEXITCODE"
+          }
+          if (!(Test-Path -LiteralPath $archive)) {
+            throw "The VLC archive was not downloaded"
+          }
+
+          $archiveSize = (Get-Item -LiteralPath $archive).Length
+          Write-Host "Downloaded VLC archive size: $archiveSize bytes"
+          $actualHash = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          $expectedHash = $env:VLC_WINDOWS_SHA256.ToLowerInvariant()
+          if ($actualHash -ne $expectedHash) {
+            throw "Invalid VLC archive checksum. Expected $expectedHash, received $actualHash"
+          }
+
+          $sevenZip = (Get-Command 7z.exe -ErrorAction Stop).Source
+          New-Item -ItemType Directory -Force -Path $extractDirectory | Out-Null
+          & $sevenZip x $archive "-o$extractDirectory" -y
+          if ($LASTEXITCODE -ne 0) {
+            throw "VLC archive extraction failed with exit code $LASTEXITCODE"
+          }
+          if (!(Test-Path -LiteralPath $sourceDirectory)) {
+            Get-ChildItem -LiteralPath $extractDirectory -Recurse | Select-Object -First 50
+            throw "Expected VLC directory is missing: $sourceDirectory"
+          }
+
+          New-Item -ItemType Directory -Force -Path $runtimeDirectory | Out-Null
+          Copy-Item (Join-Path $sourceDirectory "*") $runtimeDirectory -Recurse -Force
+          if (!(Test-Path -LiteralPath "$runtimeDirectory/libvlc.dll")) {
+            throw "libvlc.dll is missing"
+          }
+          if (!(Test-Path -LiteralPath "$runtimeDirectory/plugins/video_output/libvmem_plugin.dll")) {
+            throw "libvmem_plugin.dll is missing"
+          }
 
       - name: Prepare VLC runtime for Linux
         if: matrix.platform == 'linux'
