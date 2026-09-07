@@ -159,8 +159,8 @@ class AndroidPlaybackController(private val context: Context) : PlaybackEngine {
             mediaPlayer.addListener(object : Player.Listener {
                 override fun onPlaybackStateChanged(playbackState: Int) {
                     when (playbackState) {
-                        Player.STATE_BUFFERING -> session.buffering(generation)
-                        Player.STATE_READY -> if (mediaPlayer.playWhenReady) session.playing(generation)
+                        Player.STATE_BUFFERING -> session.bufferingStarted(generation)
+                        Player.STATE_READY -> playbackReady(generation, mediaPlayer.playWhenReady)
                         Player.STATE_ENDED -> session.failed(generation)
                     }
                 }
@@ -181,6 +181,13 @@ class AndroidPlaybackController(private val context: Context) : PlaybackEngine {
         AspectRatioMode.AUTO, AspectRatioMode.FILL_CROP -> null
     }
 
+    private fun playbackReady(
+        generation: Long,
+        playWhenReady: Boolean,
+    ) {
+        session.bufferingEnded(generation)
+        if (playWhenReady) session.playing(generation)
+    }
 
     private companion object {
         const val LIVE_SWIPE_THRESHOLD_DP = 48f

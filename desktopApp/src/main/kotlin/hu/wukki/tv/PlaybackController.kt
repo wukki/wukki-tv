@@ -21,7 +21,7 @@ class PlaybackController(initialLanguage: AppLanguage = AppLanguage.HUNGARIAN) :
             listener?.let { native.events().removeMediaPlayerEventListener(it) }
             listener = object : MediaPlayerEventAdapter() {
                 override fun buffering(mediaPlayer: MediaPlayer, newCache: Float) {
-                    if (newCache < 100f) SwingUtilities.invokeLater { session.buffering(generation) }
+                    SwingUtilities.invokeLater { updateBuffering(newCache, generation) }
                 }
                 override fun playing(mediaPlayer: MediaPlayer) { SwingUtilities.invokeLater { session.playing(generation) } }
                 override fun error(mediaPlayer: MediaPlayer) { SwingUtilities.invokeLater { session.failed(generation) } }
@@ -105,4 +105,14 @@ class PlaybackController(initialLanguage: AppLanguage = AppLanguage.HUNGARIAN) :
         SwingUtilities.invokeLater { component?.videoSurfaceComponent()?.repaint() }
     }
 
+    private fun updateBuffering(
+        newCache: Float,
+        generation: Long,
+    ) {
+        if (newCache < 100f) {
+            session.bufferingStarted(generation)
+        } else {
+            session.bufferingEnded(generation)
+        }
+    }
 }

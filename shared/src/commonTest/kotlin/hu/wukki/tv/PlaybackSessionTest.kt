@@ -52,7 +52,7 @@ class PlaybackSessionTest {
     fun `buffering is delayed and playing resets the retry budget`() {
         val clock = Clock(); val adapter = Adapter(); val session = PlaybackSession(adapter, clock)
         session.play(channel, PlaybackSettings(), AppLanguage.ENGLISH)
-        session.buffering(adapter.token)
+        session.bufferingStarted(adapter.token)
         assertEquals(PlaybackState.OPENING, session.state)
         assertEquals(250L, clock.next())
         assertEquals(PlaybackState.BUFFERING, session.state)
@@ -68,7 +68,7 @@ class PlaybackSessionTest {
     fun `cancelled buffering indicator cannot replace playing state`() {
         val clock = Clock(); val adapter = Adapter(); val session = PlaybackSession(adapter, clock)
         session.play(channel, PlaybackSettings(), AppLanguage.ENGLISH)
-        session.buffering(adapter.token)
+        session.bufferingStarted(adapter.token)
         val queuedCallback = clock.tasks.last().action
         session.playing(adapter.token)
         queuedCallback()
@@ -99,21 +99,100 @@ class PlaybackSessionTest {
         session.play(channel.copy(id = "two", streamUrl = "https://example.test/two"), PlaybackSettings(), AppLanguage.ENGLISH)
         session.failed(old)
         assertEquals(PlaybackState.OPENING, session.state)
-        session.release(); session.buffering(adapter.token); session.play(channel, PlaybackSettings(), AppLanguage.ENGLISH)
+        session.release()
+        session.bufferingStarted(adapter.token)
+        session.play(channel, PlaybackSettings(), AppLanguage.ENGLISH)
         assertEquals(PlaybackState.IDLE, session.state)
         assertEquals(2, adapter.starts)
     }
 
     @Test
     fun `disabled reconnect fails immediately and background resume opens once`() {
-        val adapter = Adapter(); val session = PlaybackSession(adapter, Clock())
+        val adapter = Adapter()
+        val session = PlaybackSession(adapter, Clock())
         session.play(channel, PlaybackSettings(autoReconnect = false), AppLanguage.ENGLISH)
         session.failed(adapter.token)
         assertEquals(PlaybackState.ERROR, session.state)
         session.play(channel, PlaybackSettings(), AppLanguage.ENGLISH)
         session.pauseForBackground()
         assertEquals(PlaybackState.IDLE, session.state)
-        session.resumeAfterBackground(); session.resumeAfterBackground()
+        session.resumeAfterBackground()
+        session.resumeAfterBackground()
         assertEquals(3, adapter.starts)
+    }
+
+    @Test
+    fun `quick buffering completion cancels the delayed indicator`() {
+        val clock = Clock()
+        val adapter = Adapter()
+        val session = PlaybackSession(adapter, clock)
+        session.play(channel, PlaybackSettings(), AppLanguage.ENGLISH)
+        session.bufferingStarted(adapter.token)
+        val delayedIndicator = clock.tasks.last()
+
+        session.bufferingEnded(adapter.token)
+        delayedIndicator.action()
+
+        assertTrue(delayedIndicator.cancelled)
+        assertEquals(PlaybackState.OPENING, session.state)
+    }
+
+    @Test
+    fun `completed initial buffering returns to opening`() {
+        val clock = Clock()
+        val adapter = Adapter()
+        val session = PlaybackSession(adapter, clock)
+        session.play(channel, PlaybackSettings(), AppLanguage.ENGLISH)
+        session.bufferingStarted(adapter.token)
+        assertEquals(250L, clock.next())
+        assertEquals(PlaybackState.BUFFERING, session.state)
+
+        session.bufferingEnded(adapter.token)
+
+        assertEquals(PlaybackState.OPENING, session.state)
+    }
+
+    @Test
+    fun `completed rebuffering returns to playing`() {
+        val clock = Clock()
+        val adapter = Adapter()
+        val session = PlaybackSession(adapter, clock)
+        session.play(channel, PlaybackSettings(), AppLanguage.ENGLISH)
+        session.playing(adapter.token)
+        session.bufferingStarted(adapter.token)
+        assertEquals(250L, clock.next())
+        assertEquals(PlaybackState.BUFFERING, session.state)
+
+        session.bufferingEnded(adapter.token)
+
+        assertEquals(PlaybackState.PLAYING, session.state)
+    }
+
+    @Test
+    fun `stop and channel change reject stale buffering callbacks`() {
+        val clock = Clock()
+        val adapter = Adapter()
+        val session = PlaybackSession(adapter, clock)
+        session.play(channel, PlaybackSettings(), AppLanguage.ENGLISH)
+        session.bufferingStarted(adapter.token)
+        val stoppedIndicator = clock.tasks.last().action
+
+        session.stop()
+        stoppedIndicator()
+        assertEquals(PlaybackState.IDLE, session.state)
+
+        session.play(channel, PlaybackSettings(), AppLanguage.ENGLISH)
+        val oldToken = adapter.token
+        session.bufferingStarted(oldToken)
+        assertEquals(250L, clock.next())
+        session.play(
+            channel.copy(id = "two", streamUrl = "https://example.test/two"),
+            PlaybackSettings(),
+            AppLanguage.ENGLISH,
+        )
+
+        session.bufferingEnded(oldToken)
+
+        assertEquals(PlaybackState.OPENING, session.state)
     }
 }

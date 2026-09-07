@@ -50,13 +50,19 @@ class PlaybackSession(private val adapter: PlaybackAdapter, private val schedule
     private var timerVersion = 0L
     private var retry: PlaybackCancellation? = null
     private var buffering: PlaybackCancellation? = null
+    private var stateBeforeBuffering: PlaybackState? = null
     private var released = false
     private var paused = false
 
-    fun play(next: Channel?, nextSettings: PlaybackSettings, nextLanguage: AppLanguage) {
+    fun play(
+        next: Channel?,
+        nextSettings: PlaybackSettings,
+        nextLanguage: AppLanguage,
+    ) {
         if (released || next == null) return
-        val restart = next.streamUrl != channel?.streamUrl || settings.bufferProfile != nextSettings.bufferProfile ||
-            state == PlaybackState.IDLE || state == PlaybackState.ERROR
+        val restart =
+            next.streamUrl != channel?.streamUrl || settings.bufferProfile != nextSettings.bufferProfile ||
+                state == PlaybackState.IDLE || state == PlaybackState.ERROR
         channel = next
         settings = nextSettings.copy(volume = nextSettings.volume.coerceIn(0, 100), reconnectAttempts = nextSettings.reconnectAttempts.coerceIn(1, 10))
         language = nextLanguage
@@ -91,16 +97,27 @@ class PlaybackSession(private val adapter: PlaybackAdapter, private val schedule
         }
     }
 
-    fun buffering(token: Long) {
+    fun bufferingStarted(token: Long) {
         if (!accepts(token) || retry != null || buffering != null || state == PlaybackState.BUFFERING) return
+        if (state != PlaybackState.OPENING && state != PlaybackState.PLAYING) return
+        stateBeforeBuffering = state
         val version = timerVersion
-        buffering = scheduler.after(250L) {
-            if (accepts(token) && version == timerVersion && retry == null) {
-                buffering = null
-                state = PlaybackState.BUFFERING
-                detail = null
+        buffering =
+            scheduler.after(250L) {
+                if (accepts(token) && version == timerVersion && retry == null) {
+                    state = PlaybackState.BUFFERING
+                }
             }
-        }
+    }
+
+    fun bufferingEnded(token: Long) {
+        if (!accepts(token) || (buffering == null && state != PlaybackState.BUFFERING)) return
+        val previousState = stateBeforeBuffering
+        timerVersion++
+        buffering?.cancel()
+        buffering = null
+        stateBeforeBuffering = null
+        if (state == PlaybackState.BUFFERING && previousState != null) state = previousState
     }
 
     fun playing(token: Long) {
@@ -112,7 +129,10 @@ class PlaybackSession(private val adapter: PlaybackAdapter, private val schedule
         successfullyPlayedChannelId = channel?.id
     }
 
-    fun failed(token: Long, reason: String? = null) {
+    fun failed(
+        token: Long,
+        reason: String? = null,
+    ) {
         if (!accepts(token) || retry != null) return
         cancelTimers()
         val selected = channel ?: return
@@ -125,12 +145,13 @@ class PlaybackSession(private val adapter: PlaybackAdapter, private val schedule
         state = PlaybackState.RECONNECTING
         detail = tr(language, "playback.reconnect.attempt", selected.displayName(language), attempts, settings.reconnectAttempts)
         val version = timerVersion
-        retry = scheduler.after(attempts * 1_000L) {
-            if (accepts(token) && version == timerVersion) {
-                retry = null
-                start()
+        retry =
+            scheduler.after(attempts * 1_000L) {
+                if (accepts(token) && version == timerVersion) {
+                    retry = null
+                    start()
+                }
             }
-        }
     }
 
     fun stop() {
@@ -163,11 +184,13 @@ class PlaybackSession(private val adapter: PlaybackAdapter, private val schedule
     }
 
     private fun accepts(token: Long) = !released && token == generation && state != PlaybackState.IDLE && state != PlaybackState.ERROR
+
     private fun cancelTimers() {
         timerVersion++
         retry?.cancel()
         retry = null
         buffering?.cancel()
         buffering = null
+        stateBeforeBuffering = null
     }
 }
