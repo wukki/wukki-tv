@@ -28,7 +28,7 @@ val macNotarizationTeamId = providers.gradleProperty("macNotarizationTeamId")
 dependencies {
     implementation(project(":shared"))
     implementation(compose.desktop.currentOs)
-    implementation("org.jetbrains.compose.material3:material3:1.12.0-alpha03")
+    implementation(libs.compose.material3)
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0")
     implementation("io.coil-kt.coil3:coil-core:3.6.0")
     implementation("io.ktor:ktor-client-java:3.0.1")

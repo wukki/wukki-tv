@@ -45,6 +45,16 @@ Példa egyedi VLC runtime-mal:
 WUKKI_VLC_HOME="/Applications/VLC.app/Contents/MacOS" ./gradlew :desktopApp:run
 ```
 
+## Függőségek
+
+A Material3 verziója a `gradle/libs.versions.toml` katalógusban egyetlen, pontos verzióra van
+rögzítve. A Compose Multiplatform 1.12 stabil kiadása jelenleg a külön kiadott
+`org.jetbrains.compose.material3:material3:1.12.0-alpha03` artifactot használja, ezért az alpha
+verziót a Compose 1.12 kompatibilitása miatt tartjuk meg. A rögzítést minden Compose Multiplatform
+frissítéskor és minden kiadás előtt felül kell vizsgálni. Stabil Material3 kiadásra akkor válthatunk,
+amikor a JetBrains a használt Compose verzióval kompatibilis stabil artifactot ad ki, és a teljes
+desktop- és Android-ellenőrzés sikeresen lefut vele.
+
 ## Verziózás
 
 A CI/CD minden buildhez UTC alapján egységes verziót számol:

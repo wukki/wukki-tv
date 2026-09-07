@@ -44,7 +44,7 @@ dependencies {
     implementation(project(":shared"))
     implementation("org.jetbrains.compose.runtime:runtime:1.12.0")
     implementation("org.jetbrains.compose.foundation:foundation:1.12.0")
-    implementation("org.jetbrains.compose.material3:material3:1.12.0-alpha03")
+    implementation(libs.compose.material3)
     implementation("org.jetbrains.compose.material:material-icons-extended:1.7.3")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0")
     implementation("io.coil-kt.coil3:coil-compose:3.6.0")
