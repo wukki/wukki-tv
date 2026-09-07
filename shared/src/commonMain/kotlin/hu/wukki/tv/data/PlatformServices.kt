@@ -12,7 +12,17 @@ expect interface Persistable
 /** Synchronous boundary used inside the model's background dispatcher. */
 fun interface RemoteTextLoader {
     fun load(url: String): String
+
+    /** Production loaders enforce the request's decoded body limit before returning a String. */
+    fun load(request: RemoteTextRequest): String = load(request.url)
 }
+
+enum class RemoteTextKind(val maxBodyBytes: Int) {
+    PLAYLIST(2 * 1024 * 1024),
+    EPG(32 * 1024 * 1024)
+}
+
+data class RemoteTextRequest(val url: String, val kind: RemoteTextKind)
 
 /** Platform-owned XMLTV parser used by the common model. */
 fun interface XmlTvParser {

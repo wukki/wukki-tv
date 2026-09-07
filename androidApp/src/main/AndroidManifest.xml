@@ -9,8 +9,9 @@
         android:banner="@drawable/tv_banner"
         android:icon="@mipmap/ic_launcher"
         android:label="Wukki TV"
+        android:networkSecurityConfig="@xml/network_security_config"
         android:theme="@style/Theme.WukkiTV"
-        android:usesCleartextTraffic="true">
+        android:usesCleartextTraffic="false">
         <activity
             android:name=".MainActivity"
             android:banner="@drawable/tv_banner"

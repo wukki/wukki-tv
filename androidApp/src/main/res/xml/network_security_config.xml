@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+    <!-- The official playlist currently contains HTTP streams only on this legacy host. -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">88.212.15.19</domain>
+    </domain-config>
+</network-security-config>

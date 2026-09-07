@@ -3,6 +3,7 @@ package hu.wukki.tv
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertFailsWith
 
 class JvmXmlTvParserTest {
     @Test
@@ -46,5 +47,12 @@ class JvmXmlTvParserTest {
         ).normalized()
 
         assertEquals(true, normalized.settings?.display?.showProgrammeImages)
+    }
+
+    @Test
+    fun `rejects XMLTV text above the production limit before SAX parsing`() {
+        assertFailsWith<IllegalArgumentException> {
+            JvmXmlTvParser.parse(" ".repeat(RemoteTextKind.EPG.maxBodyBytes + 1))
+        }
     }
 }

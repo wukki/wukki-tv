@@ -12,6 +12,7 @@ import org.xml.sax.helpers.DefaultHandler
 
 object JvmXmlTvParser : XmlTvParser {
     override fun parse(xml: String): List<Programme> {
+        require(xml.length <= RemoteTextKind.EPG.maxBodyBytes) { "XMLTV input exceeds the EPG text limit" }
         val programmes = mutableListOf<Programme>()
         val factory = SAXParserFactory.newInstance().apply {
             isNamespaceAware = false

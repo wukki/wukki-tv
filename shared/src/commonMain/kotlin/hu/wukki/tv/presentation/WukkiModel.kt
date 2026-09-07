@@ -115,7 +115,9 @@ class WukkiModel(
     private suspend fun performPlaylistRefresh(showFeedback: Boolean): Boolean {
         try {
             if (showFeedback) showLoading("status.playlist.refreshing", OfficialWukkiSource.PLAYLIST_NAME)
-            val playlistText = withContext(Dispatchers.Default) { sourceLoader.load(OfficialWukkiSource.PLAYLIST_URL) }
+            val playlistText = withContext(Dispatchers.Default) {
+                sourceLoader.load(RemoteTextRequest(OfficialWukkiSource.PLAYLIST_URL, RemoteTextKind.PLAYLIST))
+            }
             val refreshedChannels = withContext(Dispatchers.Default) {
                 PlaylistParser.parse(playlistText, OfficialWukkiSource.PLAYLIST_ID)
             }
@@ -178,7 +180,9 @@ class WukkiModel(
         if (!refreshingEpgSourceIds.add(source.id)) return false
         try {
             if (showFeedback) showLoading("status.epg.loading", source.name)
-            val xml = withContext(Dispatchers.Default) { sourceLoader.load(source.url) }
+            val xml = withContext(Dispatchers.Default) {
+                sourceLoader.load(RemoteTextRequest(source.url, RemoteTextKind.EPG))
+            }
             val programmes = withContext(Dispatchers.Default) { xmlTvParser.parse(xml) }
             if (programmes.isEmpty()) throw IllegalArgumentException("error.epg.empty")
             state = state.copy(
