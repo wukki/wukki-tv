@@ -135,11 +135,17 @@ jobs:
       - name: Run project verification
         run: >-
           ./gradlew
+          :shared:detekt
+          :shared:ktlintCheck
           :shared:desktopTest
           :shared:testAndroidHostTest
           :shared:checkLocalizationBundles
+          :desktopApp:detekt
+          :desktopApp:ktlintCheck
           :desktopApp:test
           :desktopApp:compileKotlin
+          :androidApp:detekt
+          :androidApp:ktlintCheck
           :androidApp:testDebugUnitTest
           :androidApp:assembleDebug
           -PwukkiBuildDate=${{ needs.metadata.outputs.build_date }}

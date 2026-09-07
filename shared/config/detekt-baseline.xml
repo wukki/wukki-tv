@@ -1,0 +1,39 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>CognitiveComplexMethod:AppRemoteReducer.kt:fun AppRemoteState.reduce: AppRemoteResult</ID>
+    <ID>CognitiveComplexMethod:AppSessionController.kt:AppSessionController$fun dispatchRemote: Boolean</ID>
+    <ID>CognitiveComplexMethod:ChannelBrowserScreen.kt:@Composable private fun ChannelListRow</ID>
+    <ID>CognitiveComplexMethod:EpgGuideScreen.kt:@OptIn(ExperimentalComposeUiApi::class) @Composable fun EpgGuideScreen</ID>
+    <ID>CognitiveComplexMethod:RemoteNavigation.kt:fun ChannelNavigationState.reduce: ChannelNavigationResult</ID>
+    <ID>CognitiveComplexMethod:SettingsScreen.kt:@Composable private fun SettingsNavigation</ID>
+    <ID>CognitiveComplexMethod:WukkiApp.kt:@Composable fun WukkiApp</ID>
+    <ID>ComplexCondition:JvmXmlTvParser.kt:JvmXmlTvParser.ProgrammeHandler$current != null &amp;&amp; current.channelId.isNotBlank() &amp;&amp; current.start != null &amp;&amp; current.end != null &amp;&amp; current.end &gt; current.start</ID>
+    <ID>CyclomaticComplexMethod:AppRemoteReducer.kt:fun AppRemoteState.reduce: AppRemoteResult</ID>
+    <ID>CyclomaticComplexMethod:AppSessionController.kt:AppSessionController$fun dispatchRemote: Boolean</ID>
+    <ID>CyclomaticComplexMethod:RemoteNavigation.kt:fun ChannelNavigationState.reduce: ChannelNavigationResult</ID>
+    <ID>CyclomaticComplexMethod:WukkiApp.kt:@Composable fun WukkiApp</ID>
+    <ID>NestedBlockDepth:AppSessionController.kt:AppSessionController$fun dispatchRemote: Boolean</ID>
+    <ID>TooManyFunctions:WukkiModel.kt:WukkiModel</ID>
+    <ID>WildcardImport:AppSessionController.kt:import hu.wukki.tv.*</ID>
+    <ID>WildcardImport:AppSessionController.kt:import hu.wukki.tv.ui.guide.*</ID>
+    <ID>WildcardImport:AppSessionController.kt:import hu.wukki.tv.ui.navigation.*</ID>
+    <ID>WildcardImport:AppSessionController.kt:import hu.wukki.tv.ui.settings.*</ID>
+    <ID>WildcardImport:AppSessionControllerTest.kt:import hu.wukki.tv.*</ID>
+    <ID>WildcardImport:AppSessionControllerTest.kt:import hu.wukki.tv.ui.navigation.*</ID>
+    <ID>WildcardImport:AppSessionState.kt:import androidx.compose.runtime.*</ID>
+    <ID>WildcardImport:AppSessionState.kt:import hu.wukki.tv.ui.navigation.*</ID>
+    <ID>WildcardImport:PlaybackSessionTest.kt:import kotlin.test.*</ID>
+    <ID>WildcardImport:SettingsActions.kt:import hu.wukki.tv.ui.navigation.*</ID>
+    <ID>WildcardImport:SettingsScreen.kt:import androidx.compose.foundation.*</ID>
+    <ID>WildcardImport:SettingsScreen.kt:import androidx.compose.foundation.layout.*</ID>
+    <ID>WildcardImport:SettingsScreen.kt:import androidx.compose.material3.*</ID>
+    <ID>WildcardImport:SettingsScreen.kt:import androidx.compose.runtime.*</ID>
+    <ID>WildcardImport:SettingsScreen.kt:import hu.wukki.tv.*</ID>
+    <ID>WildcardImport:WukkiApp.kt:import hu.wukki.tv.*</ID>
+    <ID>WildcardImport:WukkiApp.kt:import hu.wukki.tv.ui.guide.*</ID>
+    <ID>WildcardImport:WukkiApp.kt:import hu.wukki.tv.ui.navigation.*</ID>
+    <ID>WildcardImport:WukkiApp.kt:import hu.wukki.tv.ui.settings.*</ID>
+  </CurrentIssues>
+</SmellBaseline>

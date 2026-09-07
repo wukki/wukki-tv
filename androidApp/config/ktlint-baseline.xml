@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding="utf-8"?>
+<baseline version="1.0">
+    <file name="build.gradle.kts">
+        <error line="11" column="32" source="standard:multiline-expression-wrapping" />
+    </file>
+    <file name="src/main/kotlin/hu/wukki/tv/AndroidAppGraph.kt">
+        <error line="18" column="47" source="standard:multiline-expression-wrapping" />
+        <error line="18" column="47" source="standard:function-signature" />
+        <error line="19" column="20" source="standard:wrapping" />
+        <error line="19" column="20" source="standard:argument-list-wrapping" />
+        <error line="19" column="52" source="standard:argument-list-wrapping" />
+        <error line="20" column="39" source="standard:argument-list-wrapping" />
+        <error line="20" column="70" source="standard:argument-list-wrapping" />
+        <error line="20" column="83" source="standard:wrapping" />
+        <error line="20" column="84" source="standard:argument-list-wrapping" />
+        <error line="20" column="84" source="standard:trailing-comma-on-call-site" />
+        <error line="25" column="32" source="standard:function-signature" />
+        <error line="25" column="50" source="standard:function-signature" />
+        <error line="25" column="63" source="standard:function-signature" />
+        <error line="25" column="76" source="standard:multiline-expression-wrapping" />
+        <error line="25" column="76" source="standard:function-signature" />
+        <error line="27" column="23" source="standard:multiline-expression-wrapping" />
+        <error line="39" column="59" source="standard:multiline-expression-wrapping" />
+        <error line="39" column="59" source="standard:function-signature" />
+        <error line="47" column="75" source="standard:trailing-comma-on-call-site" />
+    </file>
+    <file name="src/main/kotlin/hu/wukki/tv/AndroidPlaybackController.kt">
+        <error line="34" column="33" source="standard:class-signature" />
+        <error line="34" column="61" source="standard:class-signature" />
+        <error line="36" column="5" source="standard:spacing-between-declarations-with-comments" />
+        <error line="39" column="44" source="standard:multiline-expression-wrapping" />
+        <error line="39" column="60" source="standard:multiline-expression-wrapping" />
+        <error line="39" column="60" source="standard:wrapping" />
+        <error line="40" column="27" source="standard:function-signature" />
+        <error line="40" column="45" source="standard:function-signature" />
+        <error line="40" column="76" source="standard:function-signature" />
+        <error line="40" column="92" source="standard:function-signature" />
+        <error line="42" column="34" source="standard:multiline-expression-wrapping" />
+        <error line="42" column="34" source="standard:wrapping" />
+        <error line="42" column="43" source="standard:chain-method-continuation" />
+        <error line="42" column="53" source="standard:chain-method-continuation" />
+        <error line="43" column="57" source="standard:chain-method-continuation" />
+        <error line="43" column="64" source="standard:wrapping" />
+        <error line="47" column="9" source="standard:blank-line-before-declaration" />
+        <error line="47" column="31" source="standard:statement-wrapping" />
+        <error line="47" column="46" source="standard:statement-wrapping" />
+        <error line="48" column="9" source="standard:blank-line-before-declaration" />
+        <error line="48" column="43" source="standard:statement-wrapping" />
+        <error line="48" column="73" source="standard:statement-wrapping" />
+        <error line="49" column="9" source="standard:blank-line-before-declaration" />
+        <error line="49" column="55" source="standard:statement-wrapping" />
+        <error line="49" column="82" source="standard:statement-wrapping" />
+        <error line="50" column="7" source="standard:wrapping" />
+        <error line="50" column="8" source="standard:multiline-expression-wrapping" />
+        <error line="54" column="5" source="standard:wrapping" />
+        <error line="62" column="23" source="standard:function-signature" />
+        <error line="62" column="42" source="standard:function-signature" />
+        <error line="62" column="70" source="standard:function-signature" />
+        <error line="62" column="90" source="standard:function-signature" />
+        <error line="62" column="111" source="standard:function-signature" />
+        <error line="62" column="114" source="standard:function-signature" />
+        <error line="64" column="5" source="standard:blank-line-before-declaration" />
+        <error line="65" column="5" source="standard:blank-line-before-declaration" />
+        <error line="65" column="61" source="standard:statement-wrapping" />
+        <error line="65" column="76" source="standard:statement-wrapping" />
+        <error line="66" column="5" source="standard:blank-line-before-declaration" />
+        <error line="67" column="5" source="standard:blank-line-before-declaration" />
+        <error line="68" column="5" source="standard:blank-line-before-declaration" />
+        <error line="69" column="5" source="standard:blank-line-before-declaration" />
+        <error line="77" column="9" source="standard:function-naming" />
+        <error line="77" column="22" source="standard:function-signature" />
+        <error line="77" column="53" source="standard:function-signature" />
+        <error line="77" column="88" source="standard:function-signature" />
+        <error line="83" column="34" source="standard:multiline-expression-wrapping" />
+        <error line="84" column="42" source="standard:if-else-wrapping" />
+        <error line="84" column="42" source="standard:multiline-if-else" />
+        <error line="85" column="22" source="standard:if-else-wrapping" />
+        <error line="85" column="22" source="standard:multiline-if-else" />
+        <error line="105" column="66" source="standard:trailing-comma-on-call-site" />
+        <error line="111" column="41" source="standard:function-signature" />
+        <error line="111" column="59" source="standard:function-signature" />
+        <error line="111" column="87" source="standard:function-signature" />
+        <error line="129" column="1" source="standard:blank-line-between-when-conditions" />
+        <error line="129" column="52" source="standard:when-entry-bracing" />
+        <error line="130" column="1" source="standard:blank-line-between-when-conditions" />
+        <error line="130" column="42" source="standard:multiline-expression-wrapping" />
+        <error line="130" column="42" source="standard:when-entry-bracing" />
+        <error line="132" column="27" source="standard:wrapping" />
+        <error line="138" column="60" source="standard:trailing-comma-on-call-site" />
+        <error line="139" column="21" source="standard:wrapping" />
+        <error line="147" column="1" source="standard:blank-line-between-when-conditions" />
+        <error line="147" column="46" source="standard:when-entry-bracing" />
+        <error line="153" column="30" source="standard:function-signature" />
+        <error line="153" column="61" source="standard:function-signature" />
+        <error line="153" column="77" source="standard:function-signature" />
+        <error line="155" column="27" source="standard:multiline-expression-wrapping" />
+        <error line="155" column="45" source="standard:chain-method-continuation" />
+        <error line="158" column="18" source="standard:multiline-expression-wrapping" />
+        <error line="159" column="37" source="standard:multiline-expression-wrapping" />
+        <error line="167" column="17" source="standard:blank-line-before-declaration" />
+        <error line="172" column="48" source="standard:multiline-expression-wrapping" />
+        <error line="172" column="48" source="standard:function-signature" />
+        <error line="177" column="63" source="standard:multiline-expression-wrapping" />
+        <error line="177" column="63" source="standard:function-signature" />
+        <error line="184" column="1" source="standard:no-consecutive-blank-lines" />
+    </file>
+    <file name="src/main/kotlin/hu/wukki/tv/AndroidPlaybackOverlay.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+        <error line="43" column="53" source="standard:class-signature" />
+        <error line="43" column="75" source="standard:class-signature" />
+        <error line="43" column="92" source="standard:class-signature" />
+        <error line="45" column="108" source="standard:function-signature" />
+        <error line="49" column="14" source="standard:function-naming" />
+        <error line="49" column="37" source="standard:function-signature" />
+        <error line="49" column="65" source="standard:function-signature" />
+        <error line="49" column="83" source="standard:function-signature" />
+        <error line="55" column="67" source="standard:trailing-comma-on-call-site" />
+        <error line="68" column="36" source="standard:chain-method-continuation" />
+        <error line="68" column="60" source="standard:chain-method-continuation" />
+        <error line="68" column="75" source="standard:chain-method-continuation" />
+        <error line="68" column="114" source="standard:chain-method-continuation" />
+        <error line="68" column="159" source="standard:trailing-comma-on-call-site" />
+        <error line="76" column="40" source="standard:chain-method-continuation" />
+        <error line="76" column="66" source="standard:chain-method-continuation" />
+        <error line="76" column="81" source="standard:chain-method-continuation" />
+        <error line="76" column="94" source="standard:chain-method-continuation" />
+        <error line="76" column="108" source="standard:trailing-comma-on-call-site" />
+        <error line="85" column="114" source="standard:trailing-comma-on-call-site" />
+        <error line="92" column="13" source="standard:function-naming" />
+        <error line="92" column="28" source="standard:function-signature" />
+        <error line="92" column="55" source="standard:function-signature" />
+        <error line="92" column="73" source="standard:function-signature" />
+        <error line="95" column="20" source="standard:multiline-expression-wrapping" />
+        <error line="102" column="55" source="standard:trailing-comma-on-call-site" />
+        <error line="107" column="86" source="standard:trailing-comma-on-call-site" />
+        <error line="113" column="87" source="standard:trailing-comma-on-call-site" />
+        <error line="119" column="46" source="standard:trailing-comma-on-call-site" />
+        <error line="125" column="32" source="standard:multiline-expression-wrapping" />
+        <error line="127" column="79" source="standard:trailing-comma-on-call-site" />
+        <error line="134" column="87" source="standard:trailing-comma-on-call-site" />
+        <error line="143" column="28" source="standard:multiline-expression-wrapping" />
+        <error line="146" column="95" source="standard:trailing-comma-on-call-site" />
+        <error line="151" column="91" source="standard:trailing-comma-on-call-site" />
+        <error line="159" column="49" source="standard:trailing-comma-on-call-site" />
+        <error line="167" column="72" source="standard:trailing-comma-on-call-site" />
+        <error line="173" column="105" source="standard:trailing-comma-on-call-site" />
+        <error line="182" column="53" source="standard:trailing-comma-on-call-site" />
+        <error line="190" column="13" source="standard:function-naming" />
+        <error line="190" column="32" source="standard:function-signature" />
+        <error line="190" column="53" source="standard:function-signature" />
+        <error line="190" column="70" source="standard:function-signature" />
+        <error line="190" column="88" source="standard:function-signature" />
+        <error line="197" column="53" source="standard:trailing-comma-on-call-site" />
+        <error line="202" column="13" source="standard:function-naming" />
+        <error line="209" column="45" source="standard:trailing-comma-on-call-site" />
+    </file>
+    <file name="src/main/kotlin/hu/wukki/tv/AndroidRefreshScheduler.kt">
+        <error line="19" column="14" source="standard:function-signature" />
+        <error line="19" column="32" source="standard:function-signature" />
+        <error line="19" column="47" source="standard:function-signature" />
+        <error line="24" column="22" source="standard:wrapping" />
+        <error line="24" column="22" source="standard:argument-list-wrapping" />
+        <error line="24" column="31" source="standard:argument-list-wrapping" />
+        <error line="24" column="46" source="standard:argument-list-wrapping" />
+        <error line="24" column="72" source="standard:argument-list-wrapping" />
+        <error line="25" column="107" source="standard:wrapping" />
+        <error line="25" column="108" source="standard:argument-list-wrapping" />
+        <error line="25" column="108" source="standard:trailing-comma-on-call-site" />
+        <error line="31" column="26" source="standard:function-signature" />
+        <error line="31" column="44" source="standard:function-signature" />
+        <error line="31" column="58" source="standard:function-signature" />
+        <error line="31" column="85" source="standard:function-signature" />
+        <error line="31" column="104" source="standard:function-signature" />
+        <error line="31" column="126" source="standard:function-signature" />
+        <error line="37" column="23" source="standard:multiline-expression-wrapping" />
+        <error line="50" column="26" source="standard:class-signature" />
+        <error line="50" column="47" source="standard:class-signature" />
+        <error line="50" column="75" source="standard:class-signature" />
+        <error line="52" column="25" source="standard:multiline-expression-wrapping" />
+    </file>
+    <file name="src/main/kotlin/hu/wukki/tv/DeviceInfoProvider.kt">
+        <error line="1" column="1" source="standard:filename" />
+        <error line="8" column="33" source="standard:class-signature" />
+        <error line="8" column="49" source="standard:class-signature" />
+        <error line="13" column="18" source="standard:multiline-expression-wrapping" />
+        <error line="22" column="46" source="standard:trailing-comma-on-call-site" />
+        <error line="26" column="64" source="standard:multiline-expression-wrapping" />
+        <error line="26" column="64" source="standard:function-signature" />
+        <error line="26" column="73" source="standard:chain-method-continuation" />
+    </file>
+    <file name="src/main/kotlin/hu/wukki/tv/EpgCacheFile.kt">
+        <error line="18" column="27" source="standard:trailing-comma-on-declaration-site" />
+        <error line="20" column="49" source="standard:multiline-expression-wrapping" />
+        <error line="20" column="49" source="standard:function-signature" />
+        <error line="38" column="51" source="standard:trailing-comma-on-call-site" />
+    </file>
+    <file name="src/main/kotlin/hu/wukki/tv/LocalStore.kt">
+        <error line="24" column="54" source="standard:trailing-comma-on-declaration-site" />
+        <error line="28" column="31" source="standard:statement-wrapping" />
+        <error line="28" column="53" source="standard:statement-wrapping" />
+        <error line="28" column="79" source="standard:statement-wrapping" />
+        <error line="28" column="105" source="standard:statement-wrapping" />
+        <error line="29" column="5" source="standard:blank-line-before-declaration" />
+        <error line="29" column="36" source="standard:class-signature" />
+        <error line="29" column="57" source="standard:class-signature" />
+        <error line="29" column="98" source="standard:class-signature" />
+        <error line="30" column="5" source="standard:blank-line-before-declaration" />
+        <error line="48" column="28" source="standard:multiline-expression-wrapping" />
+        <error line="48" column="28" source="standard:function-signature" />
+        <error line="49" column="22" source="standard:multiline-expression-wrapping" />
+        <error line="49" column="57" source="standard:chain-method-continuation" />
+        <error line="53" column="29" source="standard:multiline-expression-wrapping" />
+        <error line="105" column="5" source="standard:blank-line-before-declaration" />
+    </file>
+    <file name="src/main/kotlin/hu/wukki/tv/MainActivity.kt">
+        <error line="30" column="45" source="standard:wrapping" />
+        <error line="30" column="50" source="standard:wrapping" />
+        <error line="30" column="51" source="standard:multiline-expression-wrapping" />
+        <error line="37" column="9" source="standard:wrapping" />
+        <error line="49" column="33" source="standard:multiline-expression-wrapping" />
+        <error line="56" column="59" source="standard:trailing-comma-on-call-site" />
+        <error line="74" column="67" source="standard:trailing-comma-on-call-site" />
+    </file>
+    <file name="src/test/kotlin/hu/wukki/tv/AndroidPlaybackOverlaySnapshotTest.kt">
+        <error line="11" column="80" source="standard:trailing-comma-on-call-site" />
+        <error line="16" column="52" source="standard:multiline-expression-wrapping" />
+        <error line="16" column="52" source="standard:function-signature" />
+        <error line="26" column="48" source="standard:trailing-comma-on-call-site" />
+    </file>
+    <file name="src/test/kotlin/hu/wukki/tv/EpgCacheFileTest.kt">
+        <error line="15" column="29" source="standard:multiline-expression-wrapping" />
+        <error line="17" column="24" source="standard:statement-wrapping" />
+        <error line="17" column="46" source="standard:statement-wrapping" />
+        <error line="17" column="72" source="standard:statement-wrapping" />
+        <error line="17" column="73" source="standard:trailing-comma-on-call-site" />
+        <error line="19" column="25" source="standard:multiline-expression-wrapping" />
+        <error line="20" column="32" source="standard:multiline-expression-wrapping" />
+        <error line="21" column="108" source="standard:trailing-comma-on-call-site" />
+        <error line="22" column="18" source="standard:trailing-comma-on-call-site" />
+    </file>
+</baseline>

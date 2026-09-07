@@ -1,0 +1,39 @@
+complexity:
+  active: true
+  CognitiveComplexMethod:
+    active: true
+    allowedComplexity: 20
+  ComplexCondition:
+    active: true
+    allowedConditions: 4
+  CyclomaticComplexMethod:
+    active: true
+    allowedComplexity: 20
+  LargeClass:
+    active: true
+    allowedLines: 500
+  LongMethod:
+    active: true
+    allowedLines: 230
+  LongParameterList:
+    active: true
+    allowedFunctionParameters: 10
+    allowedConstructorParameters: 12
+    ignoreDataClasses: true
+  NestedBlockDepth:
+    active: true
+    allowedDepth: 5
+  TooManyFunctions:
+    active: true
+    allowedFunctionsPerFile: 20
+    allowedFunctionsPerClass: 35
+    allowedFunctionsPerInterface: 20
+    allowedFunctionsPerObject: 25
+    allowedFunctionsPerEnum: 20
+
+style:
+  active: true
+  WildcardImport:
+    active: true
+    excludeImports:
+      - "java.util.*"

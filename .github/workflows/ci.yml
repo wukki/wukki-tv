@@ -48,11 +48,17 @@ jobs:
       - name: Verify all application modules
         run: >-
           ./gradlew
+          :shared:detekt
+          :shared:ktlintCheck
           :shared:desktopTest
           :shared:testAndroidHostTest
           :shared:checkLocalizationBundles
+          :desktopApp:detekt
+          :desktopApp:ktlintCheck
           :desktopApp:test
           :desktopApp:compileKotlin
+          :androidApp:detekt
+          :androidApp:ktlintCheck
           :androidApp:testDebugUnitTest
           :androidApp:assembleDebug
           --no-daemon

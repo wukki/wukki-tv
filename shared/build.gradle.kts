@@ -11,6 +11,8 @@ plugins {
     id("org.jetbrains.compose")
     id("org.jetbrains.kotlin.plugin.compose")
     id("com.android.kotlin.multiplatform.library")
+    id("dev.detekt")
+    id("org.jlleitschuh.gradle.ktlint")
 }
 
 val generatedBuildInfo = layout.buildDirectory.dir("generated/wukkiBuildInfo/commonMain/kotlin")
@@ -94,17 +96,23 @@ tasks.matching { it.name == "compileKotlinDesktop" || it.name == "compileAndroid
     dependsOn(generateBuildInfo)
 }
 
+tasks.matching { it.name.startsWith("runKtlint") }.configureEach {
+    dependsOn(generateBuildInfo)
+}
+
 val checkLocalizationBundles by tasks.registering {
     group = "verification"
     description = "Checks UTF-8 encoding and matching keys in the Hungarian and English localization bundles."
     doLast {
         fun loadBundle(name: String): Set<String> {
             val path = file("src/commonMain/resources/i18n/messages_$name.properties").toPath()
-            val content = StandardCharsets.UTF_8.newDecoder()
-                .onMalformedInput(CodingErrorAction.REPORT)
-                .onUnmappableCharacter(CodingErrorAction.REPORT)
-                .decode(ByteBuffer.wrap(Files.readAllBytes(path)))
-                .toString()
+            val content =
+                StandardCharsets.UTF_8
+                    .newDecoder()
+                    .onMalformedInput(CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(CodingErrorAction.REPORT)
+                    .decode(ByteBuffer.wrap(Files.readAllBytes(path)))
+                    .toString()
             check(!content.startsWith('\uFEFF')) { "$path must be UTF-8 without a BOM." }
             check('\r' !in content) { "$path must use Unix (LF) line endings." }
             return Properties().apply { load(StringReader(content)) }.stringPropertyNames()
