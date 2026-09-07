@@ -102,12 +102,20 @@ class OfficialWukkiSourceTest {
         val model = WukkiModel(AppState(), loader, xmlTvParser, stateSaver = {})
 
         assertTrue(model.refreshOfficialPlaylist())
+        assertEquals(
+            "Első",
+            model.programmesFor(model.state.channels.single(), 1_787_248_800_000L, 1_787_252_400_001L).single().title
+        )
         playlist = m3u("https://epg.example/second.xml")
         assertTrue(model.refreshOfficialPlaylist())
         assertEquals("https://epg.example/second.xml", model.officialEpgSource?.url)
         assertEquals(
             "Második",
             model.state.epgProgrammesBySource[OfficialWukkiSource.EPG_SOURCE_ID]?.single()?.title
+        )
+        assertEquals(
+            "Második",
+            model.programmesFor(model.state.channels.single(), 1_787_248_800_000L, 1_787_252_400_001L).single().title
         )
 
         playlist = m3u(null)

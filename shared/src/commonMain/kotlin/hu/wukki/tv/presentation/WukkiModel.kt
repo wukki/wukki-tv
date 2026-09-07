@@ -1,6 +1,7 @@
 package hu.wukki.tv
 
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -25,14 +26,6 @@ class WukkiModel(
     private val provisionedState = OfficialWukkiSource.provision(initialState)
     private var indexedProgrammeSources: Map<String, List<Programme>>? = null
     private var programmeIndex = ProgrammeIndex(emptyMap())
-    private var cachedChannelSource: List<Channel>? = null
-    private var cachedSortedChannels: List<Channel> = emptyList()
-    private var cachedCategories: List<String> = emptyList()
-    private var cachedFilteredChannelSource: List<Channel>? = null
-    private var cachedFilterQuery = ""
-    private var cachedFilterCategory: String? = null
-    private var cachedOnlyFavorites = false
-    private var cachedFilteredChannels: List<Channel> = emptyList()
     private var latestEndChannelSource: List<Channel>? = null
     private var latestEndProgrammeSources: Map<String, List<Programme>>? = null
     private var cachedGuideLatestProgrammeEnd: Long? = null
@@ -50,6 +43,23 @@ class WukkiModel(
         private set
     var onlyFavorites by mutableStateOf(false)
         private set
+    private val channelDirectoryState = derivedStateOf {
+        val sortedChannels = state.channels.sortedChannels()
+        val normalizedQuery = normalize(query)
+        ChannelDirectoryDerivedState(
+            sortedChannels = sortedChannels,
+            categories = state.channels.asSequence()
+                .map(::channelCategoryName)
+                .distinct()
+                .sorted()
+                .toList(),
+            filteredChannels = sortedChannels.filter { channel ->
+                (!onlyFavorites || channel.favorite) &&
+                    (category == null || channelCategoryName(channel) == category) &&
+                    (query.isBlank() || normalize(channel.name).contains(normalizedQuery))
+            }
+        )
+    }
     var status by mutableStateOf<UserMessage?>(null)
         private set
     var error by mutableStateOf<UserMessage?>(null)
@@ -240,33 +250,12 @@ class WukkiModel(
 
     fun selectedChannel(): Channel? = state.channels.firstOrNull { it.id == selectedChannelId }
     fun channelById(id: String?): Channel? = id?.let { channelId -> state.channels.firstOrNull { it.id == channelId } }
-    fun categories(): List<String> {
-        refreshChannelCachesIfNeeded()
-        return cachedCategories
-    }
+    fun categories(): List<String> = channelDirectoryState.value.categories
 
-    fun filteredChannels(): List<Channel> {
-        val channels = state.channels
-        if (
-            channels !== cachedFilteredChannelSource || query != cachedFilterQuery ||
-            category != cachedFilterCategory || onlyFavorites != cachedOnlyFavorites
-        ) {
-            val normalizedQuery = normalize(query)
-            cachedFilteredChannels = sortedChannels().filter { channel ->
-                (!onlyFavorites || channel.favorite) &&
-                    (category == null || channelCategoryName(channel) == category) &&
-                    (query.isBlank() || normalize(channel.name).contains(normalizedQuery))
-            }
-            cachedFilteredChannelSource = channels
-            cachedFilterQuery = query
-            cachedFilterCategory = category
-            cachedOnlyFavorites = onlyFavorites
-        }
-        return cachedFilteredChannels
-    }
+    fun filteredChannels(): List<Channel> = channelDirectoryState.value.filteredChannels
 
     /** Returns every fixed Wukki channel, independently of the directory filters. */
-    fun guideChannels(): List<Channel> = sortedChannels()
+    fun guideChannels(): List<Channel> = channelDirectoryState.value.sortedChannels
 
     /** The continuous guide only spans programmes that can actually be shown for this playlist. */
     fun guideLatestProgrammeEnd(): Long? {
@@ -372,23 +361,6 @@ class WukkiModel(
         return programmeIndex
     }
 
-    private fun sortedChannels(): List<Channel> {
-        refreshChannelCachesIfNeeded()
-        return cachedSortedChannels
-    }
-
-    private fun refreshChannelCachesIfNeeded() {
-        val channels = state.channels
-        if (channels === cachedChannelSource) return
-        cachedChannelSource = channels
-        cachedSortedChannels = channels.sortedChannels()
-        cachedCategories = channels.asSequence()
-            .map(::channelCategoryName)
-            .distinct()
-            .sorted()
-            .toList()
-    }
-
     private fun channelCategoryName(channel: Channel): String = channel.group.ifBlank { OTHER_CATEGORY_ID }
     private fun showLoading(key: String, vararg args: Any?) = showFeedback(AppFeedbackKind.LOADING, UserMessage.Key(key, args.toList()))
     private fun showStatus(key: String, vararg args: Any?) = showFeedback(AppFeedbackKind.SUCCESS, UserMessage.Key(key, args.toList()))
@@ -419,6 +391,12 @@ sealed interface UserMessage {
 }
 
 enum class AppFeedbackKind { LOADING, SUCCESS, ERROR }
+
+private data class ChannelDirectoryDerivedState(
+    val sortedChannels: List<Channel>,
+    val categories: List<String>,
+    val filteredChannels: List<Channel>
+)
 
 internal fun EpgSource.isEpgRefreshDue(interval: RefreshInterval, now: Long): Boolean =
     enabled && interval.hours > 0 && (lastUpdatedAt == null || now - lastUpdatedAt >= interval.hours * 60L * 60L * 1000L)
