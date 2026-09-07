@@ -7,6 +7,7 @@ import hu.wukki.tv.ui.components.ChannelLogo
 import hu.wukki.tv.ui.components.WukkiBrushes
 import hu.wukki.tv.ui.components.WukkiColors
 import hu.wukki.tv.ui.components.displayTitle
+import hu.wukki.tv.ui.components.displayName
 import hu.wukki.tv.ui.components.formatTime
 import hu.wukki.tv.ui.components.tr
 
@@ -79,7 +80,7 @@ internal fun GuideChannelRow(
             }
             else {
                 Text(
-                    channel.name,
+                    channel.displayName(data.language),
                     color = WukkiColors.textPrimary,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = (18f * metrics.scale).sp,

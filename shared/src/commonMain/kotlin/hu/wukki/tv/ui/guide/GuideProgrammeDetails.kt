@@ -29,6 +29,7 @@ import hu.wukki.tv.AppLanguage
 import hu.wukki.tv.Channel
 import hu.wukki.tv.Programme
 import hu.wukki.tv.ui.components.displayTitle
+import hu.wukki.tv.ui.components.displayName
 import hu.wukki.tv.ui.components.formatTime
 import hu.wukki.tv.ui.components.tr
 import hu.wukki.tv.ui.navigation.isBackKey
@@ -89,7 +90,7 @@ fun GuideProgrammeDetails(
                 modifier = Modifier.fillMaxWidth().heightIn(max = 360.dp).verticalScroll(detailsScrollState),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Text(state.channel.name, fontWeight = FontWeight.SemiBold)
+                Text(state.channel.displayName(state.language), fontWeight = FontWeight.SemiBold)
                 Text("${formatTime(state.programme.start)} – ${formatTime(state.programme.end)}")
                 Text(state.programme.description?.takeIf { it.isNotBlank() } ?: tr(state.language, "epg.no.description"))
                 state.nextProgramme?.let { Text("${tr(state.language, "epg.next")}: ${it.displayTitle(state.language)} · ${formatTime(it.start)}") }

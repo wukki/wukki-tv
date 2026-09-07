@@ -129,11 +129,25 @@ data class AppState(
             listOf(EpgSource(id = "legacy-epg", name = "EPG", url = it, lastUpdatedAt = null))
         }.orEmpty()
         val migratedCache = epgProgrammesBySource ?: migratedSources.firstOrNull()?.let { mapOf(it.id to programmes) }.orEmpty()
+        val migratedChannels = channels.map { channel ->
+            channel.copy(
+                name = channel.name.takeUnless { it.trim().equals(LEGACY_UNKNOWN_CHANNEL_NAME, ignoreCase = true) }
+                    ?: UNKNOWN_CHANNEL_NAME_ID,
+                group = channel.group.takeUnless { it.isBlank() || it.trim().equals(LEGACY_OTHER_CATEGORY_NAME, ignoreCase = true) }
+                    ?: OTHER_CATEGORY_ID
+            )
+        }
         return copy(
             settings = migratedSettings,
+            channels = migratedChannels,
             programmes = emptyList(),
             epgSources = migratedSources,
             epgProgrammesBySource = migratedCache
         )
     }
 }
+
+const val OTHER_CATEGORY_ID = "__wukki_other__"
+const val UNKNOWN_CHANNEL_NAME_ID = "__wukki_unknown_channel__"
+private const val LEGACY_OTHER_CATEGORY_NAME = "Egyéb"
+private const val LEGACY_UNKNOWN_CHANNEL_NAME = "Ismeretlen csatorna"

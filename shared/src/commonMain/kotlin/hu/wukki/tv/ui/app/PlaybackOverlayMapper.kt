@@ -8,6 +8,7 @@ import hu.wukki.tv.PlaybackProgrammeOverlay
 import hu.wukki.tv.PlaybackState
 import hu.wukki.tv.Programme
 import hu.wukki.tv.ui.components.displayTitle
+import hu.wukki.tv.ui.components.displayName
 import hu.wukki.tv.ui.components.formatTime
 import hu.wukki.tv.ui.components.tr
 import hu.wukki.tv.ui.navigation.DashboardSection
@@ -38,7 +39,7 @@ internal fun playbackOverlayData(
     return PlaybackOverlayData(
         channelId = channel.id,
         channelNumber = channel.tvgChno?.toString() ?: "–",
-        channelName = channel.name,
+        channelName = channel.displayName(language),
         logoUrl = channel.logo?.takeIf { showLogos },
         programmeImageUrl = currentProgramme?.imageUrl?.takeIf {
             showProgrammeImages && section == DashboardSection.LIVE

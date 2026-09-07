@@ -65,7 +65,7 @@ class WukkiModel(
 
     init {
         // Persist the one-time migration immediately, before any remote work can fail.
-        if (provisionedState != initialState.normalized()) persist()
+        if (provisionedState != initialState) persist()
     }
 
     val settings: AppSettings get() = state.settings ?: AppSettings()
@@ -412,8 +412,6 @@ class WukkiModel(
     }
     private fun persist() = stateSaver(state)
 }
-
-const val OTHER_CATEGORY_ID = "__wukki_other__"
 
 sealed interface UserMessage {
     data class Key(val key: String, val arguments: List<Any?> = emptyList()) : UserMessage

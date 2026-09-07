@@ -68,9 +68,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import hu.wukki.tv.ChannelListDisplayMode
 import hu.wukki.tv.Programme
-import hu.wukki.tv.OTHER_CATEGORY_ID
 import hu.wukki.tv.ui.components.ChannelLogo
 import hu.wukki.tv.ui.components.WukkiColors
+import hu.wukki.tv.ui.components.displayCategoryName
+import hu.wukki.tv.ui.components.displayName
 import hu.wukki.tv.ui.components.displayTitle
 import hu.wukki.tv.ui.components.formatTime
 import hu.wukki.tv.ui.components.rememberWukkiImageRequest
@@ -217,7 +218,7 @@ private fun ChannelFilters(
         }
         itemsIndexed(state.categories, key = { _, category -> category }) { index, category ->
             ChannelFilterTab(
-                if (category == OTHER_CATEGORY_ID) tr(state.language, "channels.other") else category,
+                category.displayCategoryName(state.language),
                 state.selectedCategory == category && !state.onlyFavorites,
                 remoteFocus == ChannelRemoteFocus.FILTERS && remoteFilterIndex == index + 2,
                 scale
@@ -298,7 +299,7 @@ private fun ChannelListRow(
                 if (state.showLogos) ChannelLogo(channel, state.language, Modifier.size(logoSize))
             }
         },
-        headlineContent = { Text(channel.name, fontWeight = FontWeight.SemiBold, fontSize = ((if (compact) 16f else 18f) * scale).sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        headlineContent = { Text(channel.displayName(state.language), fontWeight = FontWeight.SemiBold, fontSize = ((if (compact) 16f else 18f) * scale).sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         supportingContent = {
             when {
                 detailed -> DetailedChannelProgrammes(state.language, row.currentProgramme, row.nextProgramme, scale)
@@ -375,7 +376,7 @@ private fun ProgrammeInformation(
                 verticalArrangement = Arrangement.spacedBy(10.dp * scale)
             ) {
                 ProgrammeArtwork(state, preview, scale)
-                Text(preview.channel.name, fontSize = (24f * scale).sp, fontWeight = FontWeight.Bold)
+                Text(preview.channel.displayName(state.language), fontSize = (24f * scale).sp, fontWeight = FontWeight.Bold)
                 ProgrammeTitleAndTime(state.language, preview.currentProgramme, scale)
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp * scale)) {
                     if (preview.currentProgramme != null) ProgrammeProgress(preview.currentProgramme, preview.now, Modifier.weight(1f))
@@ -435,7 +436,7 @@ private fun ProgrammeArtworkFallback(state: ChannelBrowserUiState, preview: Chan
         )
     } else {
         Text(
-            text = preview.channel.name,
+            text = preview.channel.displayName(state.language),
             fontSize = (22f * scale).sp,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(16.dp * scale)

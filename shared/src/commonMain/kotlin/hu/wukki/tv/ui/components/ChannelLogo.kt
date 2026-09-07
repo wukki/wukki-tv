@@ -26,14 +26,14 @@ import hu.wukki.tv.Channel
 fun ChannelLogo(channel: Channel, language: AppLanguage, modifier: Modifier = Modifier) {
     val shape = RoundedCornerShape(8.dp)
     Box(modifier = modifier.clip(shape), contentAlignment = Alignment.Center) {
-        if (channel.logo.isNullOrBlank()) LogoFallback(channel) else {
+        if (channel.logo.isNullOrBlank()) LogoFallback(channel, language) else {
             SubcomposeAsyncImage(
                 model = rememberWukkiImageRequest(channel.logo),
-                contentDescription = tr(language, "logo.description", channel.name),
+                contentDescription = tr(language, "logo.description", channel.displayName(language)),
                 contentScale = ContentScale.Fit,
                 modifier = Modifier.fillMaxSize(),
-                loading = { LogoFallback(channel) },
-                error = { LogoFallback(channel) }
+                loading = { LogoFallback(channel, language) },
+                error = { LogoFallback(channel, language) }
             )
         }
     }
@@ -69,8 +69,9 @@ fun wukkiImageRequest(
 }
 
 @Composable
-private fun LogoFallback(channel: Channel) {
-    androidx.compose.material3.Text(channel.name.trim().firstOrNull()?.uppercase() ?: "TV", color = WukkiColors.textPrimary, fontWeight = FontWeight.Black, fontSize = 16.sp)
+private fun LogoFallback(channel: Channel, language: AppLanguage) {
+    val name = channel.displayName(language)
+    androidx.compose.material3.Text(name.trim().firstOrNull()?.uppercase() ?: "TV", color = WukkiColors.textPrimary, fontWeight = FontWeight.Black, fontSize = 16.sp)
 }
 
 fun formatTime(millis: Long): String = Localizer.formatTime(millis)

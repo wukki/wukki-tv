@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import hu.wukki.tv.ui.components.tr
+import hu.wukki.tv.ui.components.displayName
 
 /** Engine-independent buffer budgets. Adapters translate these to their native load controls. */
 data class PlaybackBufferPolicy(
@@ -68,7 +69,7 @@ class PlaybackSession(private val adapter: PlaybackAdapter, private val schedule
         } else if (state == PlaybackState.RECONNECTING && (!settings.autoReconnect || attempts > settings.reconnectAttempts)) {
             cancelTimers()
             state = PlaybackState.ERROR
-            detail = tr(language, "playback.stream.failed", next.name, tr(language, "error.unknown"))
+            detail = tr(language, "playback.stream.failed", next.displayName(language), tr(language, "error.unknown"))
         }
     }
 
@@ -79,7 +80,7 @@ class PlaybackSession(private val adapter: PlaybackAdapter, private val schedule
         cancelTimers()
         generation++
         state = PlaybackState.OPENING
-        detail = tr(language, "playback.channel.opening", selected.name)
+        detail = tr(language, "playback.channel.opening", selected.displayName(language))
         adapter.stop()
         try {
             adapter.play(selected, settings.bufferProfile.bufferPolicy(), generation)
@@ -117,12 +118,12 @@ class PlaybackSession(private val adapter: PlaybackAdapter, private val schedule
         val selected = channel ?: return
         if (!settings.autoReconnect || attempts >= settings.reconnectAttempts) {
             state = PlaybackState.ERROR
-            detail = tr(language, "playback.stream.failed", selected.name, reason ?: tr(language, "error.unknown"))
+            detail = tr(language, "playback.stream.failed", selected.displayName(language), reason ?: tr(language, "error.unknown"))
             return
         }
         attempts++
         state = PlaybackState.RECONNECTING
-        detail = tr(language, "playback.reconnect.attempt", selected.name, attempts, settings.reconnectAttempts)
+        detail = tr(language, "playback.reconnect.attempt", selected.displayName(language), attempts, settings.reconnectAttempts)
         val version = timerVersion
         retry = scheduler.after(attempts * 1_000L) {
             if (accepts(token) && version == timerVersion) {

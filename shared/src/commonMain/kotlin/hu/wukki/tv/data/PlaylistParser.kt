@@ -13,7 +13,7 @@ object PlaylistParser {
                     val attributes = attributes(extinf)
                     val name = displayName(extinf).ifBlank {
                         attributes["tvg-name"]?.trim().orEmpty().ifBlank {
-                            attributes["tvg-id"]?.trim().orEmpty().ifBlank { "Ismeretlen csatorna" }
+                            attributes["tvg-id"]?.trim().orEmpty().ifBlank { UNKNOWN_CHANNEL_NAME_ID }
                         }
                     }
                     val id = stableChannelId("$playlistId|$line|$name")
@@ -25,7 +25,7 @@ object PlaylistParser {
                         tvgId = attributes["tvg-id"],
                         tvgName = attributes["tvg-name"],
                         tvgChno = channelNumber(attributes["tvg-chno"]),
-                        group = attributes["group-title"] ?: "Egyéb",
+                        group = attributes["group-title"]?.trim().orEmpty().ifBlank { OTHER_CATEGORY_ID },
                         logo = LogoUrl.fromM3u(attributes["tvg-logo"]),
                         tvgShiftHours = tvgShiftHours(attributes["tvg-shift"])
                     )
