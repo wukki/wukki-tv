@@ -388,8 +388,27 @@ jobs:
           test -f "$app/Contents/Resources/$icon_name"
           test -f "$app/Contents/app/resources/runtime/vlc/lib/libvlc.dylib"
           test -f "$app/Contents/app/resources/runtime/vlc/plugins/libvmem_plugin.dylib"
+          verification_mount="$RUNNER_TEMP/wukki-dmg-${{ matrix.architecture }}"
+          mkdir -p "$verification_mount"
+          mounted=false
+          cleanup_mount() {
+            if [[ "$mounted" == true ]]; then
+              hdiutil detach "$verification_mount" -force >/dev/null 2>&1 || true
+            fi
+          }
+          trap cleanup_mount EXIT
+          hdiutil attach "$source_file" -quiet -readonly -nobrowse -noverify -mountpoint "$verification_mount"
+          mounted=true
+          test -f "$verification_mount/.VolumeIcon.icns"
+          cmp -s packaging/icons/wukki-tv.icns "$verification_mount/.VolumeIcon.icns"
+          volume_attributes="$(GetFileInfo -a "$verification_mount")"
+          [[ "$volume_attributes" == *C* ]]
+          hdiutil detach "$verification_mount" -quiet
+          mounted=false
+          trap - EXIT
           if [[ "${{ steps.apple-signing.outputs.enabled }}" == "true" ]]; then
             codesign --verify --deep --strict --verbose=2 "$app"
+            codesign --verify --strict --verbose=2 "$source_file"
             xcrun stapler validate "$source_file"
           fi
           mkdir -p release-output

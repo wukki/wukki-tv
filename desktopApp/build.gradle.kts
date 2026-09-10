@@ -2,6 +2,8 @@ import org.gradle.api.tasks.Sync
 import org.gradle.api.tasks.JavaExec
 import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.jvm.toolchain.JavaToolchainService
+import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+import org.jetbrains.compose.desktop.application.tasks.AbstractJPackageTask
 
 plugins {
     kotlin("jvm")
@@ -24,6 +26,8 @@ val macSigningPrefix = providers.gradleProperty("macSigningPrefix")
 val macNotarizationAppleId = providers.gradleProperty("macNotarizationAppleId")
 val macNotarizationPassword = providers.gradleProperty("macNotarizationPassword")
 val macNotarizationTeamId = providers.gradleProperty("macNotarizationTeamId")
+val macDmgVolumeIcon = rootProject.layout.projectDirectory.file("packaging/icons/wukki-tv.icns")
+val applyMacDmgVolumeIcon = rootProject.layout.projectDirectory.file("packaging/macos/apply-dmg-volume-icon.sh")
 
 dependencies {
     implementation(project(":shared"))
@@ -137,4 +141,37 @@ afterEvaluate {
 
 tasks.matching { it.name == "prepareAppResources" || it.name.startsWith("package") }.configureEach {
     dependsOn(patchMacVlcRuntime)
+}
+
+tasks.withType<AbstractJPackageTask>().configureEach {
+    if (targetFormat == TargetFormat.Dmg) {
+        inputs.file(macDmgVolumeIcon)
+        inputs.file(applyMacDmgVolumeIcon)
+        doLast {
+            check(System.getProperty("os.name").startsWith("Mac", ignoreCase = true)) {
+                "DMG volume icons can only be applied on macOS"
+            }
+            val dmgFiles = destinationDir.get().asFile
+                .listFiles { file -> file.isFile && file.extension.equals("dmg", ignoreCase = true) }
+                .orEmpty()
+            check(dmgFiles.size == 1) {
+                "Expected exactly one DMG in ${destinationDir.get().asFile}, found ${dmgFiles.size}"
+            }
+
+            val command = mutableListOf(
+                applyMacDmgVolumeIcon.asFile.absolutePath,
+                dmgFiles.single().absolutePath,
+                macDmgVolumeIcon.asFile.absolutePath
+            )
+            macSigningIdentity.orNull?.takeIf { it.isNotBlank() }?.let { identity ->
+                command += listOf("--signing-identity", identity)
+                macSigningKeychain.orNull?.takeIf { it.isNotBlank() }?.let { keychain ->
+                    command += listOf("--keychain", keychain)
+                }
+            }
+
+            val process = ProcessBuilder(command).inheritIO().start()
+            check(process.waitFor() == 0) { "Failed to apply the Wukki TV DMG volume icon" }
+        }
+    }
 }
