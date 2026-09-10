@@ -130,6 +130,18 @@ Release APK saját aláírással készíthető. Másold az `androidApp/keystore.
 
 ## CI/CD és kiadás
 
+Helyben és a CI/release ellenőrzési lépésében ugyanaz a közös minőségi kapu fut:
+
+```sh
+./gradlew verifyAll
+```
+
+Ez futtatja a verziószámítás `buildSrc` tesztjeit, mindhárom alkalmazásmodul Detekt- és
+ktlint-ellenőrzését, a shared desktop/Android host teszteket, a desktop és Android unit
+teszteket, a lokalizáció-ellenőrzést, a desktop fordítást és az Android debug APK buildjét.
+Java 21 és beállított Android SDK szükséges hozzá. A workflow-k YAML-ellenőrzése
+(`actionlint`) külön CI-lépés marad; a telepítők csomagolása a release jobokban történik.
+
 A `.github/workflows/ci.yml` pull requestnél, valamint a `main` vagy `master` ágra történő pushnál fut. Ellenőrzi a közös és platformspecifikus teszteket, a lokalizációt, a desktop fordítást és az Android debug APK-t. Kézi indításkor a debug APK Actions artifactként is letölthető.
 
 A `.github/workflows/release.yml` `v*` tag pusholásakor vagy kézi indítással egyetlen, ellenőrzött forráscommitból készíti el az összes kiadási csomagot:

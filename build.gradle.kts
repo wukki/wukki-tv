@@ -55,3 +55,32 @@ tasks.register("printWukkiVersion") {
         println("runNumber=${wukkiVersionInfo.runNumber}")
     }
 }
+
+val verifyBuildLogic by tasks.registering(GradleBuild::class) {
+    group = "verification"
+    description = "Runs the versioning tests in the separate buildSrc build."
+    dir = file("buildSrc")
+    buildName = "wukki-build-logic-verification"
+    tasks = listOf("test")
+}
+
+tasks.register("verifyAll") {
+    group = "verification"
+    description = "Runs build-logic tests, application quality checks, desktop/Android tests and the Android debug build."
+    dependsOn(verifyBuildLogic)
+    dependsOn(
+        ":shared:detekt",
+        ":shared:ktlintCheck",
+        ":shared:desktopTest",
+        ":shared:testAndroidHostTest",
+        ":shared:checkLocalizationBundles",
+        ":desktopApp:detekt",
+        ":desktopApp:ktlintCheck",
+        ":desktopApp:test",
+        ":desktopApp:compileKotlin",
+        ":androidApp:detekt",
+        ":androidApp:ktlintCheck",
+        ":androidApp:testDebugUnitTest",
+        ":androidApp:assembleDebug",
+    )
+}

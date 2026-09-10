@@ -1,5 +1,5 @@
-import org.gradle.api.tasks.Sync
 import org.gradle.api.tasks.JavaExec
+import org.gradle.api.tasks.Sync
 import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.jvm.toolchain.JavaToolchainService
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
@@ -46,9 +46,10 @@ tasks.withType<org.gradle.api.tasks.compile.JavaCompile>().configureEach {
     options.release.set(21)
 }
 
-val java21Launcher = extensions.getByType<JavaToolchainService>().launcherFor {
-    languageVersion.set(JavaLanguageVersion.of(21))
-}
+val java21Launcher =
+    extensions.getByType<JavaToolchainService>().launcherFor {
+        languageVersion.set(JavaLanguageVersion.of(21))
+    }
 
 val prepareVlcRuntime by tasks.registering(Sync::class) {
     group = "distribution"
@@ -72,18 +73,25 @@ val patchMacVlcRuntime by tasks.registering {
     inputs.dir(generatedAppResources)
     doLast {
         val runtime = generatedAppResources.get().dir("common/runtime/vlc").asFile
+
         fun runCommand(vararg arguments: String): String {
             val process = ProcessBuilder(*arguments).redirectErrorStream(true).start()
             val output = process.inputStream.bufferedReader().use { it.readText() }
             check(process.waitFor() == 0) { "Command failed: ${arguments.joinToString(" ")}\\n$output" }
             return output
         }
-        fun addRpath(binary: File, rpath: String) {
+
+        fun addRpath(
+            binary: File,
+            rpath: String,
+        ) {
             if (!runCommand("otool", "-l", binary.absolutePath).contains("path $rpath (")) {
                 runCommand("install_name_tool", "-add_rpath", rpath, binary.absolutePath)
             }
         }
-        runtime.resolve("lib").listFiles { file -> file.extension == "dylib" }
+        runtime
+            .resolve("lib")
+            .listFiles { file -> file.extension == "dylib" }
             ?.forEach { addRpath(it, "@loader_path") }
     }
 }
@@ -96,7 +104,7 @@ compose.desktop {
             targetFormats(
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Dmg,
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi,
-                org.jetbrains.compose.desktop.application.dsl.TargetFormat.Deb
+                org.jetbrains.compose.desktop.application.dsl.TargetFormat.Deb,
             )
             packageName = "Wukki TV"
             packageVersion = wukkiPackageVersion
@@ -134,7 +142,11 @@ compose.desktop {
 
 afterEvaluate {
     tasks.named<JavaExec>("run") {
-        setExecutable(java21Launcher.get().executablePath.asFile.absolutePath)
+        setExecutable(
+            java21Launcher
+                .get()
+                .executablePath.asFile.absolutePath,
+        )
         jvmArgs("--enable-native-access=ALL-UNNAMED")
     }
 }
@@ -151,18 +163,22 @@ tasks.withType<AbstractJPackageTask>().configureEach {
             check(System.getProperty("os.name").startsWith("Mac", ignoreCase = true)) {
                 "DMG volume icons can only be applied on macOS"
             }
-            val dmgFiles = destinationDir.get().asFile
-                .listFiles { file -> file.isFile && file.extension.equals("dmg", ignoreCase = true) }
-                .orEmpty()
+            val dmgFiles =
+                destinationDir
+                    .get()
+                    .asFile
+                    .listFiles { file -> file.isFile && file.extension.equals("dmg", ignoreCase = true) }
+                    .orEmpty()
             check(dmgFiles.size == 1) {
                 "Expected exactly one DMG in ${destinationDir.get().asFile}, found ${dmgFiles.size}"
             }
 
-            val command = mutableListOf(
-                applyMacDmgVolumeIcon.asFile.absolutePath,
-                dmgFiles.single().absolutePath,
-                macDmgVolumeIcon.asFile.absolutePath
-            )
+            val command =
+                mutableListOf(
+                    applyMacDmgVolumeIcon.asFile.absolutePath,
+                    dmgFiles.single().absolutePath,
+                    macDmgVolumeIcon.asFile.absolutePath,
+                )
             macSigningIdentity.orNull?.takeIf { it.isNotBlank() }?.let { identity ->
                 command += listOf("--signing-identity", identity)
                 macSigningKeychain.orNull?.takeIf { it.isNotBlank() }?.let { keychain ->
