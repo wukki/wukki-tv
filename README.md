@@ -24,6 +24,23 @@ A Wukki TV Kotlin Multiplatform / Compose alapú IPTV alkalmazás. A hivatalos W
 - Androidon rövid érintés megjeleníti vagy elrejti az információs panelt, felfelé/lefelé pöccintés pedig csatornát vált
 - A manuális frissítések rövid, automatikusan eltűnő visszajelzést adnak; siker esetén 3, hiba esetén 8 másodpercig
 
+## Helyi állapot és hibakezelés
+
+Az állapot betöltése aszinkron történik, betöltési visszajelzéssel. Sérült vagy nem olvasható
+felhasználói állapotnál az alkalmazás újrapróbálást kínál; nem írja felül automatikusan üres adatokkal.
+A gyors egymás utáni módosításokat közös mentési sor vonja össze 200 ms alatt, mindig a legújabb
+állapotot megtartva. Mentési hibánál tartós, újrapróbálható értesítés jelenik meg.
+
+- Desktopon a beállítások a `~/.wukki-tv/state.json`, az EPG-adatok külön
+  `~/.wukki-tv/epg_cache.json.gz` fájlban tárolódnak. A régi, EPG-t tartalmazó JSON és `state.bin`
+  automatikusan migrálódik. A normál ablakbezárás megvárja a mentést; hiba esetén nyitva marad.
+- Androidon a meglévő DataStore és tömörített EPG-cache marad használatban. A felület és a
+  WorkManager ugyanazt az inicializálást és mentőt használja. Háttérbe kerüléskor az alkalmazás
+  azonnali mentést kér; kényszerleállítás vagy a folyamat rendszer általi megszüntetése ezt megszakíthatja.
+- Sérült vagy hiányzó EPG-cache nem törli a beállításokat és kedvenceket: az alkalmazás figyelmeztet,
+  és újratölthető műsoradatok nélkül indul. Automatikus frissítésnél a forrás újra esedékessé válik;
+  kézi módban kézi frissítés szükséges.
+
 ## Indítás fejlesztőként
 
 Először töltsd le a Gradle wrappert, majd indítsd az alkalmazást:

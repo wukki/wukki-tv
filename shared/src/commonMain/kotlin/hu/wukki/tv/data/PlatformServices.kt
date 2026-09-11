@@ -2,9 +2,16 @@ package hu.wukki.tv
 
 /** Common persistence boundary. Each platform owns its physical storage implementation. */
 interface AppStateStore {
-    fun load(): AppState
-    fun save(state: AppState)
+    suspend fun load(): LoadStateResult
+
+    /** Returns only after the state has been written; failures must propagate to the caller. */
+    suspend fun save(state: AppState)
 }
+
+data class LoadStateResult(
+    val state: AppState,
+    val cacheWarning: Boolean = false,
+)
 
 /** Synchronous boundary used inside the model's background dispatcher. */
 fun interface RemoteTextLoader {
@@ -14,12 +21,17 @@ fun interface RemoteTextLoader {
     fun load(request: RemoteTextRequest): String = load(request.url)
 }
 
-enum class RemoteTextKind(val maxBodyBytes: Int) {
+enum class RemoteTextKind(
+    val maxBodyBytes: Int,
+) {
     PLAYLIST(2 * 1024 * 1024),
-    EPG(32 * 1024 * 1024)
+    EPG(32 * 1024 * 1024),
 }
 
-data class RemoteTextRequest(val url: String, val kind: RemoteTextKind)
+data class RemoteTextRequest(
+    val url: String,
+    val kind: RemoteTextKind,
+)
 
 /** Platform-owned XMLTV parser used by the common model. */
 fun interface XmlTvParser {
@@ -31,7 +43,7 @@ data class DeviceInfo(
     val osVersion: String,
     val installationId: String,
     val appDataBytes: Long,
-    val availableStorageBytes: Long
+    val availableStorageBytes: Long,
 )
 
 /** Platform-owned diagnostics provider used by the common About screen. */
@@ -44,7 +56,7 @@ data class WukkiAppDependencies(
     val stateStore: AppStateStore,
     val remoteTextLoader: RemoteTextLoader,
     val xmlTvParser: XmlTvParser,
-    val deviceInfoProvider: DeviceInfoProvider
+    val deviceInfoProvider: DeviceInfoProvider,
 )
 
 fun formatByteSize(bytes: Long): String {
@@ -52,7 +64,10 @@ fun formatByteSize(bytes: Long): String {
     val units = listOf("B", "KB", "MB", "GB", "TB")
     var value = safe.toDouble()
     var unit = 0
-    while (value >= 1024 && unit < units.lastIndex) { value /= 1024; unit++ }
+    while (value >= 1024 && unit < units.lastIndex) {
+        value /= 1024
+        unit++
+    }
     val rendered = if (unit == 0) safe.toString() else ((value * 10).toInt() / 10.0).toString()
     return "$rendered ${units[unit]}"
 }

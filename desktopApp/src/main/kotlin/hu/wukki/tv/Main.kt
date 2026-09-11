@@ -3,9 +3,10 @@ package hu.wukki.tv
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
@@ -14,8 +15,10 @@ import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import hu.wukki.tv.ui.app.DesktopWukkiApp
-import hu.wukki.tv.ui.components.WukkiColors
 import hu.wukki.tv.ui.components.WukkiColorScheme
+import hu.wukki.tv.ui.components.WukkiColors
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 import java.awt.Dimension
 import java.awt.Frame
 import java.awt.event.WindowFocusListener
@@ -27,41 +30,54 @@ fun main() {
     runApplication()
 }
 
-private fun runApplication() = application {
-    val windowState = rememberWindowState(size = DpSize(1470.dp, 920.dp), placement = WindowPlacement.Maximized)
-    val screenWakeCoordinator = remember { ScreenWakeCoordinator(createDesktopScreenWakeController()) }
-    Window(
-        onCloseRequest = {
-            screenWakeCoordinator.close()
-            exitApplication()
-        },
-        title = "WukkiTV",
-        state = windowState
-    ) {
-        DisposableEffect(window) {
-            fun updateWakeState() {
-                val minimized = window.extendedState and Frame.ICONIFIED != 0
-                screenWakeCoordinator.update(window.isFocused && !minimized)
+private fun runApplication() =
+    application {
+        val scope = rememberCoroutineScope()
+        val windowState = rememberWindowState(size = DpSize(1470.dp, 920.dp), placement = WindowPlacement.Maximized)
+        val screenWakeCoordinator = remember { ScreenWakeCoordinator(createDesktopScreenWakeController()) }
+        Window(
+            onCloseRequest = {
+                scope.launch {
+                    try {
+                        DesktopAppGraph.bootstrap.flush()
+                        screenWakeCoordinator.close()
+                        exitApplication()
+                    } catch (exception: CancellationException) {
+                        throw exception
+                    } catch (_: Exception) {
+                        // Keep the window open: the persistent storage snackbar offers a retry.
+                    }
+                }
+            },
+            title = "WukkiTV",
+            state = windowState,
+        ) {
+            DisposableEffect(window) {
+                fun updateWakeState() {
+                    val minimized = window.extendedState and Frame.ICONIFIED != 0
+                    screenWakeCoordinator.update(window.isFocused && !minimized)
+                }
+                val focusListener =
+                    object : WindowFocusListener {
+                        override fun windowGainedFocus(event: java.awt.event.WindowEvent) = updateWakeState()
+
+                        override fun windowLostFocus(event: java.awt.event.WindowEvent) = updateWakeState()
+                    }
+                val stateListener = WindowStateListener { updateWakeState() }
+                window.addWindowFocusListener(focusListener)
+                window.addWindowStateListener(stateListener)
+                updateWakeState()
+                onDispose {
+                    window.removeWindowFocusListener(focusListener)
+                    window.removeWindowStateListener(stateListener)
+                    screenWakeCoordinator.close()
+                }
             }
-            val focusListener = object : WindowFocusListener {
-                override fun windowGainedFocus(event: java.awt.event.WindowEvent) = updateWakeState()
-                override fun windowLostFocus(event: java.awt.event.WindowEvent) = updateWakeState()
-            }
-            val stateListener = WindowStateListener { updateWakeState() }
-            window.addWindowFocusListener(focusListener)
-            window.addWindowStateListener(stateListener)
-            updateWakeState()
-            onDispose {
-                window.removeWindowFocusListener(focusListener)
-                window.removeWindowStateListener(stateListener)
-                screenWakeCoordinator.close()
-            }
-        }
-        LaunchedEffect(Unit) { window.minimumSize = Dimension(1024, 640) }
-        MaterialTheme(colorScheme = WukkiColorScheme) {
-            Surface(modifier = Modifier.fillMaxSize(), color = WukkiColors.background, contentColor = WukkiColors.textPrimary) {
-                DesktopWukkiApp()
+            LaunchedEffect(Unit) { window.minimumSize = Dimension(1024, 640) }
+            MaterialTheme(colorScheme = WukkiColorScheme) {
+                Surface(modifier = Modifier.fillMaxSize(), color = WukkiColors.background, contentColor = WukkiColors.textPrimary) {
+                    DesktopWukkiApp()
+                }
             }
         }
     }
-}

@@ -37,7 +37,7 @@ object WukkiBuildInfo {
     const val VERSION = "${escape(wukkiVersion)}"
     const val BUILD = "${escape(wukkiBuild)}"
 }
-"""
+""",
         )
     }
 }
@@ -75,7 +75,10 @@ kotlin {
             }
         }
         val commonTest by getting {
-            dependencies { implementation(kotlin("test")) }
+            dependencies {
+                implementation(kotlin("test"))
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
+            }
         }
         val androidMain by getting {
             kotlin.srcDir("src/jvmCommon/kotlin")

@@ -1,11 +1,5 @@
 package hu.wukki.tv.ui.app
 
-import hu.wukki.tv.*
-import hu.wukki.tv.ui.guide.*
-import hu.wukki.tv.ui.settings.*
-import hu.wukki.tv.ui.components.tr
-import hu.wukki.tv.ui.navigation.*
-
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,8 +8,8 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -24,10 +18,24 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
-import androidx.compose.ui.unit.Density
 import androidx.compose.ui.platform.LocalDensity
-import kotlinx.coroutines.delay
+import androidx.compose.ui.unit.Density
+import hu.wukki.tv.AppFeedbackKind
+import hu.wukki.tv.LiveVideoGestures
+import hu.wukki.tv.PlaybackEngine
+import hu.wukki.tv.PlaybackState
+import hu.wukki.tv.WukkiAppDependencies
+import hu.wukki.tv.WukkiModel
+import hu.wukki.tv.ui.components.tr
+import hu.wukki.tv.ui.guide.rememberEpgGuideState
+import hu.wukki.tv.ui.navigation.DashboardSection
+import hu.wukki.tv.ui.navigation.LiveChannelPreviewEvent
+import hu.wukki.tv.ui.navigation.LiveNavigationVisibilityEvent
+import hu.wukki.tv.ui.navigation.restoredChannelIndex
+import hu.wukki.tv.ui.navigation.toAppRemoteKey
+import hu.wukki.tv.ui.settings.SettingsSection
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 @Composable
@@ -41,9 +49,9 @@ fun WukkiApp(
     requireDoubleBackToExit: Boolean = false,
     onExitConfirmation: (String) -> Unit = {},
     onPlatformBackActionChange: ((() -> Boolean)?) -> Unit = {},
-    sharedModel: WukkiModel? = null
+    sharedModel: WukkiModel,
 ) {
-    val model = sharedModel ?: remember(dependencies) { dependencies.createModel() }
+    val model = sharedModel
     val scope = rememberCoroutineScope()
     val focusRequester = remember { FocusRequester() }
     val autoPlayOnLaunch = model.settings.playback.autoPlayOnLaunch
@@ -51,20 +59,29 @@ fun WukkiApp(
     val guideDataSource = remember(model) { model.guideDataSource() }
     val baseDensity = LocalDensity.current
     val session = remember { AppSessionState(autoPlayOnLaunch) }
-    val controller = AppSessionController(session, model, scope, guideState, guideDataSource,
-        androidSettingsNavigation, requireDoubleBackToExit, onExitConfirmation)
+    val controller =
+        AppSessionController(
+            session,
+            model,
+            scope,
+            guideState,
+            guideDataSource,
+            androidSettingsNavigation,
+            requireDoubleBackToExit,
+            onExitConfirmation,
+        )
     with(session) {
         with(controller) {
-
             val visibleChannels = model.filteredChannels()
             val visibleChannelIds = remember(visibleChannels) { visibleChannels.map { it.id } }
             LaunchedEffect(visibleChannelIds, model.selectedChannelId) {
-                channelListIndex = restoredChannelIndex(
-                    channelIds = visibleChannelIds,
-                    savedChannelId = channelFocusedId,
-                    selectedChannelId = model.selectedChannelId,
-                    fallbackIndex = channelListIndex
-                )
+                channelListIndex =
+                    restoredChannelIndex(
+                        channelIds = visibleChannelIds,
+                        savedChannelId = channelFocusedId,
+                        selectedChannelId = model.selectedChannelId,
+                        fallbackIndex = channelListIndex,
+                    )
                 channelFocusedId = visibleChannelIds.getOrNull(channelListIndex)
             }
             LaunchedEffect(channelListIndex, visibleChannelIds) {
@@ -108,7 +125,7 @@ fun WukkiApp(
                 model.selectedChannelId,
                 model.settings.playback,
                 model.settings.display.showLogos,
-                model.settings.language
+                model.settings.language,
             ) {
                 if (model.playbackRequestToken > 0) {
                     playbackController.play(model.selectedChannel(), model.settings.playback, model.settings.display.showLogos, model.settings.language)
@@ -144,11 +161,12 @@ fun WukkiApp(
             }
             val feedbackToken = model.feedbackToken
             LaunchedEffect(feedbackToken, model.feedbackKind) {
-                val timeout = when (model.feedbackKind) {
-                    AppFeedbackKind.SUCCESS -> SUCCESS_FEEDBACK_TIMEOUT_MS
-                    AppFeedbackKind.ERROR -> ERROR_FEEDBACK_TIMEOUT_MS
-                    AppFeedbackKind.LOADING, null -> null
-                } ?: return@LaunchedEffect
+                val timeout =
+                    when (model.feedbackKind) {
+                        AppFeedbackKind.SUCCESS -> SUCCESS_FEEDBACK_TIMEOUT_MS
+                        AppFeedbackKind.ERROR -> ERROR_FEEDBACK_TIMEOUT_MS
+                        AppFeedbackKind.LOADING, null -> null
+                    } ?: return@LaunchedEffect
                 delay(timeout)
                 model.dismissFeedback(feedbackToken)
             }
@@ -194,7 +212,7 @@ fun WukkiApp(
                 model.settings.display.showLogos,
                 model.settings.display.showProgrammeImages,
                 playbackController.state,
-                playbackController.detail
+                playbackController.detail,
             ) {
                 overlayChannel?.let { channel ->
                     playbackController.updateOverlay(
@@ -210,22 +228,26 @@ fun WukkiApp(
                             showLogos = model.settings.display.showLogos,
                             showProgrammeImages = model.settings.display.showProgrammeImages,
                             playbackState = playbackController.state,
-                            playbackDetail = playbackController.detail
-                        )
+                            playbackDetail = playbackController.detail,
+                        ),
                     )
                 }
             }
 
             CompositionLocalProvider(LocalDensity provides Density(baseDensity.density, baseDensity.fontScale * model.settings.display.uiScale)) {
                 Column(
-                    modifier = Modifier.fillMaxSize().focusRequester(focusRequester).focusable()
-                        .onPreviewKeyEvent { event ->
-                            if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-                            // Android forwards the system Back key to OnBackPressedDispatcher.
-                            // Consuming it here too would advance the back hierarchy twice.
-                            if (androidSettingsNavigation && event.key == Key.Back) return@onPreviewKeyEvent false
-                            dispatchRemote(event.key.toAppRemoteKey())
-                        }
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .focusRequester(focusRequester)
+                            .focusable()
+                            .onPreviewKeyEvent { event ->
+                                if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                                // Android forwards the system Back key to OnBackPressedDispatcher.
+                                // Consuming it here too would advance the back hierarchy twice.
+                                if (androidSettingsNavigation && event.key == Key.Back) return@onPreviewKeyEvent false
+                                dispatchRemote(event.key.toAppRemoteKey())
+                            },
                 ) {
                     DashboardScreen(
                         session = session,
@@ -237,7 +259,7 @@ fun WukkiApp(
                         androidSettingsNavigation = androidSettingsNavigation,
                         videoHost = videoHost,
                         liveVideoGestures = liveVideoGestures,
-                        playbackEngineLabel = playbackEngineLabel
+                        playbackEngineLabel = playbackEngineLabel,
                     )
                 }
             }

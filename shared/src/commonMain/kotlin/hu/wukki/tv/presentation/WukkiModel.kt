@@ -1,26 +1,19 @@
 package hu.wukki.tv
 
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-fun WukkiAppDependencies.createModel(): WukkiModel = WukkiModel(
-    initialState = stateStore.load(),
-    sourceLoader = remoteTextLoader,
-    xmlTvParser = xmlTvParser,
-    stateSaver = stateStore::save
-)
-
 class WukkiModel(
     initialState: AppState,
     private val sourceLoader: RemoteTextLoader,
     private val xmlTvParser: XmlTvParser,
     private val stateSaver: (AppState) -> Unit,
-    private val refreshService: RefreshService? = null
+    private val refreshService: RefreshService? = null,
 ) {
     private val refreshingEpgSourceIds = mutableSetOf<String>()
     private val provisionedState = OfficialWukkiSource.provision(initialState)
@@ -34,7 +27,7 @@ class WukkiModel(
         private set
     var selectedChannelId by mutableStateOf(
         state.lastChannelId?.takeIf { savedId -> state.channels.any { it.id == savedId } }
-            ?: state.channels.firstOrNull()?.id
+            ?: state.channels.firstOrNull()?.id,
     )
         private set
     var query by mutableStateOf("")
@@ -43,32 +36,38 @@ class WukkiModel(
         private set
     var onlyFavorites by mutableStateOf(false)
         private set
-    private val channelDirectoryState = derivedStateOf {
-        val sortedChannels = state.channels.sortedChannels()
-        val normalizedQuery = normalize(query)
-        ChannelDirectoryDerivedState(
-            sortedChannels = sortedChannels,
-            categories = state.channels.asSequence()
-                .map(::channelCategoryName)
-                .distinct()
-                .sorted()
-                .toList(),
-            filteredChannels = sortedChannels.filter { channel ->
-                (!onlyFavorites || channel.favorite) &&
-                    (category == null || channelCategoryName(channel) == category) &&
-                    (query.isBlank() || normalize(channel.name).contains(normalizedQuery))
-            }
-        )
-    }
+    private val channelDirectoryState =
+        derivedStateOf {
+            val sortedChannels = state.channels.sortedChannels()
+            val normalizedQuery = normalize(query)
+            ChannelDirectoryDerivedState(
+                sortedChannels = sortedChannels,
+                categories =
+                    state.channels
+                        .asSequence()
+                        .map(::channelCategoryName)
+                        .distinct()
+                        .sorted()
+                        .toList(),
+                filteredChannels =
+                    sortedChannels.filter { channel ->
+                        (!onlyFavorites || channel.favorite) &&
+                            (category == null || channelCategoryName(channel) == category) &&
+                            (query.isBlank() || normalize(channel.name).contains(normalizedQuery))
+                    },
+            )
+        }
     var status by mutableStateOf<UserMessage?>(null)
         private set
     var error by mutableStateOf<UserMessage?>(null)
         private set
     var feedbackKind by mutableStateOf<AppFeedbackKind?>(null)
         private set
+
     /** Increments for every displayed feedback so an earlier timeout cannot dismiss a newer one. */
     var feedbackToken by mutableIntStateOf(0)
         private set
+
     /** Increments only for an explicit request to start the selected channel. */
     var playbackRequestToken by mutableIntStateOf(0)
         private set
@@ -86,32 +85,48 @@ class WukkiModel(
 
     /** For diagnostics that do not have a translation key yet. */
     fun showRawError(message: String) = showError(UserMessage.Raw(message))
+
     fun dismissFeedback(token: Int) {
         if (token != feedbackToken) return
         status = null
         error = null
         feedbackKind = null
     }
+
     fun setLanguage(language: AppLanguage) = updateSettings { it.copy(language = language) }
+
     fun setPlaylistRefresh(interval: RefreshInterval) = updateSettings { it.copy(playlistRefresh = interval) }
+
     fun setEpgRefresh(interval: RefreshInterval) = updateSettings { it.copy(epgRefresh = interval) }
-    fun updatePlayback(transform: (PlaybackSettings) -> PlaybackSettings) = updateSettings { current ->
-        val playback = transform(current.playback)
-        current.copy(playback = playback.copy(
-            volume = playback.volume.coerceIn(0, 100),
-            reconnectAttempts = playback.reconnectAttempts.coerceIn(1, 10)
-        ))
-    }
+
+    fun updatePlayback(transform: (PlaybackSettings) -> PlaybackSettings) =
+        updateSettings { current ->
+            val playback = transform(current.playback)
+            current.copy(
+                playback =
+                    playback.copy(
+                        volume = playback.volume.coerceIn(0, 100),
+                        reconnectAttempts = playback.reconnectAttempts.coerceIn(1, 10),
+                    ),
+            )
+        }
+
     fun updateDisplay(transform: (DisplaySettings) -> DisplaySettings) = updateSettings { it.copy(display = transform(it.display)) }
-    fun setChannelQuery(value: String) { query = value }
+
+    fun setChannelQuery(value: String) {
+        query = value
+    }
+
     fun showAllChannels() {
         category = null
         onlyFavorites = false
     }
+
     fun showFavoriteChannels() {
         category = null
         onlyFavorites = true
     }
+
     fun showChannelCategory(value: String) {
         category = value
         onlyFavorites = false
@@ -125,26 +140,30 @@ class WukkiModel(
     private suspend fun performPlaylistRefresh(showFeedback: Boolean): Boolean {
         try {
             if (showFeedback) showLoading("status.playlist.refreshing", OfficialWukkiSource.PLAYLIST_NAME)
-            val playlistText = withContext(Dispatchers.Default) {
-                sourceLoader.load(RemoteTextRequest(OfficialWukkiSource.PLAYLIST_URL, RemoteTextKind.PLAYLIST))
-            }
-            val refreshedChannels = withContext(Dispatchers.Default) {
-                PlaylistParser.parse(playlistText, OfficialWukkiSource.PLAYLIST_ID)
-            }
+            val playlistText =
+                withContext(Dispatchers.Default) {
+                    sourceLoader.load(RemoteTextRequest(OfficialWukkiSource.PLAYLIST_URL, RemoteTextKind.PLAYLIST))
+                }
+            val refreshedChannels =
+                withContext(Dispatchers.Default) {
+                    PlaylistParser.parse(playlistText, OfficialWukkiSource.PLAYLIST_ID)
+                }
             if (refreshedChannels.isEmpty()) throw IllegalArgumentException("error.playlist.empty")
 
             val previousChannels = state.channels
             val previousSelected = selectedChannelId
             val previousLast = state.lastChannelId
-            val channels = refreshedChannels.map { fresh ->
-                val previous = previousChannels.firstOrNull { OfficialWukkiSource.sameChannel(it, fresh) }
-                fresh.copy(favorite = previous?.favorite == true)
-            }
+            val channels =
+                refreshedChannels.map { fresh ->
+                    val previous = previousChannels.firstOrNull { OfficialWukkiSource.sameChannel(it, fresh) }
+                    fresh.copy(favorite = previous?.favorite == true)
+                }
             val restoredLastChannelId = matchingChannelId(previousLast, previousChannels, channels)
-            state = state.copy(
-                channels = channels,
-                lastChannelId = restoredLastChannelId
-            )
+            state =
+                state.copy(
+                    channels = channels,
+                    lastChannelId = restoredLastChannelId,
+                )
             selectedChannelId = matchingChannelId(previousSelected, previousChannels, channels)
                 ?: restoredLastChannelId
                 ?: channels.firstOrNull()?.id
@@ -166,41 +185,48 @@ class WukkiModel(
         }
     }
 
-    fun nextPlaylistRefreshDelayMillis(now: Long = System.currentTimeMillis()): Long =
-        playlistRefreshDelayMillis(officialPlaylist.updatedAt, settings.playlistRefresh, now)
+    fun nextPlaylistRefreshDelayMillis(now: Long = System.currentTimeMillis()): Long = playlistRefreshDelayMillis(officialPlaylist.updatedAt, settings.playlistRefresh, now)
 
-    suspend fun refreshDuePlaylist(now: Long = System.currentTimeMillis()): Boolean =
-        if (nextPlaylistRefreshDelayMillis(now) == 0L) refreshOfficialPlaylist(showFeedback = false) else true
+    suspend fun refreshDuePlaylist(now: Long = System.currentTimeMillis()): Boolean = if (nextPlaylistRefreshDelayMillis(now) == 0L) refreshOfficialPlaylist(showFeedback = false) else true
 
     /** Manually refreshes the one EPG URL currently declared by the official M3U. */
     suspend fun refreshOfficialEpg(showFeedback: Boolean = true): Boolean {
-        val source = officialEpgSource ?: run {
-            showErrorKey("error.wukki.epg.missing")
-            return false
-        }
+        val source =
+            officialEpgSource ?: run {
+                showErrorKey("error.wukki.epg.missing")
+                return false
+            }
         return refreshEpgSource(source.id, showFeedback)
     }
 
-    suspend fun refreshEpgSource(sourceId: String, showFeedback: Boolean = true): Boolean =
+    suspend fun refreshEpgSource(
+        sourceId: String,
+        showFeedback: Boolean = true,
+    ): Boolean =
         refreshService?.refresh("epg:$sourceId") { performEpgRefresh(sourceId, showFeedback) }
             ?: performEpgRefresh(sourceId, showFeedback)
 
-    private suspend fun performEpgRefresh(sourceId: String, showFeedback: Boolean): Boolean {
+    private suspend fun performEpgRefresh(
+        sourceId: String,
+        showFeedback: Boolean,
+    ): Boolean {
         val source = officialEpgSource?.takeIf { it.id == sourceId } ?: return false
         if (!refreshingEpgSourceIds.add(source.id)) return false
         try {
             if (showFeedback) showLoading("status.epg.loading", source.name)
-            val xml = withContext(Dispatchers.Default) {
-                sourceLoader.load(RemoteTextRequest(source.url, RemoteTextKind.EPG))
-            }
+            val xml =
+                withContext(Dispatchers.Default) {
+                    sourceLoader.load(RemoteTextRequest(source.url, RemoteTextKind.EPG))
+                }
             val programmes = withContext(Dispatchers.Default) { xmlTvParser.parse(xml) }
             if (programmes.isEmpty()) throw IllegalArgumentException("error.epg.empty")
-            state = state.copy(
-                epgSources = listOf(source.copy(lastUpdatedAt = System.currentTimeMillis())),
-                epgProgrammesBySource = mapOf(OfficialWukkiSource.EPG_SOURCE_ID to programmes),
-                programmes = emptyList(),
-                epgUrl = source.url
-            )
+            state =
+                state.copy(
+                    epgSources = listOf(source.copy(lastUpdatedAt = System.currentTimeMillis())),
+                    epgProgrammesBySource = mapOf(OfficialWukkiSource.EPG_SOURCE_ID to programmes),
+                    programmes = emptyList(),
+                    epgUrl = source.url,
+                )
             rematchChannels()
             persist()
             if (showFeedback) showStatus("status.epg.loaded", programmes.size, source.name)
@@ -217,14 +243,19 @@ class WukkiModel(
     }
 
     /** Refreshes only the fixed source when it is due according to the user's schedule. */
-    suspend fun refreshDueEpgSources(interval: RefreshInterval, now: Long = System.currentTimeMillis()): Boolean {
+    suspend fun refreshDueEpgSources(
+        interval: RefreshInterval,
+        now: Long = System.currentTimeMillis(),
+    ): Boolean {
         if (interval.hours <= 0) return true
         val source = officialEpgSource ?: return true
         return if (source.isEpgRefreshDue(interval, now)) refreshEpgSource(source.id, showFeedback = false) else true
     }
 
-    fun nextEpgRefreshDelayMillis(interval: RefreshInterval, now: Long = System.currentTimeMillis()): Long =
-        nextEpgRefreshDelayMillis(epgSources, interval, now)
+    fun nextEpgRefreshDelayMillis(
+        interval: RefreshInterval,
+        now: Long = System.currentTimeMillis(),
+    ): Long = nextEpgRefreshDelayMillis(epgSources, interval, now)
 
     fun toggleFavorite(id: String) {
         state = state.copy(channels = state.channels.map { channel -> if (channel.id == id) channel.copy(favorite = !channel.favorite) else channel })
@@ -249,7 +280,9 @@ class WukkiModel(
     }
 
     fun selectedChannel(): Channel? = state.channels.firstOrNull { it.id == selectedChannelId }
+
     fun channelById(id: String?): Channel? = id?.let { channelId -> state.channels.firstOrNull { it.id == channelId } }
+
     fun categories(): List<String> = channelDirectoryState.value.categories
 
     fun filteredChannels(): List<Channel> = channelDirectoryState.value.filteredChannels
@@ -269,15 +302,22 @@ class WukkiModel(
         return cachedGuideLatestProgrammeEnd
     }
 
-    fun currentProgram(channel: Channel, now: Long = System.currentTimeMillis()): Programme? =
-        channelProgrammes(channel).firstOrNull { now in it.start until it.end }
+    fun currentProgram(
+        channel: Channel,
+        now: Long = System.currentTimeMillis(),
+    ): Programme? = channelProgrammes(channel).firstOrNull { now in it.start until it.end }
 
-    fun nextProgram(channel: Channel, current: Programme): Programme? =
-        channelProgrammes(channel).firstOrNull { it.start >= current.end }
+    fun nextProgram(
+        channel: Channel,
+        current: Programme,
+    ): Programme? = channelProgrammes(channel).firstOrNull { it.start >= current.end }
 
     /** Returns this channel's programmes that overlap the requested time range. */
-    fun programmesFor(channel: Channel, from: Long, to: Long): List<Programme> =
-        channelProgrammes(channel).filter { programme -> programme.end > from && programme.start < to }
+    fun programmesFor(
+        channel: Channel,
+        from: Long,
+        to: Long,
+    ): List<Programme> = channelProgrammes(channel).filter { programme -> programme.end > from && programme.start < to }
 
     fun moveChannel(delta: Int) {
         val channels = filteredChannels()
@@ -289,14 +329,18 @@ class WukkiModel(
     fun selectChannelByNumber(number: String): Boolean {
         val requestedNumber = number.toIntOrNull()?.takeIf { it > 0 } ?: return false
         val channels = guideChannels()
-        val channel = channels.firstOrNull { it.tvgChno == requestedNumber }
-            ?: channels.getOrNull(requestedNumber - 1)
-            ?: return false
+        val channel =
+            channels.firstOrNull { it.tvgChno == requestedNumber }
+                ?: channels.getOrNull(requestedNumber - 1)
+                ?: return false
         selectChannel(channel.id)
         return true
     }
 
-    private suspend fun synchronizeOfficialEpg(playlistText: String, showFeedback: Boolean) {
+    private suspend fun synchronizeOfficialEpg(
+        playlistText: String,
+        showFeedback: Boolean,
+    ) {
         val url = PlaylistParser.epgUrl(playlistText)
         if (url == null) {
             state = state.copy(epgSources = emptyList(), epgProgrammesBySource = emptyMap(), programmes = emptyList(), epgUrl = "")
@@ -310,26 +354,29 @@ class WukkiModel(
         val sameUrl = previous?.url?.equals(url, ignoreCase = true) == true
         val previousCache = state.epgProgrammesBySource
         val cachedProgrammes = if (sameUrl) previousCache[OfficialWukkiSource.EPG_SOURCE_ID].orEmpty() else emptyList()
-        val synchronizedCache = if (sameUrl && previousCache.keys.all { it == OfficialWukkiSource.EPG_SOURCE_ID }) {
-            previousCache
-        } else {
-            mapOf(OfficialWukkiSource.EPG_SOURCE_ID to cachedProgrammes)
-        }
-        val source = EpgSource(
-            id = OfficialWukkiSource.EPG_SOURCE_ID,
-            name = "${OfficialWukkiSource.PLAYLIST_NAME} EPG",
-            url = url,
-            enabled = true,
-            priority = 0,
-            lastUpdatedAt = previous?.lastUpdatedAt?.takeIf { sameUrl },
-            managedByPlaylist = true
-        )
-        state = state.copy(
-            epgSources = listOf(source),
-            epgProgrammesBySource = synchronizedCache,
-            programmes = emptyList(),
-            epgUrl = url
-        )
+        val synchronizedCache =
+            if (sameUrl && previousCache.keys.all { it == OfficialWukkiSource.EPG_SOURCE_ID }) {
+                previousCache
+            } else {
+                mapOf(OfficialWukkiSource.EPG_SOURCE_ID to cachedProgrammes)
+            }
+        val source =
+            EpgSource(
+                id = OfficialWukkiSource.EPG_SOURCE_ID,
+                name = "${OfficialWukkiSource.PLAYLIST_NAME} EPG",
+                url = url,
+                enabled = true,
+                priority = 0,
+                lastUpdatedAt = previous?.lastUpdatedAt?.takeIf { sameUrl },
+                managedByPlaylist = true,
+            )
+        state =
+            state.copy(
+                epgSources = listOf(source),
+                epgProgrammesBySource = synchronizedCache,
+                programmes = emptyList(),
+                epgUrl = url,
+            )
         rematchChannels()
         persist()
         if (cachedProgrammes.isEmpty()) performEpgRefresh(source.id, showFeedback)
@@ -338,7 +385,7 @@ class WukkiModel(
     private fun matchingChannelId(
         previousChannelId: String?,
         previousChannels: List<Channel>,
-        refreshedChannels: List<Channel>
+        refreshedChannels: List<Channel>,
     ): String? {
         val previous = previousChannels.firstOrNull { it.id == previousChannelId } ?: return null
         return refreshedChannels.firstOrNull { OfficialWukkiSource.sameChannel(previous, it) }?.id
@@ -348,9 +395,7 @@ class WukkiModel(
         state = state.copy(channels = EpgMatcher.matchFromSources(state.channels, epgSources, state.epgProgrammesBySource))
     }
 
-    private fun channelProgrammes(channel: Channel): List<Programme> {
-        return currentProgrammeIndex().programmes(channel)
-    }
+    private fun channelProgrammes(channel: Channel): List<Programme> = currentProgrammeIndex().programmes(channel)
 
     private fun currentProgrammeIndex(): ProgrammeIndex {
         val sources = state.epgProgrammesBySource
@@ -362,32 +407,66 @@ class WukkiModel(
     }
 
     private fun channelCategoryName(channel: Channel): String = channel.group.ifBlank { OTHER_CATEGORY_ID }
-    private fun showLoading(key: String, vararg args: Any?) = showFeedback(AppFeedbackKind.LOADING, UserMessage.Key(key, args.toList()))
-    private fun showStatus(key: String, vararg args: Any?) = showFeedback(AppFeedbackKind.SUCCESS, UserMessage.Key(key, args.toList()))
-    private fun showErrorKey(key: String, vararg args: Any?) = showError(UserMessage.Key(key, args.toList()))
+
+    private fun showLoading(
+        key: String,
+        vararg args: Any?,
+    ) = showFeedback(AppFeedbackKind.LOADING, UserMessage.Key(key, args.toList()))
+
+    private fun showStatus(
+        key: String,
+        vararg args: Any?,
+    ) = showFeedback(AppFeedbackKind.SUCCESS, UserMessage.Key(key, args.toList()))
+
+    private fun showErrorKey(
+        key: String,
+        vararg args: Any?,
+    ) = showError(UserMessage.Key(key, args.toList()))
+
     private fun showError(message: UserMessage) = showFeedback(AppFeedbackKind.ERROR, message)
-    private fun showFeedback(kind: AppFeedbackKind, message: UserMessage) {
+
+    private fun showFeedback(
+        kind: AppFeedbackKind,
+        message: UserMessage,
+    ) {
         when (kind) {
-            AppFeedbackKind.ERROR -> { error = message; status = null }
-            AppFeedbackKind.LOADING, AppFeedbackKind.SUCCESS -> { status = message; error = null }
+            AppFeedbackKind.ERROR -> {
+                error = message
+                status = null
+            }
+
+            AppFeedbackKind.LOADING, AppFeedbackKind.SUCCESS -> {
+                status = message
+                error = null
+            }
         }
         feedbackKind = kind
         feedbackToken++
     }
-    private fun messageArgument(exception: Exception): UserMessage = exception.message?.let { message ->
-        if (message.startsWith("error.")) UserMessage.Key(message) else UserMessage.Raw(message)
-    } ?: UserMessage.Key("error.unknown")
+
+    private fun messageArgument(exception: Exception): UserMessage =
+        exception.message?.let { message ->
+            if (message.startsWith("error.")) UserMessage.Key(message) else UserMessage.Raw(message)
+        } ?: UserMessage.Key("error.unknown")
+
     private fun updateSettings(transform: (AppSettings) -> AppSettings) {
         val updated = transform(settings)
         state = state.copy(settings = updated, autoRefreshHours = updated.playlistRefresh.hours)
         persist()
     }
+
     private fun persist() = stateSaver(state)
 }
 
 sealed interface UserMessage {
-    data class Key(val key: String, val arguments: List<Any?> = emptyList()) : UserMessage
-    data class Raw(val value: String) : UserMessage
+    data class Key(
+        val key: String,
+        val arguments: List<Any?> = emptyList(),
+    ) : UserMessage
+
+    data class Raw(
+        val value: String,
+    ) : UserMessage
 }
 
 enum class AppFeedbackKind { LOADING, SUCCESS, ERROR }
@@ -395,26 +474,39 @@ enum class AppFeedbackKind { LOADING, SUCCESS, ERROR }
 private data class ChannelDirectoryDerivedState(
     val sortedChannels: List<Channel>,
     val categories: List<String>,
-    val filteredChannels: List<Channel>
+    val filteredChannels: List<Channel>,
 )
 
-internal fun EpgSource.isEpgRefreshDue(interval: RefreshInterval, now: Long): Boolean =
-    enabled && interval.hours > 0 && (lastUpdatedAt == null || now - lastUpdatedAt >= interval.hours * 60L * 60L * 1000L)
+internal fun EpgSource.isEpgRefreshDue(
+    interval: RefreshInterval,
+    now: Long,
+): Boolean = enabled && interval.hours > 0 && (lastUpdatedAt == null || now - lastUpdatedAt >= interval.hours * 60L * 60L * 1000L)
 
-internal fun nextEpgRefreshDelayMillis(sources: List<EpgSource>, interval: RefreshInterval, now: Long): Long {
+internal fun nextEpgRefreshDelayMillis(
+    sources: List<EpgSource>,
+    interval: RefreshInterval,
+    now: Long,
+): Long {
     val intervalMillis = interval.hours * 60L * 60L * 1000L
     if (intervalMillis <= 0L) return Long.MAX_VALUE
-    val nextDueAt = sources.asSequence().filter { it.enabled }.map { source ->
-        (source.lastUpdatedAt ?: now) + intervalMillis
-    }.minOrNull() ?: (now + intervalMillis)
+    val nextDueAt =
+        sources
+            .asSequence()
+            .filter { it.enabled }
+            .map { source ->
+                (source.lastUpdatedAt ?: now) + intervalMillis
+            }.minOrNull() ?: (now + intervalMillis)
     return (nextDueAt - now).coerceAtLeast(0L)
 }
 
-private fun List<Channel>.sortedChannels(): List<Channel> =
-    sortedWith(compareBy<Channel> { it.tvgChno ?: Int.MAX_VALUE }.thenBy { normalize(it.name) })
+private fun List<Channel>.sortedChannels(): List<Channel> = sortedWith(compareBy<Channel> { it.tvgChno ?: Int.MAX_VALUE }.thenBy { normalize(it.name) })
 
 /** Zero denotes a due refresh; MANUAL never schedules network work. */
-fun playlistRefreshDelayMillis(updatedAt: Long, interval: RefreshInterval, now: Long): Long {
+fun playlistRefreshDelayMillis(
+    updatedAt: Long,
+    interval: RefreshInterval,
+    now: Long,
+): Long {
     if (interval == RefreshInterval.MANUAL) return Long.MAX_VALUE
     if (updatedAt <= 0L) return 0L
     return (updatedAt + interval.hours * 60L * 60L * 1000L - now).coerceAtLeast(0L)

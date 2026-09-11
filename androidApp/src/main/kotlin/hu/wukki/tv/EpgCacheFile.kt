@@ -15,14 +15,17 @@ import java.util.zip.GZIPOutputStream
 @OptIn(ExperimentalSerializationApi::class)
 internal class EpgCacheFile(
     private val file: File,
-    private val json: Json
+    private val json: Json,
 ) {
-    fun read(): Map<String, List<Programme>>? = runCatching {
-        if (!file.isFile) return@runCatching null
-        GZIPInputStream(file.inputStream().buffered()).use { input ->
-            json.decodeFromStream<Map<String, List<Programme>>>(input)
-        }
-    }.getOrNull()
+    fun exists(): Boolean = file.exists()
+
+    fun read(): Map<String, List<Programme>>? =
+        runCatching {
+            if (!file.isFile) return@runCatching null
+            GZIPInputStream(file.inputStream().buffered()).use { input ->
+                json.decodeFromStream<Map<String, List<Programme>>>(input)
+            }
+        }.getOrNull()
 
     fun write(cache: Map<String, List<Programme>>): Boolean {
         val temporary = File(file.parentFile, "${file.name}.tmp")
@@ -35,7 +38,7 @@ internal class EpgCacheFile(
                     temporary.toPath(),
                     file.toPath(),
                     StandardCopyOption.REPLACE_EXISTING,
-                    StandardCopyOption.ATOMIC_MOVE
+                    StandardCopyOption.ATOMIC_MOVE,
                 )
             } catch (_: AtomicMoveNotSupportedException) {
                 Files.move(temporary.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING)
