@@ -49,9 +49,13 @@ No serialized domain type, JSON field, cache format, WorkManager identifier or p
 The old `WukkiModel(initialState, loader, parser, saver, refreshService)` constructor remains usable.
 PR 2's asynchronous bootstrap and save-error handling remain the persistence boundary.
 
-PR 4 will connect WorkManager directly to application operations and revise scheduling/retry policy.
-This PR deliberately leaves its current process-owned façade entry point in place. Streaming EPG,
-new indexing algorithms, selector optimization and UI lifecycle coordination belong to later PRs.
+`ApplicationBootstrap` can initialize the store, writer and `WukkiApplication` without constructing a
+presentation model. Android WorkManager uses this path directly; the UI attaches its `WukkiModel`
+adapter to the same process-owned runtime when an Activity exists. The headless worker flushes the
+shared writer before reporting success and applies typed retry/backoff policy to application failures.
+
+Streaming EPG, new indexing algorithms, selector optimization and UI lifecycle coordination belong
+to later PRs.
 
 Validation: existing migration/navigation/refresh tests plus headless application tests, controlled
 clock/dispatcher tests, cancellation and late-response tests, and local HTTP-server failure tests.

@@ -18,5 +18,6 @@ object DesktopAppGraph {
         )
     }
 
-    val bootstrap: AppBootstrap by lazy { AppBootstrap(dependencies, scope) }
+    private val applicationBootstrap: ApplicationBootstrap by lazy { ApplicationBootstrap(dependencies, scope) }
+    val bootstrap: AppBootstrap by lazy { AppBootstrap(applicationBootstrap, scope) }
 }

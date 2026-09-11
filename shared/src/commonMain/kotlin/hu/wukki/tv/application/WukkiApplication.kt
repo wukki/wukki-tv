@@ -21,6 +21,8 @@ class WukkiApplication(
 
     fun playlistRefreshDelay(now: Long = clock.nowMillis()): Long = playlistRefreshDelayMillis(channels.playlist.updatedAt, settings.settings.playlistRefresh, now)
 
+    fun epgRefreshDelay(now: Long = clock.nowMillis()): Long = epgRefreshDelayMillis(epg.sources, settings.settings.epgRefresh, now)
+
     suspend fun refreshDuePlaylist(
         emit: (RefreshEvent) -> Unit,
         now: Long = clock.nowMillis(),

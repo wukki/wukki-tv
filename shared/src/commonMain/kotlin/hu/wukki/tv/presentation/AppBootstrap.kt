@@ -24,10 +24,15 @@ sealed interface BootstrapState {
 
 /** A single asynchronous initializer shared by the UI and background refresh callers. */
 class AppBootstrap(
-    private val dependencies: WukkiAppDependencies,
+    private val applicationBootstrap: ApplicationBootstrap,
     private val scope: CoroutineScope,
-    private val refreshService: RefreshService? = null,
 ) {
+    constructor(
+        dependencies: WukkiAppDependencies,
+        scope: CoroutineScope,
+        refreshService: RefreshService? = null,
+    ) : this(ApplicationBootstrap(dependencies, scope, refreshService), scope)
+
     private val initialization = Mutex()
     private val mutableState = MutableStateFlow<BootstrapState>(BootstrapState.Loading)
     val state = mutableState.asStateFlow()
@@ -49,19 +54,13 @@ class AppBootstrap(
             (mutableState.value as? BootstrapState.Ready)?.let { return@withLock it }
             mutableState.value = BootstrapState.Loading
             try {
-                val loaded = dependencies.stateStore.load()
-                val writer = StateWriter(scope, dependencies.stateStore)
-                val model =
-                    WukkiModel(
-                        loaded.state,
-                        dependencies.remoteTextLoader,
-                        dependencies.xmlTvParser,
-                        writer::submit,
-                        refreshService,
-                        dependencies.clock,
-                        dependencies.dispatchers,
-                    )
-                BootstrapState.Ready(model, writer, loaded.cacheWarning).also { mutableState.value = it }
+                val runtime = applicationBootstrap.awaitReady()
+                BootstrapState
+                    .Ready(
+                        WukkiModel(runtime.application),
+                        runtime.writer,
+                        runtime.cacheWarning,
+                    ).also { mutableState.value = it }
             } catch (exception: CancellationException) {
                 throw exception
             } catch (exception: Exception) {
@@ -71,6 +70,6 @@ class AppBootstrap(
         }
 
     suspend fun flush() {
-        (mutableState.value as? BootstrapState.Ready)?.writer?.flush()
+        applicationBootstrap.flush()
     }
 }

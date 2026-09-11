@@ -22,6 +22,19 @@ internal fun nextEpgRefreshDelayMillis(
     return (nextDueAt - now).coerceAtLeast(0L)
 }
 
+/** Delay until the first enabled source is due; zero means a background refresh is due now. */
+fun epgRefreshDelayMillis(
+    sources: List<EpgSource>,
+    interval: RefreshInterval,
+    now: Long,
+): Long {
+    if (interval == RefreshInterval.MANUAL) return Long.MAX_VALUE
+    val enabledSources = sources.filter { it.enabled }
+    if (enabledSources.isEmpty()) return Long.MAX_VALUE
+    if (enabledSources.any { it.isEpgRefreshDue(interval, now) }) return 0L
+    return nextEpgRefreshDelayMillis(enabledSources, interval, now)
+}
+
 /** Zero denotes a due refresh; MANUAL never schedules network work. */
 fun playlistRefreshDelayMillis(
     updatedAt: Long,

@@ -39,7 +39,9 @@ A gyors egymás utáni módosításokat közös mentési sor vonja össze 200 ms
   `~/.wukki-tv/epg_cache.json.gz` fájlban tárolódnak. A régi, EPG-t tartalmazó JSON és `state.bin`
   automatikusan migrálódik. A normál ablakbezárás megvárja a mentést; hiba esetén nyitva marad.
 - Androidon a meglévő DataStore és tömörített EPG-cache marad használatban. A felület és a
-  WorkManager ugyanazt az inicializálást és mentőt használja. Háttérbe kerüléskor az alkalmazás
+  WorkManager ugyanazt a process-szintű alkalmazásállapotot és mentőt használja, de a háttérworker
+  nem hoz létre UI-modellt. A playlist- és EPG-munka csak a releváns ütemezési adat változásakor
+  kerül újra beadásra, átmeneti hibánál korlátozott, exponenciális újrapróbálással. Háttérbe kerüléskor az alkalmazás
   azonnali mentést kér; kényszerleállítás vagy a folyamat rendszer általi megszüntetése ezt megszakíthatja.
 - Sérült vagy hiányzó EPG-cache nem törli a beállításokat és kedvenceket: az alkalmazás figyelmeztet,
   és újratölthető műsoradatok nélkül indul. Automatikus frissítésnél a forrás újra esedékessé válik;

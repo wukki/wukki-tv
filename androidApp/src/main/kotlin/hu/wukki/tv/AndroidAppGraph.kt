@@ -12,19 +12,27 @@ import kotlinx.coroutines.withContext
 object AndroidAppGraph {
     private val processScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val refreshService = RefreshService(processScope)
+    private var applicationBootstrap: ApplicationBootstrap? = null
     private var appBootstrap: AppBootstrap? = null
 
     /** The sole content owner survives Activity recreation and also exists in worker-only processes. */
     @Synchronized
     fun bootstrap(context: Context): AppBootstrap =
         appBootstrap ?: run {
-            AppBootstrap(install(context), processScope, refreshService).also { appBootstrap = it }
+            AppBootstrap(applicationBootstrap(context), processScope).also { appBootstrap = it }
+        }
+
+    /** Process-owned headless bootstrap used by both the UI adapter and WorkManager. */
+    @Synchronized
+    fun applicationBootstrap(context: Context): ApplicationBootstrap =
+        applicationBootstrap ?: run {
+            ApplicationBootstrap(install(context), processScope, refreshService).also { applicationBootstrap = it }
         }
 
     fun flushInBackground() {
         processScope.launch {
             try {
-                appBootstrap?.flush()
+                applicationBootstrap?.flush()
             } catch (exception: CancellationException) {
                 throw exception
             } catch (_: Exception) {
@@ -33,22 +41,13 @@ object AndroidAppGraph {
         }
     }
 
-    /** Workers submit requests to the same owner the UI observes; they never load a private snapshot. */
-    suspend fun requestRefresh(
+    /** Workers invoke application use cases directly; no presentation model is constructed. */
+    suspend fun runHeadlessRefresh(
         context: Context,
-        type: String?,
-    ): Boolean =
+        type: BackgroundRefreshType,
+    ): BackgroundRefreshResult =
         withContext(Dispatchers.Main.immediate) {
-            val ready = bootstrap(context).awaitReady()
-            val owner = ready.model
-            val success =
-                when (type) {
-                    "PLAYLIST" -> owner.refreshDuePlaylist()
-                    "EPG" -> owner.refreshDueEpgSources(owner.settings.epgRefresh)
-                    else -> false
-                }
-            ready.writer.flush()
-            success
+            applicationBootstrap(context).runRefresh(type)
         }
 
     @Volatile
