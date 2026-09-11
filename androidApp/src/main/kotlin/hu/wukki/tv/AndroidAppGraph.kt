@@ -62,6 +62,7 @@ object AndroidAppGraph {
                     remoteTextLoader = JvmRemoteTextLoader,
                     xmlTvParser = JvmXmlTvParser,
                     deviceInfoProvider = AndroidDeviceInfoProvider(appContext),
+                    remoteContentLoader = JvmRemoteContentLoader,
                     dispatchers = DispatcherProvider(io = Dispatchers.IO),
                 ).also { installedDependencies = it }
             }

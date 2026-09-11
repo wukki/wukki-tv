@@ -3,11 +3,7 @@ package hu.wukki.tv
 class StoreEpgRepository(
     private val store: ApplicationStore,
 ) : EpgRepository {
-    private var indexedSources: Map<String, List<Programme>>? = null
-    private var index = ProgrammeIndex(emptyMap())
-    private var latestChannels: List<Channel>? = null
-    private var latestSources: Map<String, List<Programme>>? = null
-    private var latestEnd: Long? = null
+    private val cache = EpgProgrammeCache()
     override val sources: List<EpgSource> get() = store.current.epgSources
 
     override fun synchronize(url: String?): EpgSource? {
@@ -67,24 +63,25 @@ class StoreEpgRepository(
             .orEmpty()
             .isNotEmpty()
 
-    override fun programmes(channel: Channel): List<Programme> = currentIndex().programmes(channel)
+    override fun programmes(channel: Channel): List<Programme> = cache.programmes(cachedProgrammes, channel)
 
-    override fun latestEnd(channels: List<Channel>): Long? {
-        val sources = store.current.epgProgrammesBySource
-        if (channels !== latestChannels || sources !== latestSources) {
-            latestEnd = currentIndex().latestEnd(channels)
-            latestChannels = channels
-            latestSources = sources
-        }
-        return latestEnd
-    }
+    override fun currentProgramme(
+        channel: Channel,
+        now: Long,
+    ): Programme? = cache.currentProgramme(cachedProgrammes, channel, now)
 
-    private fun currentIndex(): ProgrammeIndex {
-        val sources = store.current.epgProgrammesBySource
-        if (sources !== indexedSources) {
-            index = ProgrammeIndex(sources)
-            indexedSources = sources
-        }
-        return index
-    }
+    override fun nextProgramme(
+        channel: Channel,
+        current: Programme,
+    ): Programme? = cache.nextProgramme(cachedProgrammes, channel, current)
+
+    override fun programmesFor(
+        channel: Channel,
+        from: Long,
+        to: Long,
+    ): List<Programme> = cache.programmesFor(cachedProgrammes, channel, from, to)
+
+    override fun latestEnd(channels: List<Channel>): Long? = cache.latestEnd(cachedProgrammes, channels)
+
+    private val cachedProgrammes: Map<String, List<Programme>> get() = store.current.epgProgrammesBySource
 }

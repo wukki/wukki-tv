@@ -11,8 +11,9 @@ tokens, channel selection and playback requests. Existing screens and callers ke
   façade; there is no Compose dependency in the application classes.
 - `ChannelRepository` owns channel replacement, favourite updates and the last successful channel.
   Refresh completion merges against the **current** state, not the snapshot before download.
-- `EpgRepository` owns source synchronization, cache publication, matching and access to the existing
-  `ProgrammeIndex`. A response for a replaced source ID/URL is rejected.
+- `EpgRepository` owns source synchronization, cache publication and matching. `EpgProgrammeCache`
+  owns the immutable snapshot index separately from persistence mutations. A response for a
+  replaced source ID/URL is rejected.
 - `SettingsRepository` updates settings and the compatibility `autoRefreshHours` field together.
 - All repositories share the same store. Mutations/observers remain confined to the application's
   owner dispatcher (currently Main). The exposed StateFlow is not permission to mutate repositories
@@ -22,8 +23,10 @@ tokens, channel selection and playback requests. Existing screens and callers ke
 
 - `RefreshOfficialPlaylist` downloads/parses the fixed M3U, merges channel data, synchronizes its EPG
   URL and records completion using the injected `Clock`.
-- `RefreshOfficialEpg` downloads/parses XMLTV and publishes only a successful, still-current result.
-  Failures preserve the previous cache; cancellation is rethrown.
+- `RefreshOfficialEpg` passes a bounded, gzip-aware remote byte stream directly to the SAX XMLTV
+  parser. It does not materialize the complete document as a `String`, and publishes only a
+  successful, still-current result. The use case owns and closes the stream on success,
+  cancellation and failure; failures preserve the previous cache.
 - `RefreshCoordinator` serializes playlist and EPG work. With the process-owned `RefreshService`,
   concurrent requests for the same source also share one result. Nested playlist-triggered EPG
   work uses the already-held coordinator lock.
@@ -54,8 +57,10 @@ presentation model. Android WorkManager uses this path directly; the UI attaches
 adapter to the same process-owned runtime when an Activity exists. The headless worker flushes the
 shared writer before reporting success and applies typed retry/backoff policy to application failures.
 
-Streaming EPG, new indexing algorithms, selector optimization and UI lifecycle coordination belong
-to later PRs.
+The EPG index groups and sorts programmes once per immutable cache snapshot. Current, next and
+time-range queries use binary search, while the latest visible end is precomputed per EPG channel.
+Selector optimization and UI lifecycle coordination belong to later PRs.
 
 Validation: existing migration/navigation/refresh tests plus headless application tests, controlled
-clock/dispatcher tests, cancellation and late-response tests, and local HTTP-server failure tests.
+clock/dispatcher tests, cancellation and late-response tests, local HTTP-server failure tests,
+streaming gzip/size/XXE tests and multi-day index regression tests.

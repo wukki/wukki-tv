@@ -19,7 +19,7 @@ class RefreshCoordinator(
 
 class RefreshOfficialEpg(
     private val repository: EpgRepository,
-    private val loader: RemoteTextLoader,
+    private val loader: RemoteContentLoader,
     private val parser: XmlTvParser,
     private val coordinator: RefreshCoordinator,
     private val clock: Clock,
@@ -44,8 +44,13 @@ class RefreshOfficialEpg(
         }
         try {
             if (showFeedback) emit(RefreshEvent.EpgLoading(source.name))
-            val xml = loadText(loader, RemoteTextRequest(source.url, RemoteTextKind.EPG), dispatchers)
-            val programmes = parseContent(dispatchers, AppFailure.InvalidXmlTv) { parser.parse(xml) }
+            val programmes =
+                loadProgrammes(
+                    loader,
+                    parser,
+                    RemoteTextRequest(source.url, RemoteTextKind.EPG),
+                    dispatchers,
+                )
             if (!repository.replace(source, programmes, clock.nowMillis())) return false
             if (showFeedback) emit(RefreshEvent.EpgLoaded(source.name, programmes.size))
             return true
@@ -124,6 +129,41 @@ private suspend fun loadText(
             throw AppOperationException(AppFailure.NetworkUnavailable, exception)
         }
     }
+
+private suspend fun loadProgrammes(
+    loader: RemoteContentLoader,
+    parser: XmlTvParser,
+    request: RemoteTextRequest,
+    dispatchers: DispatcherProvider,
+): List<Programme> =
+    withContext(dispatchers.io) {
+        var content: RemoteContent? = null
+        try {
+            content = loader.load(request)
+            parser.parse(content).also { programmes ->
+                if (programmes.isEmpty()) throw AppOperationException(AppFailure.InvalidXmlTv)
+            }
+        } catch (exception: CancellationException) {
+            throw exception
+        } catch (exception: AppOperationException) {
+            throw exception
+        } catch (exception: Exception) {
+            exception.nestedOperationFailure()?.let { throw it }
+            val failure = if (content == null) AppFailure.NetworkUnavailable else AppFailure.InvalidXmlTv
+            throw AppOperationException(failure, exception)
+        } finally {
+            content?.close()
+        }
+    }
+
+private fun Throwable.nestedOperationFailure(): AppOperationException? {
+    var current: Throwable? = cause
+    while (current != null && current !== this) {
+        if (current is AppOperationException) return current
+        current = current.cause
+    }
+    return null
+}
 
 private suspend fun <T> parseContent(
     dispatchers: DispatcherProvider,

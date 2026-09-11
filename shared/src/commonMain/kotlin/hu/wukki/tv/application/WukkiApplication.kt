@@ -8,6 +8,7 @@ class WukkiApplication(
     refreshService: RefreshService? = null,
     val clock: Clock = SystemClock,
     dispatchers: DispatcherProvider = DispatcherProvider(),
+    contentLoader: RemoteContentLoader = textBackedContentLoader(sourceLoader),
 ) {
     val channels: ChannelRepository = StoreChannelRepository(store)
     val epg: EpgRepository = StoreEpgRepository(store)
@@ -16,7 +17,7 @@ class WukkiApplication(
     val toggleFavorite = ToggleFavorite(channels)
     val updateSettings = UpdateSettings(settings)
     private val coordinator = RefreshCoordinator(refreshService)
-    val refreshEpg = RefreshOfficialEpg(epg, sourceLoader, parser, coordinator, clock, dispatchers)
+    val refreshEpg = RefreshOfficialEpg(epg, contentLoader, parser, coordinator, clock, dispatchers)
     val refreshPlaylist = RefreshOfficialPlaylist(channels, epg, refreshEpg, sourceLoader, coordinator, clock, dispatchers)
 
     fun playlistRefreshDelay(now: Long = clock.nowMillis()): Long = playlistRefreshDelayMillis(channels.playlist.updatedAt, settings.settings.playlistRefresh, now)

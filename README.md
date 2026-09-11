@@ -20,6 +20,7 @@ beállítás-repositoryk kezelik. A `WukkiModel` a meglévő UI kompatibilis ada
 - Csatornaváltás `PageUp` / `PageDown`, nyilak, számbillentyűk és csatornalista segítségével
 - Újracsatlakozás, hangerő, pufferprofil és képarány beállítása (`Automatikus`, `16:9`, `4:3`, `21:9`, `Kitöltés`)
 - Az M3U fejlécéből automatikusan felismert, rögzített XMLTV-forrás (`url-tvg` / `x-tvg-url` / `tvg-url`) és csatorna–EPG párosítás; egyéni playlist- és EPG-források nem használhatók
+- Memóriatakarékos, gzip-kompatibilis streaming XMLTV-feldolgozás és gyors, bináris keresésű műsorindex
 - Csatornahelyes „most megy” és következő műsor, az EPG-lefedettséghez igazodó, időarányos, kétirányban navigálható műsorújság
 - Magyar és angol felület; a beállítások és az alkalmazásállapot helyben tárolódik
 - Android 8+ támogatás Android TV launcherrel, D-pad- és érintéses navigációval, valamint közvetlenül telepíthető APK-val

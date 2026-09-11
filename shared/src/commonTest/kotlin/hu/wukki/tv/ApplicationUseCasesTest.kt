@@ -36,7 +36,7 @@ class ApplicationUseCasesTest {
                 )
             assertTrue(app.refreshPlaylist(events::add, true))
             assertTrue(io.dispatches >= 2)
-            assertTrue(cpu.dispatches >= 2)
+            assertTrue(cpu.dispatches >= 1)
             assertEquals(1234L, app.channels.playlist.updatedAt)
             assertEquals(
                 1234L,
@@ -48,6 +48,51 @@ class ApplicationUseCasesTest {
             assertEquals(app.store.current, saved.last())
             assertEquals(RefreshEvent.PlaylistLoading, events.first())
             assertEquals(RefreshEvent.PlaylistLoaded(1), events.last())
+        }
+
+    @Test
+    fun `EPG refresh uses streaming content boundary instead of text parser fallback`() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            var contentLoads = 0
+            var streamParses = 0
+            var closed = false
+            val app =
+                WukkiApplication(
+                    ApplicationStore(AppState(), {}),
+                    RemoteTextLoader { playlist },
+                    object : XmlTvParser {
+                        override fun parse(xml: String): List<Programme> = error("Text fallback must not run")
+
+                        override fun parse(content: RemoteContent): List<Programme> {
+                            streamParses++
+                            return listOf(programme)
+                        }
+                    },
+                    dispatchers = DispatcherProvider(dispatcher, dispatcher),
+                    contentLoader =
+                        RemoteContentLoader {
+                            contentLoads++
+                            object : RemoteContent {
+                                override fun read(
+                                    buffer: ByteArray,
+                                    offset: Int,
+                                    length: Int,
+                                ): Int = -1
+
+                                override fun close() {
+                                    closed = true
+                                }
+                            }
+                        },
+                )
+            val source = app.epg.synchronize("https://example.test/epg.xml")!!
+
+            assertTrue(app.refreshEpg(source.id, {}, false))
+
+            assertEquals(1, contentLoads)
+            assertEquals(1, streamParses)
+            assertTrue(closed)
         }
 
     @Test
@@ -123,6 +168,34 @@ class ApplicationUseCasesTest {
             assertFalse(app.refreshEpg(source.id, events::add, false))
             assertEquals(before, app.store.current)
             assertEquals(AppFailure.InvalidXmlTv, (events.single() as RefreshEvent.Failed).failure)
+        }
+
+    @Test
+    fun `network failure wrapped by streaming parser remains retryable`() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            val events = mutableListOf<RefreshEvent>()
+            val app =
+                WukkiApplication(
+                    ApplicationStore(AppState(), {}),
+                    RemoteTextLoader { playlist },
+                    object : XmlTvParser {
+                        override fun parse(xml: String): List<Programme> = emptyList()
+
+                        override fun parse(content: RemoteContent): List<Programme> =
+                            throw IllegalStateException(
+                                "SAX wrapper",
+                                AppOperationException(AppFailure.NetworkUnavailable),
+                            )
+                    },
+                    dispatchers = DispatcherProvider(dispatcher, dispatcher),
+                    contentLoader = RemoteContentLoader { textBackedContentLoader(RemoteTextLoader { "" }).load(it) },
+                )
+            val source = app.epg.synchronize("https://example.test/epg.xml")!!
+
+            assertFalse(app.refreshEpg(source.id, events::add, false))
+
+            assertEquals(AppFailure.NetworkUnavailable, (events.single() as RefreshEvent.Failed).failure)
         }
 
     @Test

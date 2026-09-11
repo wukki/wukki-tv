@@ -12,27 +12,48 @@ object JvmRemoteTextLoader : RemoteTextLoader {
     override fun load(url: String): String = load(RemoteTextRequest(url, RemoteTextKind.EPG))
 
     override fun load(request: RemoteTextRequest): String {
-        val uri =
-            try {
-                URI(request.url)
-            } catch (exception: Exception) {
-                throw AppOperationException(AppFailure.InvalidRemoteUrl, exception)
-            }
-        if ((!uri.scheme.equals("http", true) && !uri.scheme.equals("https", true)) || uri.host.isNullOrBlank()) {
-            throw AppOperationException(AppFailure.InvalidRemoteUrl)
-        }
-        val connection = uri.toURL().openConnection().configuredForWukki()
+        val connection = openRemoteConnection(request)
         try {
-            if (connection is HttpURLConnection && connection.responseCode !in 200..299) {
-                throw AppOperationException(AppFailure.HttpError(connection.responseCode))
-            }
-            val contentLength = connection.contentLengthLong
-            if (contentLength > request.kind.maxBodyBytes) {
-                throw RemoteBodyTooLargeException(request.kind.maxBodyBytes)
-            }
             return decodeRemoteText(connection.getInputStream(), request.kind.maxBodyBytes)
         } finally {
             (connection as? HttpURLConnection)?.disconnect()
+        }
+    }
+}
+
+/** Keeps the HTTP connection open until the SAX parser closes the decoded, size-limited stream. */
+object JvmRemoteContentLoader : RemoteContentLoader {
+    override fun load(request: RemoteTextRequest): RemoteContent {
+        val connection = openRemoteConnection(request)
+        return try {
+            decodedRemoteContent(connection.getInputStream(), request.kind.maxBodyBytes) {
+                (connection as? HttpURLConnection)?.disconnect()
+            }
+        } catch (exception: Exception) {
+            (connection as? HttpURLConnection)?.disconnect()
+            throw exception
+        }
+    }
+}
+
+private fun openRemoteConnection(request: RemoteTextRequest): URLConnection {
+    val uri =
+        try {
+            URI(request.url)
+        } catch (exception: Exception) {
+            throw AppOperationException(AppFailure.InvalidRemoteUrl, exception)
+        }
+    if ((!uri.scheme.equals("http", true) && !uri.scheme.equals("https", true)) || uri.host.isNullOrBlank()) {
+        throw AppOperationException(AppFailure.InvalidRemoteUrl)
+    }
+    return uri.toURL().openConnection().configuredForWukki().also { connection ->
+        if (connection is HttpURLConnection && connection.responseCode !in 200..299) {
+            connection.disconnect()
+            throw AppOperationException(AppFailure.HttpError(connection.responseCode))
+        }
+        if (connection.contentLengthLong > request.kind.maxBodyBytes) {
+            (connection as? HttpURLConnection)?.disconnect()
+            throw RemoteBodyTooLargeException(request.kind.maxBodyBytes)
         }
     }
 }
@@ -48,15 +69,59 @@ internal fun decodeRemoteText(
     input: InputStream,
     maxBodyBytes: Int,
 ): String =
-    LimitedInputStream(input, maxBodyBytes).let(::BufferedInputStream).use { buffered ->
+    decodedRemoteStream(input, maxBodyBytes).use { decoded ->
+        decoded.readBytes().toString(Charsets.UTF_8)
+    }
+
+private fun decodedRemoteStream(
+    input: InputStream,
+    maxBodyBytes: Int,
+): InputStream =
+    LimitedInputStream(input, maxBodyBytes).let(::BufferedInputStream).let { buffered ->
         buffered.mark(2)
         val gzip = buffered.read() == 0x1f && buffered.read() == 0x8b
         buffered.reset()
         val decoded = if (gzip) GZIPInputStream(buffered) else buffered
-        LimitedInputStream(decoded, maxBodyBytes).use { limited ->
-            limited.readBytes().toString(Charsets.UTF_8)
+        LimitedInputStream(decoded, maxBodyBytes)
+    }
+
+internal fun decodedRemoteContent(
+    input: InputStream,
+    maxBodyBytes: Int,
+    onClose: () -> Unit = {},
+): RemoteContent = StreamRemoteContent(decodedRemoteStream(input, maxBodyBytes), onClose)
+
+private class StreamRemoteContent(
+    private val input: InputStream,
+    private val onClose: () -> Unit,
+) : RemoteContent {
+    private var closed = false
+
+    override fun read(
+        buffer: ByteArray,
+        offset: Int,
+        length: Int,
+    ): Int {
+        if (length == 0) return 0
+        return try {
+            input.read(buffer, offset, length)
+        } catch (exception: AppOperationException) {
+            throw exception
+        } catch (exception: Exception) {
+            throw AppOperationException(AppFailure.NetworkUnavailable, exception)
         }
     }
+
+    override fun close() {
+        if (closed) return
+        closed = true
+        try {
+            input.close()
+        } finally {
+            onClose()
+        }
+    }
+}
 
 internal class RemoteBodyTooLargeException(
     maxBodyBytes: Int,
@@ -79,6 +144,7 @@ private class LimitedInputStream(
         offset: Int,
         length: Int,
     ): Int {
+        if (length == 0) return 0
         val allowed = (limit - count + 1).coerceAtMost(length)
         if (allowed <= 0) throw RemoteBodyTooLargeException(limit)
         val read = super.read(buffer, offset, allowed)

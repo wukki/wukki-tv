@@ -35,6 +35,7 @@ class ApplicationBootstrap(
                         refreshService,
                         dependencies.clock,
                         dependencies.dispatchers,
+                        dependencies.remoteContentLoader,
                     ),
                 writer = writer,
                 cacheWarning = loaded.cacheWarning,
