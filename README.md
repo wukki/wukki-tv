@@ -8,6 +8,10 @@ A Wukki TV Kotlin Multiplatform / Compose alapú IPTV alkalmazás. A hivatalos W
 - `desktopApp`: desktop belépési pont, libVLC lejátszó, helyi állapot, kijelző-ébrentartás és natív csomagolás.
 - `androidApp`: Android belépési pont, Media3 lejátszó, DataStore, WorkManager és Android TV integráció.
 
+A közös üzleti műveleteket a Compose-független `WukkiApplication`, valamint a csatorna-, EPG- és
+beállítás-repositoryk kezelik. A `WukkiModel` a meglévő UI kompatibilis adaptere. Részletek:
+[application/domain réteghatár](docs/application-layer.md).
+
 ## Funkciók
 
 - Rögzített, hivatalos Wukki TV playlist: [`wukki-tv.m3u`](https://raw.githubusercontent.com/wukki/wukki-tv/refs/heads/main/wukki-tv.m3u); kézi, 6, 12 vagy 24 órás frissítéssel

@@ -58,6 +58,8 @@ class AppBootstrap(
                         dependencies.xmlTvParser,
                         writer::submit,
                         refreshService,
+                        dependencies.clock,
+                        dependencies.dispatchers,
                     )
                 BootstrapState.Ready(model, writer, loaded.cacheWarning).also { mutableState.value = it }
             } catch (exception: CancellationException) {

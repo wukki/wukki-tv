@@ -57,6 +57,8 @@ data class WukkiAppDependencies(
     val remoteTextLoader: RemoteTextLoader,
     val xmlTvParser: XmlTvParser,
     val deviceInfoProvider: DeviceInfoProvider,
+    val clock: Clock = SystemClock,
+    val dispatchers: DispatcherProvider = DispatcherProvider(),
 )
 
 fun formatByteSize(bytes: Long): String {

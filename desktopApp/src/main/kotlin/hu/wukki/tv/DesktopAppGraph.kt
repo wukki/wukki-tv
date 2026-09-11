@@ -14,6 +14,7 @@ object DesktopAppGraph {
             remoteTextLoader = JvmRemoteTextLoader,
             xmlTvParser = JvmXmlTvParser,
             deviceInfoProvider = DesktopDeviceInfoProvider,
+            dispatchers = DispatcherProvider(io = Dispatchers.IO),
         )
     }
 
