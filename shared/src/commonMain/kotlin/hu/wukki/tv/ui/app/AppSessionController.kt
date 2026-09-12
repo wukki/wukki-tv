@@ -305,13 +305,11 @@ internal class AppSessionController(
         return with(session) {
             return when (effect) {
                 AppBackNavigationEffect.DISMISS_GUIDE_DIALOG -> {
-                    // Keep the reducer's exit confirmation state.
                     guideProgrammeDetailsVisible = false
                     true
                 }
 
                 AppBackNavigationEffect.CLOSE_CHANNEL_SEARCH -> {
-                    // Keep the reducer's exit confirmation state.
                     model.setChannelQuery("")
                     channelSearchOpen = false
                     channelRemoteFocus = ChannelRemoteFocus.LIST
@@ -319,19 +317,16 @@ internal class AppSessionController(
                 }
 
                 AppBackNavigationEffect.DISMISS_LIVE_OVERLAY -> {
-                    // Keep the reducer's exit confirmation state.
                     dismissLiveChannelPreview(hidePanel = true)
                     true
                 }
 
                 AppBackNavigationEffect.CLOSE_SETTINGS_DETAIL -> {
-                    // Keep the reducer's exit confirmation state.
                     settingsNavigation = settingsNavigation.copy(section = null, option = null)
                     true
                 }
 
                 AppBackNavigationEffect.FOCUS_MAIN_NAVIGATION -> {
-                    // Keep the reducer's exit confirmation state.
                     mainNavigationIndex = mainSections.indexOf(activeSection).coerceAtLeast(0)
                     focusZone = TvFocusZone.MAIN_NAVIGATION
                     true

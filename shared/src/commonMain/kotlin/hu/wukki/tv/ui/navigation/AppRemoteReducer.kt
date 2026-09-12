@@ -99,25 +99,18 @@ fun AppRemoteState.reduce(key: AppRemoteKey): AppRemoteResult {
         effect: AppRemoteEffect? = null,
         handled: Boolean = true,
     ) = AppRemoteResult(
-        if (!key.back || effect is AppRemoteEffect.Back || effect == AppRemoteEffect.RevealNavigation) {
-            state.copy(exitConfirmation = ExitConfirmationState())
-        } else {
-            state
-        },
+        state.copy(exitConfirmation = ExitConfirmationState()),
         prefix + listOfNotNull(effect),
         handled,
     )
 
-    fun liveBackResult(
-        state: AppRemoteState,
-        effect: AppRemoteEffect? = null,
-    ): AppRemoteResult {
-        if (section != DashboardSection.LIVE || !requireDoubleBack) return result(state, effect)
+    fun exitResult(): AppRemoteResult {
+        if (!requireDoubleBack) return AppRemoteResult(this, handled = false)
         val exit = exitConfirmation.requestExit(nowMillis)
         return if (exit.effect == ExitConfirmationEffect.EXIT) {
-            AppRemoteResult(state.copy(exitConfirmation = exit.state), handled = false)
+            AppRemoteResult(copy(exitConfirmation = exit.state), handled = false)
         } else {
-            AppRemoteResult(state.copy(exitConfirmation = exit.state), listOfNotNull(effect, AppRemoteEffect.ShowExitHint))
+            AppRemoteResult(copy(exitConfirmation = exit.state), listOf(AppRemoteEffect.ShowExitHint))
         }
     }
     if (dialogVisible) {
@@ -130,7 +123,7 @@ fun AppRemoteState.reduce(key: AppRemoteKey): AppRemoteResult {
                 else -> null
             }
         if (key.back) {
-            return liveBackResult(
+            return result(
                 copy(dialogVisible = false, focus = TvFocusZone.MAIN_NAVIGATION, menuIndex = activeMenuIndex),
                 AppRemoteEffect.Dialog(GuideProgrammeDialogEvent.BACK),
             )
@@ -148,7 +141,7 @@ fun AppRemoteState.reduce(key: AppRemoteKey): AppRemoteResult {
     }
     if (key.back) {
         if (section == DashboardSection.LIVE && !navigationVisible) {
-            return liveBackResult(
+            return result(
                 copy(navigationVisible = true, focus = TvFocusZone.MAIN_NAVIGATION, menuIndex = activeMenuIndex),
                 AppRemoteEffect.RevealNavigation,
             )
@@ -173,8 +166,7 @@ fun AppRemoteState.reduce(key: AppRemoteKey): AppRemoteResult {
                     AppRemoteEffect.ActivateSection(DashboardSection.LIVE),
                 )
             }
-            if (!requireDoubleBack) return result(handled = false)
-            return liveBackResult(this)
+            return exitResult()
         }
         val next =
             when (effect) {
@@ -216,7 +208,7 @@ fun AppRemoteState.reduce(key: AppRemoteKey): AppRemoteResult {
                     this
                 }
             }
-        return liveBackResult(next, AppRemoteEffect.Back(effect))
+        return result(next, AppRemoteEffect.Back(effect))
     }
     if (section == DashboardSection.LIVE && key.channelDelta != null) return result(effect = AppRemoteEffect.SwitchChannel(key.channelDelta))
     if (focus == TvFocusZone.MAIN_NAVIGATION) {

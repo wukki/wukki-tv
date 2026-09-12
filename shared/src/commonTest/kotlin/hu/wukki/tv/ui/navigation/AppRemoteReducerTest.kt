@@ -79,23 +79,39 @@ class AppRemoteReducerTest {
     }
 
     @Test
-    fun `exit confirmation uses supplied time and second back propagates to platform`() {
+    fun `live overlay closes before exit confirmation starts`() {
         val state = AppRemoteState(overlayVisible = true, requireDoubleBack = true, nowMillis = 100L)
-        val first = state.reduce(AppRemoteKey(back = true))
-        assertTrue(first.handled)
-        assertEquals(
-            listOf(
-                AppRemoteEffect.Back(AppBackNavigationEffect.DISMISS_LIVE_OVERLAY),
-                AppRemoteEffect.ShowExitHint,
-            ),
-            first.effects,
+        val overlayClosed = state.reduce(AppRemoteKey(back = true))
+        assertTrue(overlayClosed.handled)
+        assertEquals(listOf(AppRemoteEffect.Back(AppBackNavigationEffect.DISMISS_LIVE_OVERLAY)), overlayClosed.effects)
+        assertEquals(ExitConfirmationState(), overlayClosed.state.exitConfirmation)
+
+        val hint = overlayClosed.state.copy(nowMillis = 200L).reduce(AppRemoteKey(back = true))
+        assertTrue(hint.handled)
+        assertEquals(listOf(AppRemoteEffect.ShowExitHint), hint.effects)
+
+        val exit = hint.state.copy(nowMillis = 300L).reduce(AppRemoteKey(back = true))
+        assertFalse(exit.handled)
+        assertTrue(exit.effects.isEmpty())
+    }
+
+    @Test
+    fun `handled live back clears an already armed exit confirmation`() {
+        val armed = ExitConfirmationState(firstBackAtMillis = 100L)
+        val state = AppRemoteState(
+            navigationVisible = false,
+            requireDoubleBack = true,
+            exitConfirmation = armed,
+            nowMillis = 200L,
         )
-        assertFalse(
-            first.state
-                .copy(nowMillis = 200L)
-                .reduce(AppRemoteKey(back = true))
-                .handled,
-        )
+
+        val navigationRevealed = state.reduce(AppRemoteKey(back = true))
+
+        assertEquals(listOf(AppRemoteEffect.RevealNavigation), navigationRevealed.effects)
+        assertEquals(ExitConfirmationState(), navigationRevealed.state.exitConfirmation)
+        val rootBack = navigationRevealed.state.copy(nowMillis = 300L).reduce(AppRemoteKey(back = true))
+        assertTrue(rootBack.handled)
+        assertEquals(listOf(AppRemoteEffect.ShowExitHint), rootBack.effects)
     }
 
     @Test
