@@ -11,3 +11,4 @@ local.properties
 androidApp/keystore.properties
 .DS_Store
 *.swp
+/settings-gradle.lockfile

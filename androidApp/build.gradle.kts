@@ -1,11 +1,11 @@
 import java.util.Properties
 
 plugins {
-    id("com.android.application")
-    id("org.jetbrains.compose")
-    id("org.jetbrains.kotlin.plugin.compose")
-    id("dev.detekt")
-    id("org.jlleitschuh.gradle.ktlint")
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.compose)
+    alias(libs.plugins.compose.compiler)
+    id("wukki.quality")
+    id("wukki.dependency-locking")
 }
 
 val releaseSigningProperties = Properties().apply {
@@ -42,20 +42,15 @@ android {
 
 dependencies {
     implementation(project(":shared"))
-    implementation("org.jetbrains.compose.runtime:runtime:1.12.0")
-    implementation("org.jetbrains.compose.foundation:foundation:1.12.0")
-    implementation(libs.compose.material3)
-    implementation("org.jetbrains.compose.material:material-icons-extended:1.7.3")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0")
-    implementation("io.coil-kt.coil3:coil-compose:3.6.0")
-    implementation("androidx.activity:activity-compose:1.10.1")
-    implementation("androidx.core:core-ktx:1.15.0")
+    implementation(libs.bundles.compose.common)
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.coil.compose)
+    implementation(libs.android.activity.compose)
+    implementation(libs.android.core.ktx)
     implementation(libs.kotlinx.coroutines.android)
-    implementation("io.ktor:ktor-client-okhttp:3.0.1")
-    implementation("androidx.datastore:datastore-preferences:1.2.1")
-    implementation("androidx.work:work-runtime-ktx:2.10.0")
-    implementation("androidx.media3:media3-exoplayer:1.10.1")
-    implementation("androidx.media3:media3-exoplayer-hls:1.10.1")
-    implementation("androidx.media3:media3-ui:1.10.1")
+    implementation(libs.ktor.client.okhttp)
+    implementation(libs.android.datastore.preferences)
+    implementation(libs.android.work.runtime)
+    implementation(libs.bundles.android.media3)
     testImplementation(kotlin("test-junit"))
 }

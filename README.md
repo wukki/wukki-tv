@@ -70,15 +70,27 @@ Példa egyedi VLC runtime-mal:
 WUKKI_VLC_HOME="/Applications/VLC.app/Contents/MacOS" ./gradlew :desktopApp:run
 ```
 
-## Függőségek
+## Függőségek és ellátási lánc
 
-A Material3 verziója a `gradle/libs.versions.toml` katalógusban egyetlen, pontos verzióra van
-rögzítve. A Compose Multiplatform 1.12 stabil kiadása jelenleg a külön kiadott
+Minden közvetlen plugin- és könyvtárverzió a `gradle/libs.versions.toml` katalógusban egyetlen,
+pontos verzióra van rögzítve. A Compose Multiplatform 1.12 stabil kiadása jelenleg a külön kiadott
 `org.jetbrains.compose.material3:material3:1.12.0-alpha03` artifactot használja, ezért az alpha
 verziót a Compose 1.12 kompatibilitása miatt tartjuk meg. A rögzítést minden Compose Multiplatform
 frissítéskor és minden kiadás előtt felül kell vizsgálni. Stabil Material3 kiadásra akkor válthatunk,
 amikor a JetBrains a használt Compose verzióval kompatibilis stabil artifactot ad ki, és a teljes
 desktop- és Android-ellenőrzés sikeresen lefut vele.
+
+A `shared` és `androidApp` modul szigorú Gradle dependency lockfile-t használ. Függőségfrissítéskor
+az új feloldást és ellenőrzőösszegeket csak a diff átnézése mellett szabad elfogadni:
+
+```sh
+./gradlew verifyAll cyclonedxBom --write-locks --write-verification-metadata sha256
+git diff -- shared/gradle.lockfile androidApp/gradle.lockfile gradle/verification-metadata.xml
+```
+
+A `gradle/verification-metadata.xml` SHA-256 alapján ellenőrzi a letöltött Gradle artifactokat. A
+`verifyAll` ezen felül elutasítja a hiányzó lockfile-okat és a nem teljes commit SHA-ra rögzített
+GitHub Action hivatkozásokat.
 
 ## Verziózás
 
@@ -178,8 +190,14 @@ A `.github/workflows/release.yml` `v*` tag pusholásakor vagy kézi indítással
 | Windows x64 | `Wukki-TV-<verzió>-windows-x64.msi` |
 | Linux x64 | `Wukki-TV-<verzió>-linux-x64.deb` |
 | Android | `Wukki-TV-<verzió>-android-release.apk` |
+| CycloneDX SBOM | `Wukki-TV-<verzió>-sbom.cdx.json` |
 
-A kiadás tartalmaz egy `SHA256SUMS.txt` ellenőrzőösszeg-fájlt és egy `release-metadata.json` leírást is. Az installerek Actions artifactként 30 napig megmaradnak, sikeres teljes build után pedig GitHub Release-hez csatolódnak. Kézi indításnál a workflow létrehozza a `v<verzió>` taget; már létező, más commitra mutató taget nem ír felül.
+A kiadás tartalmaz egy `SHA256SUMS.txt` ellenőrzőösszeg-fájlt, egy `release-metadata.json` leírást,
+a Linux VLC runtime fájlonkénti ellenőrzőmanifestjét és egy CycloneDX JSON SBOM-ot is. A publish job
+GitHub artifact attestationt készít az SBOM-ról és minden release fájl build provenance-áról. Az
+installerek Actions artifactként 30 napig megmaradnak, sikeres teljes build után pedig GitHub
+Release-hez csatolódnak. Kézi indításnál a workflow létrehozza a `v<verzió>` taget; már létező, más
+commitra mutató taget nem ír felül.
 
 Az Android release kötelező aláírásához a repositoryban az alábbi Actions secretek szükségesek:
 

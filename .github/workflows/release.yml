@@ -21,7 +21,8 @@ concurrency:
 
 env:
   VLC_VERSION: 3.0.23
-  VLC_WINDOWS_SHA256: 992d19dbd0b8a7cde9167d2f7780b1ef6f92acc8a71acfa736101a21f35181e1
+  VLC_MACOS_SHA256: 88f23b219e0ec238f6e5791694838d87bbbb3a46bd2f7fa452027122e40790f3
+  VLC_WINDOWS_SHA256: 26d556648d4a67e8938d6d4b4d99ba0359f1979bfef985c8f6710882c7ed5975
 
 jobs:
   metadata:
@@ -39,18 +40,18 @@ jobs:
 
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
 
       - name: Set up Java 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
         with:
           distribution: temurin
           java-version: "21"
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
 
       - name: Calculate common version
         id: version
@@ -111,23 +112,23 @@ jobs:
 
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Set up Java 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
         with:
           distribution: temurin
           java-version: "21"
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
 
       - name: Lint GitHub Actions workflows
         run: >-
           docker run --rm
           --volume "$GITHUB_WORKSPACE:/repo"
           --workdir /repo
-          rhysd/actionlint:1.7.12
+          rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667
           -color
 
       - name: Run project verification
@@ -180,16 +181,16 @@ jobs:
 
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Set up Java 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
         with:
           distribution: temurin
           java-version: "21"
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
 
       - name: Validate optional Apple signing configuration
         if: matrix.platform == 'macos'
@@ -249,6 +250,7 @@ jobs:
           curl --fail --location --retry 3 \
             --output "$RUNNER_TEMP/vlc.dmg" \
             "https://get.videolan.org/vlc/$VLC_VERSION/macosx/vlc-$VLC_VERSION-universal.dmg"
+          printf '%s  %s\n' "$VLC_MACOS_SHA256" "$RUNNER_TEMP/vlc.dmg" | shasum -a 256 --check
           hdiutil attach "$RUNNER_TEMP/vlc.dmg" -nobrowse -readonly -mountpoint "$RUNNER_TEMP/WukkiVLC"
           mkdir -p desktopApp/build/vlc-runtime
           cp -R "$RUNNER_TEMP/WukkiVLC/VLC.app/Contents/MacOS/." desktopApp/build/vlc-runtime/
@@ -325,6 +327,11 @@ jobs:
           cp -R /usr/lib/x86_64-linux-gnu/vlc/plugins/. desktopApp/build/vlc-runtime/plugins/
           dpkg-query -W -f='${Version}\n' vlc > desktopApp/build/linux-vlc-version.txt
           test -f desktopApp/build/vlc-runtime/plugins/video_output/libvmem_plugin.so
+          (
+            cd desktopApp/build/vlc-runtime
+            find . -type f -print0 | sort -z | xargs -0 sha256sum
+          ) > desktopApp/build/linux-vlc-runtime.sha256
+          test -s desktopApp/build/linux-vlc-runtime.sha256
 
       - name: Build desktop installer
         shell: bash
@@ -464,9 +471,10 @@ jobs:
           mkdir -p release-output
           cp "$source_file" "release-output/Wukki-TV-${{ needs.metadata.outputs.version }}-${{ matrix.artifact_id }}.deb"
           cp desktopApp/build/linux-vlc-version.txt release-output/
+          cp desktopApp/build/linux-vlc-runtime.sha256 release-output/
 
       - name: Upload desktop installer
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: wukki-tv-${{ matrix.artifact_id }}
           path: release-output/*
@@ -492,16 +500,16 @@ jobs:
 
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Set up Java 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
         with:
           distribution: temurin
           java-version: "21"
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
 
       - name: Validate Android signing secrets
         shell: bash
@@ -566,7 +574,7 @@ jobs:
           cp "$apk" "release-output/Wukki-TV-${{ needs.metadata.outputs.version }}-android-release.apk"
 
       - name: Upload Android installer
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: wukki-tv-android-release
           path: release-output/*.apk
@@ -577,25 +585,80 @@ jobs:
         if: always()
         run: rm -f androidApp/keystore.properties "$RUNNER_TEMP/wukki-release.jks"
 
+  supply-chain:
+    name: Generate release SBOM
+    needs:
+      - metadata
+      - verify
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+
+      - name: Generate CycloneDX SBOM
+        run: >-
+          ./gradlew cyclonedxBom
+          -PwukkiBuildDate=${{ needs.metadata.outputs.build_date }}
+          -PwukkiGitSha=${{ github.sha }}
+          -PwukkiRunNumber=${{ github.run_number }}
+          -PwukkiVersion=${{ needs.metadata.outputs.version }}
+          -PwukkiBuild=${{ needs.metadata.outputs.build_id }}
+          -PwukkiPackageVersion=${{ needs.metadata.outputs.package_version }}
+          -PwukkiVersionCode=${{ needs.metadata.outputs.android_version_code }}
+          --no-daemon
+
+      - name: Validate and stage SBOM
+        shell: bash
+        run: |
+          set -euo pipefail
+          sbom="build/reports/cyclonedx/bom.json"
+          test -s "$sbom"
+          jq -e '.bomFormat == "CycloneDX" and (.components | length > 0)' "$sbom" >/dev/null
+          mkdir -p release-output
+          cp "$sbom" "release-output/Wukki-TV-${{ needs.metadata.outputs.version }}-sbom.cdx.json"
+
+      - name: Upload release SBOM
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: wukki-tv-sbom
+          path: release-output/*.cdx.json
+          if-no-files-found: error
+          retention-days: 30
+
   publish:
     name: Publish GitHub Release
     needs:
       - metadata
       - package-desktop
       - package-android
+      - supply-chain
     runs-on: ubuntu-22.04
     timeout-minutes: 15
     permissions:
       contents: write
+      id-token: write
+      attestations: write
+      artifact-metadata: write
 
     steps:
       - name: Check out source and tags
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
 
       - name: Download installers
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           pattern: wukki-tv-*
           path: release-assets
@@ -615,6 +678,8 @@ jobs:
             "Wukki-TV-$version-windows-x64.msi"
             "Wukki-TV-$version-linux-x64.deb"
             "Wukki-TV-$version-android-release.apk"
+            "Wukki-TV-$version-sbom.cdx.json"
+            "linux-vlc-runtime.sha256"
           )
           for artifact in "${expected[@]}"; do
             test -f "release-assets/$artifact" || { echo "Missing release artifact: $artifact" >&2; exit 1; }
@@ -637,6 +702,8 @@ jobs:
             --arg packageVersion "${{ needs.metadata.outputs.package_version }}" \
             --argjson androidVersionCode "${{ needs.metadata.outputs.android_version_code }}" \
             --arg vlcVersion "$VLC_VERSION" \
+            --arg macosVlcSha256 "$VLC_MACOS_SHA256" \
+            --arg windowsVlcSha256 "$VLC_WINDOWS_SHA256" \
             --arg linuxVlcVersion "$linux_vlc_version" \
             --argjson appleSigned "$apple_signed" \
             --argjson windowsSigned "$windows_signed" \
@@ -648,8 +715,28 @@ jobs:
               packageVersion: $packageVersion,
               androidVersionCode: $androidVersionCode,
               signing: {android: true, macos: $appleSigned, windows: $windowsSigned},
-              runtimes: {macosAndWindowsVlc: $vlcVersion, linuxVlc: $linuxVlcVersion}
+              runtimes: {
+                macosVlc: {version: $vlcVersion, sha256: $macosVlcSha256},
+                windowsVlc: {version: $vlcVersion, sha256: $windowsVlcSha256},
+                linuxVlc: {version: $linuxVlcVersion, manifest: "linux-vlc-runtime.sha256"}
+              },
+              sbom: "Wukki-TV-" + $version + "-sbom.cdx.json"
             }' > release-assets/release-metadata.json
+
+      - name: Attest release SBOM
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-path: |
+            release-assets/*.dmg
+            release-assets/*.msi
+            release-assets/*.deb
+            release-assets/*.apk
+          sbom-path: release-assets/Wukki-TV-${{ needs.metadata.outputs.version }}-sbom.cdx.json
+
+      - name: Attest release provenance
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-path: release-assets/*
 
       - name: Validate or create release tag
         shell: bash

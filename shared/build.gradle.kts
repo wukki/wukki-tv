@@ -6,13 +6,13 @@ import java.nio.file.Files
 import java.util.Properties
 
 plugins {
-    kotlin("multiplatform")
-    kotlin("plugin.serialization")
-    id("org.jetbrains.compose")
-    id("org.jetbrains.kotlin.plugin.compose")
-    id("com.android.kotlin.multiplatform.library")
-    id("dev.detekt")
-    id("org.jlleitschuh.gradle.ktlint")
+    alias(libs.plugins.kotlin.multiplatform)
+    alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.compose)
+    alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.android.kmp.library)
+    id("wukki.quality")
+    id("wukki.dependency-locking")
 }
 
 val generatedBuildInfo = layout.buildDirectory.dir("generated/wukkiBuildInfo/commonMain/kotlin")
@@ -63,15 +63,10 @@ kotlin {
         val commonMain by getting {
             kotlin.srcDir(generatedBuildInfo)
             dependencies {
-                implementation("org.jetbrains.compose.runtime:runtime:1.12.0")
-                implementation("org.jetbrains.compose.foundation:foundation:1.12.0")
-                implementation(libs.compose.material3)
-                implementation("org.jetbrains.compose.material:material-icons-extended:1.7.3")
+                implementation(libs.bundles.compose.common)
                 implementation(libs.kotlinx.coroutines.core)
-                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0")
-                implementation("io.coil-kt.coil3:coil-compose:3.6.0")
-                implementation("io.coil-kt.coil3:coil-network-ktor3:3.6.0")
-                implementation("io.coil-kt.coil3:coil-svg:3.6.0")
+                implementation(libs.kotlinx.serialization.json)
+                implementation(libs.bundles.coil.common)
             }
         }
         val commonTest by getting {
