@@ -70,6 +70,22 @@ class AppBootstrapTest {
             assertEquals(1, writes)
         }
 
+    @Test
+    fun `failed required playlist load reaches the ready model as localized feedback`() =
+        runTest {
+            val store =
+                object : AppStateStore {
+                    override suspend fun load() = LoadStateResult(AppState())
+
+                    override suspend fun save(state: AppState) = Unit
+                }
+            val bootstrap = AppBootstrap(dependencies(store), backgroundScope)
+
+            val ready = bootstrap.awaitReady()
+
+            assertEquals(UserMessage.Key("error.wukki.playlist.unavailable", listOf(UserMessage.Key("error.network.unavailable"))), ready.model.error)
+        }
+
     private fun dependencies(store: AppStateStore) =
         WukkiAppDependencies(
             stateStore = store,

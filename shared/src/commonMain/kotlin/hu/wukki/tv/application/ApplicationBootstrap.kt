@@ -9,6 +9,7 @@ data class ApplicationRuntime(
     val application: WukkiApplication,
     val writer: StateWriter,
     val cacheWarning: Boolean,
+    val initialPlaylistFailure: AppFailure? = null,
 )
 
 /** Initializes the application layer without constructing presentation or Compose state. */
@@ -26,19 +27,35 @@ class ApplicationBootstrap(
             val loaded = dependencies.stateStore.load()
             val writer = StateWriter(scope, dependencies.stateStore)
             val store = ApplicationStore(loaded.state, writer::submit, dependencies.clock)
+            val application =
+                WukkiApplication(
+                    store,
+                    dependencies.remoteTextLoader,
+                    dependencies.xmlTvParser,
+                    refreshService,
+                    dependencies.clock,
+                    dependencies.dispatchers,
+                    dependencies.remoteContentLoader,
+                )
+            var initialPlaylistFailure: AppFailure? = null
+            if (application.channels.channels.isEmpty() || application.channels.playlist.updatedAt == 0L) {
+                var refreshFailure: AppFailure? = null
+                val refreshed =
+                    application.refreshPlaylist(
+                        emit = { event ->
+                            if (event is RefreshEvent.Failed && event.playlistUnavailable) refreshFailure = event.failure
+                        },
+                        showFeedback = false,
+                    )
+                if (!refreshed && application.channels.channels.isEmpty()) {
+                    initialPlaylistFailure = refreshFailure ?: AppFailure.Unknown
+                }
+            }
             ApplicationRuntime(
-                application =
-                    WukkiApplication(
-                        store,
-                        dependencies.remoteTextLoader,
-                        dependencies.xmlTvParser,
-                        refreshService,
-                        dependencies.clock,
-                        dependencies.dispatchers,
-                        dependencies.remoteContentLoader,
-                    ),
+                application = application,
                 writer = writer,
                 cacheWarning = loaded.cacheWarning,
+                initialPlaylistFailure = initialPlaylistFailure,
             ).also { runtime = it }
         }
 

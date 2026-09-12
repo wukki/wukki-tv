@@ -55,9 +55,13 @@ class AppBootstrap(
             mutableState.value = BootstrapState.Loading
             try {
                 val runtime = applicationBootstrap.awaitReady()
+                val model = WukkiModel(runtime.application)
+                runtime.initialPlaylistFailure?.let { failure ->
+                    model.showRefreshEvent(RefreshEvent.Failed(failure, playlistUnavailable = true))
+                }
                 BootstrapState
                     .Ready(
-                        WukkiModel(runtime.application),
+                        model,
                         runtime.writer,
                         runtime.cacheWarning,
                     ).also { mutableState.value = it }

@@ -274,7 +274,7 @@ class WukkiModel(
         feedbackToken++
     }
 
-    private fun showRefreshEvent(event: RefreshEvent) {
+    internal fun showRefreshEvent(event: RefreshEvent) {
         val (kind, message) = event.feedback()
         showFeedback(kind, message)
     }
