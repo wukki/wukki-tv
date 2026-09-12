@@ -71,6 +71,7 @@ private fun channelBrowserUiState(
     model: WukkiModel,
     channels: List<Channel>,
     tick: Long,
+    playingChannelId: String?,
 ): ChannelBrowserUiState {
     val rows =
         channels.mapIndexed { index, channel ->
@@ -89,6 +90,7 @@ private fun channelBrowserUiState(
         showMiniGuide = model.settings.display.showMiniGuide,
         showLogos = model.settings.display.showLogos,
         showProgrammeImages = model.settings.display.showProgrammeImages,
+        playingChannelId = playingChannelId,
         preview = null,
     )
 }
@@ -113,6 +115,7 @@ fun DashboardScreen(
     videoHost: @Composable (Modifier, LiveVideoGestures?) -> Unit,
     liveVideoGestures: LiveVideoGestures,
     playbackEngineLabel: String,
+    playingChannelId: String?,
 ) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val scale = minOf(maxWidth.value / 1470f, maxHeight.value / 920f).coerceIn(.70f, 1.45f)
@@ -166,8 +169,9 @@ fun DashboardScreen(
                                 model.onlyFavorites,
                                 model.settings.language,
                                 model.settings.display,
+                                playingChannelId,
                                 session.tick,
-                            ) { channelBrowserUiState(model, filteredChannels, session.tick) }
+                            ) { channelBrowserUiState(model, filteredChannels, session.tick, playingChannelId) }
                         val browserStateWithPreview =
                             remember(browserState, (session.channelFocusedId ?: model.selectedChannelId)) {
                                 browserState.withPreview((session.channelFocusedId ?: model.selectedChannelId), session.tick)

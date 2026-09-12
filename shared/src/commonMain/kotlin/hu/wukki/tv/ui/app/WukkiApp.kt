@@ -279,6 +279,7 @@ fun WukkiApp(
                         videoHost = videoHost,
                         liveVideoGestures = liveVideoGestures,
                         playbackEngineLabel = playbackEngineLabel,
+                        playingChannelId = playbackController.successfullyPlayedChannelId,
                     )
                 }
             }

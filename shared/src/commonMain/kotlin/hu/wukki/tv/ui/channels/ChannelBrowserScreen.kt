@@ -1,6 +1,7 @@
 package hu.wukki.tv.ui.channels
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.rememberScrollState
@@ -28,7 +29,6 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material.icons.outlined.SignalCellularAlt
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.FilterChip
@@ -51,6 +51,7 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.Key
@@ -61,6 +62,9 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -228,11 +232,23 @@ private fun ChannelFilters(
 }
 
 @Composable
-private fun ChannelFilterTab(label: String, selected: Boolean, focused: Boolean, scale: Float, onClick: () -> Unit) {
+private fun ChannelFilterTab(
+    label: String,
+    selected: Boolean,
+    focused: Boolean,
+    scale: Float,
+    onClick: () -> Unit,
+) {
+    val shape = RoundedCornerShape(10.dp * scale)
     FilterChip(
-        selected = selected || focused,
+        selected = selected,
         onClick = onClick,
-        label = { Text(label, maxLines = 1) }
+        label = { Text(label, maxLines = 1) },
+        shape = shape,
+        modifier =
+            Modifier
+                .scale(if (focused) 1.04f else 1f)
+                .then(if (focused) Modifier.border(3.dp, WukkiColors.focus, shape) else Modifier),
     )
 }
 
@@ -269,7 +285,9 @@ private fun ChannelDirectory(
             itemsIndexed(state.channels, key = { _, row -> row.channel.id }) { index, row ->
                 val focused = index == remoteListIndex &&
                     (remoteFocus == ChannelRemoteFocus.LIST || remoteFocus == ChannelRemoteFocus.FAVORITE)
-                ChannelListRow(state, row, rowHeight, scale, focused, callbacks)
+                val previewed = state.preview?.channel?.id == row.channel.id
+                val playing = state.playingChannelId == row.channel.id
+                ChannelListRow(state, row, rowHeight, scale, focused, previewed, playing, callbacks)
                 if (index < state.channels.lastIndex) HorizontalDivider()
             }
         }
@@ -284,15 +302,33 @@ private fun rowHeight(mode: ChannelListDisplayMode, scale: Float): Dp = when (mo
 
 @Composable
 private fun ChannelListRow(
-    state: ChannelBrowserUiState, row: ChannelBrowserRowUiState, height: Dp, scale: Float,
-    focused: Boolean, callbacks: ChannelBrowserCallbacks
+    state: ChannelBrowserUiState,
+    row: ChannelBrowserRowUiState,
+    height: Dp,
+    scale: Float,
+    focused: Boolean,
+    previewed: Boolean,
+    playing: Boolean,
+    callbacks: ChannelBrowserCallbacks,
 ) {
     val channel = row.channel
     val compact = state.displayMode == ChannelListDisplayMode.COMPACT
     val detailed = state.displayMode == ChannelListDisplayMode.DETAILED
+    val shape = RoundedCornerShape(8.dp * scale)
     val logoSize = when (state.displayMode) { ChannelListDisplayMode.COMPACT -> 32.dp * scale; ChannelListDisplayMode.NORMAL -> 44.dp * scale; ChannelListDisplayMode.DETAILED -> 56.dp * scale }
+    val stateLabel = channelStateLabel(state.language, previewed, playing)
     ListItem(
-        modifier = Modifier.fillMaxWidth().height(height).clickable { callbacks.onSelectChannel(channel.id) },
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(height)
+                .clip(shape)
+                .then(if (focused) Modifier.border(3.dp, WukkiColors.focus, shape) else Modifier)
+                .clickable { callbacks.onSelectChannel(channel.id) }
+                .semantics {
+                    selected = previewed
+                    if (stateLabel.isNotEmpty()) stateDescription = stateLabel
+                },
         leadingContent = {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp * scale)) {
                 Text(channel.tvgChno?.toString() ?: row.position.toString(), fontSize = ((if (compact) 18f else 22f) * scale).sp, fontWeight = FontWeight.Light)
@@ -307,18 +343,65 @@ private fun ChannelListRow(
             }
         },
         trailingContent = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (!compact) Icon(Icons.Outlined.SignalCellularAlt, null, modifier = Modifier.size(24.dp * scale))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp * scale)) {
+                ChannelStatus(state.language, previewed, playing, scale)
                 FavoriteButton(channel.favorite, tr(state.language, if (channel.favorite) "favourite.remove" else "favourite.add"), if (compact) scale * .85f else scale) { callbacks.onToggleFavorite(channel.id) }
             }
         },
-        colors = if (focused) androidx.compose.material3.ListItemDefaults.colors(
-            containerColor = androidx.compose.material3.MaterialTheme.colorScheme.primary,
-            headlineColor = androidx.compose.material3.MaterialTheme.colorScheme.onPrimary,
-            supportingColor = androidx.compose.material3.MaterialTheme.colorScheme.onPrimary,
-            leadingIconColor = androidx.compose.material3.MaterialTheme.colorScheme.onPrimary,
-            trailingIconColor = androidx.compose.material3.MaterialTheme.colorScheme.onPrimary
-        ) else androidx.compose.material3.ListItemDefaults.colors()
+        colors =
+            androidx.compose.material3.ListItemDefaults.colors(
+                containerColor = channelRowColor(focused, previewed),
+            ),
+    )
+}
+
+private fun channelStateLabel(
+    language: hu.wukki.tv.AppLanguage,
+    previewed: Boolean,
+    playing: Boolean,
+): String =
+    listOfNotNull(
+        tr(language, "channels.preview").takeIf { previewed },
+        tr(language, "channels.playing").takeIf { playing },
+    ).joinToString(" · ")
+
+private fun channelRowColor(focused: Boolean, previewed: Boolean) = when {
+    previewed -> WukkiColors.surfaceSelected
+    focused -> WukkiColors.surfaceRaised
+    else -> WukkiColors.surface
+}
+
+@Composable
+private fun ChannelStatus(
+    language: hu.wukki.tv.AppLanguage,
+    previewed: Boolean,
+    playing: Boolean,
+    scale: Float,
+) {
+    if (playing) {
+        ChannelStatusBadge(tr(language, "channels.playing"), scale, true)
+    } else if (previewed) {
+        ChannelStatusBadge(tr(language, "channels.preview"), scale, false)
+    }
+}
+
+@Composable
+private fun ChannelStatusBadge(
+    label: String,
+    scale: Float,
+    playing: Boolean,
+) {
+    Text(
+        label,
+        color = if (playing) WukkiColors.background else WukkiColors.textPrimary,
+        fontSize = (11f * scale).sp,
+        fontWeight = FontWeight.Bold,
+        maxLines = 1,
+        modifier =
+            Modifier
+                .clip(RoundedCornerShape(50))
+                .background(if (playing) WukkiColors.success else WukkiColors.primaryMuted)
+                .padding(horizontal = 8.dp * scale, vertical = 4.dp * scale),
     )
 }
 
