@@ -67,7 +67,7 @@ kotlin {
                 implementation("org.jetbrains.compose.foundation:foundation:1.12.0")
                 implementation(libs.compose.material3)
                 implementation("org.jetbrains.compose.material:material-icons-extended:1.7.3")
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
+                implementation(libs.kotlinx.coroutines.core)
                 implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0")
                 implementation("io.coil-kt.coil3:coil-compose:3.6.0")
                 implementation("io.coil-kt.coil3:coil-network-ktor3:3.6.0")
@@ -77,7 +77,7 @@ kotlin {
         val commonTest by getting {
             dependencies {
                 implementation(kotlin("test"))
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
+                implementation(libs.kotlinx.coroutines.test)
             }
         }
         val androidMain by getting {

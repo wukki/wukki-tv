@@ -33,6 +33,7 @@ dependencies {
     implementation(project(":shared"))
     implementation(compose.desktop.currentOs)
     implementation(libs.compose.material3)
+    implementation(libs.kotlinx.coroutines.swing)
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0")
     implementation("io.coil-kt.coil3:coil-core:3.6.0")
     implementation("io.ktor:ktor-client-java:3.0.1")
