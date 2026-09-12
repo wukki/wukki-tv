@@ -1,15 +1,19 @@
 package hu.wukki.tv
 
-import org.xml.sax.Attributes
-import org.xml.sax.InputSource
-import org.xml.sax.helpers.DefaultHandler
 import java.io.InputStream
 import java.io.StringReader
 import java.time.LocalDateTime
 import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import javax.xml.parsers.ParserConfigurationException
 import javax.xml.parsers.SAXParserFactory
+import org.xml.sax.Attributes
+import org.xml.sax.InputSource
+import org.xml.sax.SAXException
+import org.xml.sax.SAXNotRecognizedException
+import org.xml.sax.SAXNotSupportedException
+import org.xml.sax.helpers.DefaultHandler
 
 object JvmXmlTvParser : XmlTvParser {
     override fun parse(xml: String): List<Programme> {
@@ -24,12 +28,12 @@ object JvmXmlTvParser : XmlTvParser {
         val factory =
             SAXParserFactory.newInstance().apply {
                 isNamespaceAware = false
-                setFeature("http://apache.org/xml/features/disallow-doctype-decl", true)
-                setFeature("http://xml.org/sax/features/external-general-entities", false)
-                setFeature("http://xml.org/sax/features/external-parameter-entities", false)
+                setRequiredFeature(DISALLOW_DOCTYPE, true)
+                setOptionalFeature(EXTERNAL_GENERAL_ENTITIES, false)
+                setOptionalFeature(EXTERNAL_PARAMETER_ENTITIES, false)
             }
         factory.newSAXParser().apply {
-            xmlReader.setEntityResolver { _, _ -> InputSource(StringReader("")) }
+            xmlReader.setEntityResolver { _, _ -> throw SAXException("External XML entities are disabled") }
             parse(input, ProgrammeHandler(programmes))
         }
         return programmes.sortedBy { it.start }
@@ -158,7 +162,7 @@ object JvmXmlTvParser : XmlTvParser {
         private fun tagName(
             localName: String?,
             qName: String,
-        ): String = localName?.ifBlank { qName }.orEmpty().lowercase()
+        ): String = xmlTvTagName(localName, qName)
     }
 
     private data class MutableProgramme(
@@ -175,6 +179,38 @@ object JvmXmlTvParser : XmlTvParser {
             ?.trim()
             ?.replace("&amp;", "&")
             ?.takeIf { it.startsWith("https://", ignoreCase = true) || it.startsWith("http://", ignoreCase = true) }
+
+    private const val DISALLOW_DOCTYPE = "http://apache.org/xml/features/disallow-doctype-decl"
+    private const val EXTERNAL_GENERAL_ENTITIES = "http://xml.org/sax/features/external-general-entities"
+    private const val EXTERNAL_PARAMETER_ENTITIES = "http://xml.org/sax/features/external-parameter-entities"
+}
+
+/** Android's SAX implementation may report a null local name when namespace processing is disabled. */
+internal fun xmlTvTagName(
+    localName: String?,
+    qName: String?,
+): String = (localName?.takeIf { it.isNotBlank() } ?: qName.orEmpty()).lowercase()
+
+private fun SAXParserFactory.setRequiredFeature(
+    name: String,
+    value: Boolean,
+) {
+    setFeature(name, value)
+}
+
+private fun SAXParserFactory.setOptionalFeature(
+    name: String,
+    value: Boolean,
+) {
+    try {
+        setFeature(name, value)
+    } catch (_: ParserConfigurationException) {
+        // The rejecting entity resolver below remains the fail-closed fallback.
+    } catch (_: SAXNotRecognizedException) {
+        // Android SAX implementations do not all expose the same optional feature set.
+    } catch (_: SAXNotSupportedException) {
+        // Android SAX implementations do not all expose the same optional feature set.
+    }
 }
 
 private class RemoteContentInputStream(

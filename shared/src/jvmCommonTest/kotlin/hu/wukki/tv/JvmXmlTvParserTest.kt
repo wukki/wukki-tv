@@ -2,8 +2,8 @@ package hu.wukki.tv
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNull
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNull
 
 class JvmXmlTvParserTest {
     @Test
@@ -44,6 +44,24 @@ class JvmXmlTvParserTest {
     fun `rejects XMLTV text above the production limit before SAX parsing`() {
         assertFailsWith<IllegalArgumentException> {
             JvmXmlTvParser.parse(" ".repeat(RemoteTextKind.EPG.maxBodyBytes + 1))
+        }
+    }
+
+    @Test
+    fun `falls back to qualified element name when Android SAX omits local name`() {
+        assertEquals("programme", xmlTvTagName(null, "programme"))
+        assertEquals("title", xmlTvTagName("", "title"))
+        assertEquals("desc", xmlTvTagName("DESC", null))
+    }
+
+    @Test
+    fun `rejects doctypes without resolving external entities`() {
+        assertFailsWith<Exception> {
+            JvmXmlTvParser.parse(
+                """<!DOCTYPE tv [<!ENTITY title SYSTEM "https://example.test/title">]>
+                <tv><programme channel="rtl" start="20260820180000 +0200" stop="20260820183000 +0200">
+                <title>&title;</title></programme></tv>""",
+            )
         }
     }
 }
