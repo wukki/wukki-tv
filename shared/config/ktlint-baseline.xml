@@ -773,7 +773,12 @@
         <error line="158" column="88" source="standard:statement-wrapping" />
         <error line="158" column="104" source="standard:statement-wrapping" />
         <error line="158" column="110" source="standard:statement-wrapping" />
+        <error line="158" column="110" source="standard:if-else-wrapping" />
+        <error line="158" column="112" source="standard:statement-wrapping" />
         <error line="158" column="117" source="standard:if-else-bracing" />
+        <error line="158" column="128" source="standard:statement-wrapping" />
+        <error line="158" column="134" source="standard:statement-wrapping" />
+        <error line="158" column="141" source="standard:if-else-bracing" />
         <error line="159" column="22" source="standard:trailing-comma-on-call-site" />
         <error line="171" column="67" source="standard:trailing-comma-on-call-site" />
         <error line="180" column="13" source="standard:function-naming" />

@@ -134,11 +134,15 @@ class AppRemoteReducerTest {
             AppRemoteState(
                 section = DashboardSection.CHANNELS,
                 searchOpen = true,
+                searchHasText = true,
                 channels = ChannelNavigationState(ChannelRemoteFocus.SEARCH, 0, 0),
             )
         assertFalse(state.reduce(AppRemoteKey(back = true, backspace = true)).handled)
         val escape = state.reduce(AppRemoteKey(back = true, escape = true))
         assertFalse(escape.state.searchOpen)
         assertEquals(ChannelRemoteFocus.LIST, escape.state.channels.focus)
+        val emptyEscape = state.copy(searchHasText = false).reduce(AppRemoteKey(back = true, escape = true))
+        assertFalse(emptyEscape.state.searchOpen)
+        assertEquals(ChannelRemoteFocus.LIST, emptyEscape.state.channels.focus)
     }
 }

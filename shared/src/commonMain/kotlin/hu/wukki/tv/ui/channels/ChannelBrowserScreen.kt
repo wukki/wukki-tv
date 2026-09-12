@@ -155,7 +155,7 @@ private fun ChannelHeader(
                     placeholder = { Text(tr(state.language, "channels.search")) },
                     textStyle = LocalTextStyle.current.copy(fontSize = (15f * scale).sp),
                     modifier = Modifier.widthIn(min = 0.dp).weight(1f).fillMaxHeight().focusRequester(searchFocusRequester).onPreviewKeyEvent {
-                        if (it.type == KeyEventType.KeyDown && it.key == Key.Escape) { onCloseSearch(); true } else false
+                        if (it.type == KeyEventType.KeyDown && (it.key == Key.Escape || it.key == Key.Back)) { onCloseSearch(); true } else false
                     }
                 )
                 ChannelHeaderIcon(true, scale, onCloseSearch)
