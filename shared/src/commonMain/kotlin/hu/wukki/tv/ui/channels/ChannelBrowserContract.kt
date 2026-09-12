@@ -1,11 +1,13 @@
 package hu.wukki.tv.ui.channels
 
+import androidx.compose.runtime.Immutable
 import hu.wukki.tv.AppLanguage
 import hu.wukki.tv.Channel
 import hu.wukki.tv.ChannelListDisplayMode
 import hu.wukki.tv.Programme
 
 /** Immutable input for the Channels feature. Kept separate from the persistent domain model. */
+@Immutable
 data class ChannelBrowserUiState(
     val language: AppLanguage,
     val categories: List<String>,
@@ -18,22 +20,25 @@ data class ChannelBrowserUiState(
     val showMiniGuide: Boolean,
     val showLogos: Boolean,
     val showProgrammeImages: Boolean,
-    val preview: ChannelPreviewUiState?
+    val preview: ChannelPreviewUiState?,
 )
 
+@Immutable
 data class ChannelBrowserRowUiState(
     val channel: Channel,
     val position: Int,
     val currentProgramme: Programme?,
-    val nextProgramme: Programme?
+    val nextProgramme: Programme?,
 )
 
+@Immutable
 data class ChannelPreviewUiState(
     val channel: Channel,
     val currentProgramme: Programme?,
-    val now: Long
+    val now: Long,
 )
 
+@Immutable
 data class ChannelBrowserCallbacks(
     val onQueryChange: (String) -> Unit,
     val onSelectAll: () -> Unit,
@@ -41,5 +46,5 @@ data class ChannelBrowserCallbacks(
     val onSelectCategory: (String) -> Unit,
     val onSelectChannel: (String) -> Unit,
     val onOpenChannel: (String) -> Unit,
-    val onToggleFavorite: (String) -> Unit
+    val onToggleFavorite: (String) -> Unit,
 )

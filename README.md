@@ -10,7 +10,8 @@ A Wukki TV Kotlin Multiplatform / Compose alapú IPTV alkalmazás. A hivatalos W
 
 A közös üzleti műveleteket a Compose-független `WukkiApplication`, valamint a csatorna-, EPG- és
 beállítás-repositoryk kezelik. A `WukkiModel` a meglévő UI kompatibilis adaptere. Részletek:
-[application/domain réteghatár](docs/application-layer.md).
+[application/domain réteghatár](docs/application-layer.md) és
+[UI selector-/életciklus-kezelés](docs/ui-lifecycle.md).
 
 ## Funkciók
 

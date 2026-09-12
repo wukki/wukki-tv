@@ -5,20 +5,32 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import hu.wukki.tv.ui.components.WukkiColors
 
-data class LiveTvUiState(val hasChannel: Boolean, val emptyMessage: String)
+@Immutable
+data class LiveTvUiState(
+    val hasChannel: Boolean,
+    val emptyMessage: String,
+)
 
 /** Video host supplied as a slot so this feature never depends on PlaybackController. */
 @Composable
-fun LiveTvScreen(state: LiveTvUiState, scale: Float, video: @Composable () -> Unit, modifier: Modifier = Modifier) {
+fun LiveTvScreen(
+    state: LiveTvUiState,
+    scale: Float,
+    video: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Box(
-        modifier = modifier
-            .clip(RoundedCornerShape((8.dp * scale).coerceAtLeast(5.dp))).background(WukkiColors.video)
+        modifier =
+            modifier
+                .clip(RoundedCornerShape((8.dp * scale).coerceAtLeast(5.dp)))
+                .background(WukkiColors.video),
     ) {
         if (state.hasChannel) video() else Text(state.emptyMessage, color = WukkiColors.textMuted, modifier = Modifier.align(Alignment.Center))
     }

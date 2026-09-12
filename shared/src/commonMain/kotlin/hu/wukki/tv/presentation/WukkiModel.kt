@@ -1,12 +1,15 @@
 package hu.wukki.tv
 
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.referentialEqualityPolicy
 import androidx.compose.runtime.setValue
 
 /** UI state and playback intent adapter. Business mutations live in WukkiApplication. */
+@Stable
 class WukkiModel(
     private val application: WukkiApplication,
 ) {
@@ -21,11 +24,25 @@ class WukkiModel(
     ) : this(WukkiApplication(ApplicationStore(initialState, stateSaver, clock), sourceLoader, xmlTvParser, refreshService, clock, dispatchers))
 
     private val clock: Clock get() = application.clock
+    private var channels by mutableStateOf(application.store.current.channels, referentialEqualityPolicy())
+    private var playlists by mutableStateOf(application.store.current.playlists, referentialEqualityPolicy())
+    var settings by mutableStateOf(application.store.current.settings)
+        private set
+    var epgSources by mutableStateOf(application.store.current.epgSources, referentialEqualityPolicy())
+        private set
+    private var epgProgrammes = application.store.current.epgProgrammesBySource
+
+    /** Compatibility snapshot; feature UI reads the narrower observable slices below. */
     var state by mutableStateOf(application.store.current)
         private set
+
+    /** Changes only when the immutable EPG programme snapshot is replaced. */
+    var epgContentVersion by mutableIntStateOf(0)
+        private set
+
     var selectedChannelId by mutableStateOf(
-        state.lastChannelId?.takeIf { savedId -> state.channels.any { it.id == savedId } }
-            ?: state.channels.firstOrNull()?.id,
+        state.lastChannelId?.takeIf { savedId -> channels.any { it.id == savedId } }
+            ?: channels.firstOrNull()?.id,
     )
         private set
     var query by mutableStateOf("")
@@ -36,12 +53,13 @@ class WukkiModel(
         private set
     private val channelDirectoryState =
         derivedStateOf {
-            val sortedChannels = state.channels.sortedChannels()
+            val sortedChannels = channels.sortedChannels()
             val normalizedQuery = normalize(query)
             ChannelDirectoryDerivedState(
                 sortedChannels = sortedChannels,
+                channelsById = sortedChannels.associateBy(Channel::id),
                 categories =
-                    state.channels
+                    channels
                         .asSequence()
                         .map(::channelCategoryName)
                         .distinct()
@@ -72,22 +90,28 @@ class WukkiModel(
 
     init {
         application.store.observe { next ->
-            val previous = state
-            val selected = selectedChannelId
+            val previousChannels = channels
             state = next
-            if (next.channels !== previous.channels) {
-                selectedChannelId = matchingChannelId(selected, previous.channels, next.channels)
+            if (next.channels !== previousChannels) {
+                channels = next.channels
+                selectedChannelId = matchingChannelId(selectedChannelId, previousChannels, next.channels)
                     ?: next.lastChannelId
                     ?: next.channels.firstOrNull()?.id
+            }
+            if (next.playlists !== playlists) playlists = next.playlists
+            if (next.settings != settings) settings = next.settings
+            if (next.epgSources !== epgSources) epgSources = next.epgSources
+            if (next.epgProgrammesBySource !== epgProgrammes) {
+                epgProgrammes = next.epgProgrammesBySource
+                epgContentVersion++
             }
         }
     }
 
-    val settings: AppSettings get() = state.settings
-    val epgSources: List<EpgSource> get() = state.epgSources
-    val officialPlaylist: PlaylistDefinition get() = state.playlists.single()
+    val officialPlaylist: PlaylistDefinition get() = playlists.single()
     val officialEpgSource: EpgSource? get() = epgSources.singleOrNull()
-    val hasChannels: Boolean get() = state.channels.isNotEmpty()
+    val hasChannels: Boolean get() = channels.isNotEmpty()
+    val channelCount: Int get() = channels.size
 
     /** For diagnostics that do not have a translation key yet. */
     fun showRawError(message: String) = showError(UserMessage.Raw(message))
@@ -166,9 +190,9 @@ class WukkiModel(
     /** Only a successful playback event updates the remembered channel. */
     fun markChannelPlaybackSuccessful(id: String) = application.channels.markPlaybackSuccessful(id)
 
-    fun selectedChannel(): Channel? = state.channels.firstOrNull { it.id == selectedChannelId }
+    fun selectedChannel(): Channel? = selectedChannelId?.let(channelDirectoryState.value.channelsById::get)
 
-    fun channelById(id: String?): Channel? = id?.let { channelId -> state.channels.firstOrNull { it.id == channelId } }
+    fun channelById(id: String?): Channel? = id?.let(channelDirectoryState.value.channelsById::get)
 
     fun categories(): List<String> = channelDirectoryState.value.categories
 
@@ -178,24 +202,36 @@ class WukkiModel(
     fun guideChannels(): List<Channel> = channelDirectoryState.value.sortedChannels
 
     /** The continuous guide only spans programmes that can actually be shown for this playlist. */
-    fun guideLatestProgrammeEnd(): Long? = application.epg.latestEnd(guideChannels())
+    fun guideLatestProgrammeEnd(): Long? {
+        epgContentVersion
+        return application.epg.latestEnd(guideChannels())
+    }
 
     fun currentProgram(
         channel: Channel,
         now: Long = clock.nowMillis(),
-    ): Programme? = state.let { application.epg.currentProgramme(channel, now) }
+    ): Programme? {
+        epgContentVersion
+        return application.epg.currentProgramme(channel, now)
+    }
 
     fun nextProgram(
         channel: Channel,
         current: Programme,
-    ): Programme? = state.let { application.epg.nextProgramme(channel, current) }
+    ): Programme? {
+        epgContentVersion
+        return application.epg.nextProgramme(channel, current)
+    }
 
     /** Returns this channel's programmes that overlap the requested time range. */
     fun programmesFor(
         channel: Channel,
         from: Long,
         to: Long,
-    ): List<Programme> = state.let { application.epg.programmesFor(channel, from, to) }
+    ): List<Programme> {
+        epgContentVersion
+        return application.epg.programmesFor(channel, from, to)
+    }
 
     fun moveChannel(delta: Int) {
         val channels = filteredChannels()
@@ -261,6 +297,7 @@ enum class AppFeedbackKind { LOADING, SUCCESS, ERROR }
 
 private data class ChannelDirectoryDerivedState(
     val sortedChannels: List<Channel>,
+    val channelsById: Map<String, Channel>,
     val categories: List<String>,
     val filteredChannels: List<Channel>,
 )

@@ -10,7 +10,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -25,6 +28,7 @@ class MainActivity : ComponentActivity() {
     private var appBackAction: (() -> Boolean)? = null
     private var playbackController: AndroidPlaybackController? = null
     private var liveSectionActive = false
+    private var uiActive by mutableStateOf(false)
     private var exitConfirmationToast: Toast? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -81,6 +85,8 @@ class MainActivity : ComponentActivity() {
                                 exitConfirmationToast = Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).also(Toast::show)
                             },
                             onPlatformBackActionChange = backRegistrar,
+                            uiActive = uiActive,
+                            runForegroundRefreshes = false,
                         )
                     }
                 }
@@ -97,11 +103,13 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
+        uiActive = true
         playbackController?.resumeAfterBackground()
         setKeepScreenOn(liveSectionActive)
     }
 
     override fun onStop() {
+        uiActive = false
         AndroidAppGraph.flushInBackground()
         playbackController?.pauseForBackground()
         setKeepScreenOn(false)

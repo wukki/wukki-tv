@@ -49,6 +49,8 @@ fun WukkiApp(
     requireDoubleBackToExit: Boolean = false,
     onExitConfirmation: (String) -> Unit = {},
     onPlatformBackActionChange: ((() -> Boolean)?) -> Unit = {},
+    uiActive: Boolean = true,
+    runForegroundRefreshes: Boolean = true,
     sharedModel: WukkiModel,
 ) {
     val model = sharedModel
@@ -59,8 +61,9 @@ fun WukkiApp(
     val guideDataSource = remember(model) { model.guideDataSource() }
     val baseDensity = LocalDensity.current
     val session = remember { AppSessionState(autoPlayOnLaunch) }
+    val currentExitConfirmation = rememberUpdatedState(onExitConfirmation)
     val controller =
-        AppSessionController(
+        remember(
             session,
             model,
             scope,
@@ -68,10 +71,20 @@ fun WukkiApp(
             guideDataSource,
             androidSettingsNavigation,
             requireDoubleBackToExit,
-            onExitConfirmation,
-        )
+        ) {
+            AppSessionController(
+                session,
+                model,
+                scope,
+                guideState,
+                guideDataSource,
+                androidSettingsNavigation,
+                requireDoubleBackToExit,
+            ) { message -> currentExitConfirmation.value(message) }
+        }
     with(session) {
         with(controller) {
+            val uiPolicy = uiLifecyclePolicy(activeSection, uiActive, runForegroundRefreshes)
             val visibleChannels = model.filteredChannels()
             val visibleChannelIds = remember(visibleChannels) { visibleChannels.map { it.id } }
             LaunchedEffect(visibleChannelIds, model.selectedChannelId) {
@@ -91,6 +104,10 @@ fun WukkiApp(
             LaunchedEffect(Unit) {
                 focusRequester.requestFocus()
                 officialSourceReady = true
+            }
+            LaunchedEffect(activeSection, uiPolicy.runClock) {
+                if (!uiPolicy.runClock) return@LaunchedEffect
+                tick = System.currentTimeMillis()
                 while (true) {
                     delay(30_000)
                     tick = System.currentTimeMillis()
@@ -100,8 +117,8 @@ fun WukkiApp(
                 onActiveSectionChange(activeSection)
                 if (activeSection == DashboardSection.LIVE) focusRequester.requestFocus()
             }
-            LaunchedEffect(activeSection, liveNavigationState.visible, liveNavigationState.interactionSequence) {
-                if (activeSection == DashboardSection.LIVE && liveNavigationState.visible) {
+            LaunchedEffect(activeSection, liveNavigationState.visible, liveNavigationState.interactionSequence, uiPolicy.runTimeouts) {
+                if (uiPolicy.runTimeouts && activeSection == DashboardSection.LIVE && liveNavigationState.visible) {
                     delay(LIVE_NAVIGATION_TIMEOUT_MS)
                     handleLiveNavigation(LiveNavigationVisibilityEvent.Timeout)
                 }
@@ -160,7 +177,8 @@ fun WukkiApp(
                 }
             }
             val feedbackToken = model.feedbackToken
-            LaunchedEffect(feedbackToken, model.feedbackKind) {
+            LaunchedEffect(feedbackToken, model.feedbackKind, uiPolicy.runTimeouts) {
+                if (!uiPolicy.runTimeouts) return@LaunchedEffect
                 val timeout =
                     when (model.feedbackKind) {
                         AppFeedbackKind.SUCCESS -> SUCCESS_FEEDBACK_TIMEOUT_MS
@@ -170,8 +188,8 @@ fun WukkiApp(
                 delay(timeout)
                 model.dismissFeedback(feedbackToken)
             }
-            LaunchedEffect(model.selectedChannelId, activeSection, overlayRequest) {
-                if (activeSection == DashboardSection.LIVE && model.selectedChannel() != null) {
+            LaunchedEffect(model.selectedChannelId, activeSection, overlayRequest, uiPolicy.runTimeouts) {
+                if (uiPolicy.runTimeouts && activeSection == DashboardSection.LIVE && model.selectedChannel() != null) {
                     programmeOverlayVisible = true
                     delay(5_000)
                     if (liveChannelPreviewState.isActive) {
@@ -184,9 +202,9 @@ fun WukkiApp(
                     programmeOverlayVisible = false
                 }
             }
-            LaunchedEffect(channelNumberInput, activeSection) {
+            LaunchedEffect(channelNumberInput, activeSection, uiPolicy.runTimeouts) {
                 val pendingNumber = channelNumberInput
-                if (activeSection == DashboardSection.LIVE && pendingNumber.isNotEmpty()) {
+                if (uiPolicy.runTimeouts && activeSection == DashboardSection.LIVE && pendingNumber.isNotEmpty()) {
                     delay(3_000)
                     if (channelNumberInput == pendingNumber) {
                         val selected = model.selectChannelByNumber(pendingNumber)
@@ -195,10 +213,11 @@ fun WukkiApp(
                     }
                 }
             }
-            AutomaticRefreshEffects(model)
+            AutomaticRefreshEffects(model, uiPolicy.runAutomaticRefreshes)
 
             val overlayChannel = model.channelById(liveChannelPreviewState.channelId) ?: model.selectedChannel()
-            val overlayCurrent = overlayChannel?.let { model.currentProgram(it, tick) }
+            val overlayUsesProgrammeData = activeSection == DashboardSection.LIVE || activeSection == DashboardSection.CHANNELS
+            val overlayCurrent = overlayChannel?.takeIf { overlayUsesProgrammeData }?.let { model.currentProgram(it, tick) }
             val overlayNext = overlayChannel?.let { channel -> overlayCurrent?.let { model.nextProgram(channel, it) } }
             LaunchedEffect(
                 overlayChannel,

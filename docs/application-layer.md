@@ -4,6 +4,11 @@
 compatibility presentation façade: it retains observable UI state, directory filters, feedback
 tokens, channel selection and playback requests. Existing screens and callers keep their API.
 
+The presentation façade observes independent channel, settings, EPG-source and EPG-content slices.
+The complete `state` snapshot remains available for compatibility, but feature composables select
+only their required slices. Consequently a settings-only update does not rebuild the channel
+directory, and an EPG cache replacement does not invalidate Settings UI.
+
 ## State and repositories
 
 - `ApplicationStore` owns the current immutable `AppState`, exposes a read-only `StateFlow` and
@@ -59,7 +64,12 @@ shared writer before reporting success and applies typed retry/backoff policy to
 
 The EPG index groups and sorts programmes once per immutable cache snapshot. Current, next and
 time-range queries use binary search, while the latest visible end is precomputed per EPG channel.
-Selector optimization and UI lifecycle coordination belong to later PRs.
+Channel lookup by ID and filtered-directory state are memoized presentation selectors.
+
+Dashboard controllers and callback bundles have stable composition lifetimes. Programme clocks and
+UI timeouts stop with an inactive Android UI, while Settings does not run the programme clock.
+Android delegates scheduled refreshes exclusively to WorkManager; the foreground Compose refresh
+loop remains enabled only for desktop, where there is no platform background scheduler.
 
 Validation: existing migration/navigation/refresh tests plus headless application tests, controlled
 clock/dispatcher tests, cancellation and late-response tests, local HTTP-server failure tests,

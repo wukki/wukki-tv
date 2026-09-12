@@ -1,10 +1,12 @@
 package hu.wukki.tv.ui.app
 
+import androidx.compose.runtime.Immutable
 import hu.wukki.tv.ui.guide.GuideProgrammeDialogEvent
 import hu.wukki.tv.ui.navigation.DashboardSection
 import hu.wukki.tv.ui.settings.SettingsSection
 
 /** User intentions emitted by the dashboard screens. */
+@Immutable
 data class DashboardCallbacks(
     val onSectionChange: (DashboardSection) -> Unit,
     val onSettingsSectionChange: (SettingsSection?) -> Unit,
@@ -16,5 +18,5 @@ data class DashboardCallbacks(
     val onShowGuideProgrammeDetails: () -> Unit,
     val onDismissGuideProgrammeDetails: () -> Unit,
     val onOpenGuideProgrammeChannel: (String) -> Unit,
-    val onGuideProgrammeDialogEvent: (GuideProgrammeDialogEvent) -> Unit
+    val onGuideProgrammeDialogEvent: (GuideProgrammeDialogEvent) -> Unit,
 )
