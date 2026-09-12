@@ -158,7 +158,7 @@ private fun ChannelHeader(
                         if (it.type == KeyEventType.KeyDown && (it.key == Key.Escape || it.key == Key.Back)) { onCloseSearch(); true } else false
                     }
                 )
-                ChannelHeaderIcon(true, scale, onCloseSearch)
+                ChannelHeaderIcon(true, tr(state.language, "channels.search.close"), scale, onCloseSearch)
             }
         } else {
             Row(Modifier.fillMaxWidth().height(50.dp * scale), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp * scale)) {
@@ -170,7 +170,7 @@ private fun ChannelHeader(
                     scale = scale,
                     modifier = Modifier.weight(1f).fillMaxHeight()
                 )
-                ChannelHeaderIcon(false, scale, onOpenSearch)
+                ChannelHeaderIcon(false, tr(state.language, "channels.search"), scale, onOpenSearch)
             }
         }
     }
@@ -237,8 +237,8 @@ private fun ChannelFilterTab(label: String, selected: Boolean, focused: Boolean,
 }
 
 @Composable
-private fun ChannelHeaderIcon(close: Boolean, scale: Float, onClick: () -> Unit) {
-    IconButton(onClick = onClick, modifier = Modifier.size(46.dp * scale)) {
+private fun ChannelHeaderIcon(close: Boolean, label: String, scale: Float, onClick: () -> Unit) {
+    IconButton(onClick = onClick, modifier = Modifier.size(46.dp * scale).iconButtonSemantics(label)) {
         Icon(if (close) Icons.Outlined.Close else Icons.Outlined.Search, null, modifier = Modifier.size(22.dp * scale))
     }
 }
@@ -309,7 +309,7 @@ private fun ChannelListRow(
         trailingContent = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (!compact) Icon(Icons.Outlined.SignalCellularAlt, null, modifier = Modifier.size(24.dp * scale))
-                FavoriteButton(channel.favorite, if (compact) scale * .85f else scale) { callbacks.onToggleFavorite(channel.id) }
+                FavoriteButton(channel.favorite, tr(state.language, if (channel.favorite) "favourite.remove" else "favourite.add"), if (compact) scale * .85f else scale) { callbacks.onToggleFavorite(channel.id) }
             }
         },
         colors = if (focused) androidx.compose.material3.ListItemDefaults.colors(
@@ -352,8 +352,8 @@ private fun DetailedChannelProgrammes(language: hu.wukki.tv.AppLanguage, current
 }
 
 @Composable
-private fun FavoriteButton(favorite: Boolean, scale: Float, onClick: () -> Unit) {
-    IconButton(onClick = onClick, modifier = Modifier.size(38.dp * scale)) {
+private fun FavoriteButton(favorite: Boolean, label: String, scale: Float, onClick: () -> Unit) {
+    IconButton(onClick = onClick, modifier = Modifier.size(38.dp * scale).iconButtonSemantics(label)) {
         Icon(if (favorite) Icons.Outlined.Favorite else Icons.Outlined.FavoriteBorder, null, modifier = Modifier.size(27.dp * scale))
     }
 }

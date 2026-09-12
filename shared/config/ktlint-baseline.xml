@@ -799,7 +799,10 @@
         <error line="240" column="31" source="standard:function-signature" />
         <error line="240" column="47" source="standard:function-signature" />
         <error line="240" column="61" source="standard:function-signature" />
+        <error line="240" column="62" source="standard:function-signature" />
+        <error line="240" column="76" source="standard:function-signature" />
         <error line="240" column="80" source="standard:function-signature" />
+        <error line="240" column="95" source="standard:function-signature" />
         <error line="247" column="13" source="standard:function-naming" />
         <error line="248" column="35" source="standard:parameter-list-wrapping" />
         <error line="248" column="35" source="standard:function-signature" />
@@ -862,7 +865,10 @@
         <error line="355" column="28" source="standard:function-signature" />
         <error line="355" column="47" source="standard:function-signature" />
         <error line="355" column="61" source="standard:function-signature" />
+        <error line="355" column="62" source="standard:function-signature" />
+        <error line="355" column="76" source="standard:function-signature" />
         <error line="355" column="80" source="standard:function-signature" />
+        <error line="355" column="95" source="standard:function-signature" />
         <error line="362" column="13" source="standard:function-naming" />
         <error line="366" column="23" source="standard:trailing-comma-on-declaration-site" />
         <error line="370" column="30" source="standard:if-else-bracing" />
@@ -2534,8 +2540,8 @@
         <error line="37" column="24" source="standard:trailing-comma-on-call-site" />
     </file>
     <file name="src/jvmCommonTest/kotlin/hu/wukki/tv/JvmPlatformTextTest.kt">
-        <error line="16" column="66" source="standard:trailing-comma-on-call-site" />
-        <error line="16" column="66" source="standard:trailing-comma-on-call-site" />
+        <error line="17" column="66" source="standard:trailing-comma-on-call-site" />
+        <error line="17" column="66" source="standard:trailing-comma-on-call-site" />
     </file>
     <file name="src/jvmCommonTest/kotlin/hu/wukki/tv/JvmRemoteTextLoaderTest.kt">
         <error line="49" column="26" source="standard:multiline-expression-wrapping" />
