@@ -21,8 +21,49 @@ data class ChannelBrowserUiState(
     val showLogos: Boolean,
     val showProgrammeImages: Boolean,
     val playingChannelId: String?,
+    val emptyState: ChannelEmptyState?,
+    val playlistRefreshing: Boolean,
     val preview: ChannelPreviewUiState?,
 )
+
+enum class ChannelEmptyState {
+    NO_DATA,
+    LOAD_FAILED,
+    NO_SEARCH_RESULTS,
+    NO_FAVORITES,
+    NO_CATEGORY_RESULTS,
+}
+
+enum class ChannelEmptyAction {
+    REFRESH,
+    CLEAR_SEARCH,
+    SHOW_ALL,
+}
+
+fun channelEmptyState(
+    hasSourceChannels: Boolean,
+    visibleChannelCount: Int,
+    query: String,
+    onlyFavorites: Boolean,
+    selectedCategory: String?,
+    playlistLoadFailed: Boolean,
+): ChannelEmptyState? =
+    when {
+        visibleChannelCount > 0 -> null
+        query.isNotBlank() -> ChannelEmptyState.NO_SEARCH_RESULTS
+        onlyFavorites -> ChannelEmptyState.NO_FAVORITES
+        selectedCategory != null -> ChannelEmptyState.NO_CATEGORY_RESULTS
+        playlistLoadFailed -> ChannelEmptyState.LOAD_FAILED
+        !hasSourceChannels -> ChannelEmptyState.NO_DATA
+        else -> null
+    }
+
+fun ChannelEmptyState.action(): ChannelEmptyAction =
+    when (this) {
+        ChannelEmptyState.NO_DATA, ChannelEmptyState.LOAD_FAILED -> ChannelEmptyAction.REFRESH
+        ChannelEmptyState.NO_SEARCH_RESULTS -> ChannelEmptyAction.CLEAR_SEARCH
+        ChannelEmptyState.NO_FAVORITES, ChannelEmptyState.NO_CATEGORY_RESULTS -> ChannelEmptyAction.SHOW_ALL
+    }
 
 @Immutable
 data class ChannelBrowserRowUiState(
@@ -48,4 +89,5 @@ data class ChannelBrowserCallbacks(
     val onSelectChannel: (String) -> Unit,
     val onOpenChannel: (String) -> Unit,
     val onToggleFavorite: (String) -> Unit,
+    val onEmptyAction: (ChannelEmptyAction) -> Unit,
 )

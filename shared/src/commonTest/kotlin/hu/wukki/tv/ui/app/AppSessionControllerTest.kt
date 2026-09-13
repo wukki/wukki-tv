@@ -60,4 +60,19 @@ class AppSessionControllerTest {
             assertFalse(recreated.handleBackNavigation())
             assertEquals("", AppSessionState(true).channelNumberInput)
         }
+
+    @Test
+    fun `remote confirm performs the visible empty-state recovery`() =
+        runBlocking {
+            val session = AppSessionState(false)
+            val model = model()
+            model.setChannelQuery("missing")
+            val actions = controller(session, this, model)
+
+            assertTrue(actions.dispatchRemote(AppRemoteKey(remote = RemoteKey.CONFIRM)))
+
+            assertEquals("", model.query)
+            assertEquals(ChannelRemoteFocus.LIST, session.channelRemoteFocus)
+            assertEquals(0, session.channelListIndex)
+        }
 }

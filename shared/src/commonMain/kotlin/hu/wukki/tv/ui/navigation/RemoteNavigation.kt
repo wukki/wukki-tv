@@ -65,6 +65,7 @@ data class ChannelNavigationState(
 sealed interface ChannelNavigationEffect {
     data object None : ChannelNavigationEffect
     data object ExitToMainMenu : ChannelNavigationEffect
+    data object ActivateEmptyState : ChannelNavigationEffect
     data class ActivateFilter(val index: Int) : ChannelNavigationEffect
     data class OpenChannel(val index: Int) : ChannelNavigationEffect
     data class ToggleFavorite(val index: Int) : ChannelNavigationEffect
@@ -108,12 +109,20 @@ fun ChannelNavigationState.reduce(
         }
         ChannelRemoteFocus.LIST -> when (key) {
             RemoteKey.LEFT -> ChannelNavigationResult(safe, ChannelNavigationEffect.ExitToMainMenu)
-            RemoteKey.RIGHT -> ChannelNavigationResult(safe.copy(focus = ChannelRemoteFocus.FAVORITE))
+            RemoteKey.RIGHT -> if (channelCount == 0) {
+                ChannelNavigationResult(safe, handled = false)
+            } else {
+                ChannelNavigationResult(safe.copy(focus = ChannelRemoteFocus.FAVORITE))
+            }
             RemoteKey.UP -> if (safe.channelIndex == 0) {
                 ChannelNavigationResult(safe.copy(focus = ChannelRemoteFocus.FILTERS))
             } else ChannelNavigationResult(safe.copy(channelIndex = safe.channelIndex - 1))
             RemoteKey.DOWN -> ChannelNavigationResult(safe.copy(channelIndex = (safe.channelIndex + 1).coerceAtMost(lastChannel)))
-            RemoteKey.CONFIRM -> ChannelNavigationResult(safe, ChannelNavigationEffect.OpenChannel(safe.channelIndex))
+            RemoteKey.CONFIRM -> if (channelCount == 0) {
+                ChannelNavigationResult(safe, ChannelNavigationEffect.ActivateEmptyState)
+            } else {
+                ChannelNavigationResult(safe, ChannelNavigationEffect.OpenChannel(safe.channelIndex))
+            }
         }
         ChannelRemoteFocus.FAVORITE -> when (key) {
             RemoteKey.LEFT -> ChannelNavigationResult(safe.copy(focus = ChannelRemoteFocus.LIST))

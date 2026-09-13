@@ -53,6 +53,18 @@ class RemoteNavigationTest {
     }
 
     @Test
+    fun `empty channel list activates recovery without entering missing favorite control`() {
+        val state = ChannelNavigationState(ChannelRemoteFocus.LIST, 0, 0)
+
+        val confirm = state.reduce(RemoteKey.CONFIRM, filterCount = 2, channelCount = 0, searchHasText = false)
+        val right = state.reduce(RemoteKey.RIGHT, filterCount = 2, channelCount = 0, searchHasText = false)
+
+        assertEquals(ChannelNavigationEffect.ActivateEmptyState, confirm.effect)
+        assertFalse(right.handled)
+        assertEquals(ChannelRemoteFocus.LIST, right.state.focus)
+    }
+
+    @Test
     fun `search keeps directional keys while text exists`() {
         val result = ChannelNavigationState(ChannelRemoteFocus.SEARCH, 0, 0)
             .reduce(RemoteKey.DOWN, filterCount = 3, channelCount = 4, searchHasText = true)

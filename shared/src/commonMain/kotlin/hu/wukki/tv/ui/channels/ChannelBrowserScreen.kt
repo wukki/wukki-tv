@@ -280,7 +280,7 @@ private fun ChannelDirectory(
         } else listState.animateScrollToItem(target)
     }
     Card(modifier.onSizeChanged { viewportHeightPx = it.height }) {
-        if (state.channels.isEmpty()) Text(tr(state.language, "channels.empty"), modifier = Modifier.align(Alignment.CenterHorizontally))
+        if (state.channels.isEmpty()) ChannelEmptyContent(state, callbacks, remoteFocus, scale)
         else LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
             itemsIndexed(state.channels, key = { _, row -> row.channel.id }) { index, row ->
                 val focused = index == remoteListIndex &&

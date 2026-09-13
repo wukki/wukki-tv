@@ -175,6 +175,21 @@ class OfficialWukkiSourceTest {
     }
 
     @Test
+    fun `playlist feedback exposes retry state only when channels are unavailable`() {
+        val model = WukkiModel(AppState(), RemoteTextLoader { error("unused") }, xmlTvParser, stateSaver = {})
+
+        model.showRefreshEvent(RefreshEvent.PlaylistLoading)
+        assertTrue(model.playlistRefreshInProgress)
+        model.showRefreshEvent(RefreshEvent.Failed(AppFailure.NetworkUnavailable, playlistUnavailable = true))
+        assertFalse(model.playlistRefreshInProgress)
+        assertTrue(model.playlistLoadFailed)
+
+        model.showRefreshEvent(RefreshEvent.PlaylistLoaded(1))
+        assertFalse(model.playlistRefreshInProgress)
+        assertFalse(model.playlistLoadFailed)
+    }
+
+    @Test
     fun `channel matching prefers tvg id then normalized name`() {
         assertTrue(OfficialWukkiSource.sameChannel(channel("one", "list", tvgId = "RTL.HU"), channel("two", "list", tvgId = "rtl.hu")))
         assertTrue(OfficialWukkiSource.sameChannel(channel("one", "list", name = "RTL Kettő"), channel("two", "list", name = "RTL Ketto")))

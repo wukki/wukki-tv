@@ -3,6 +3,9 @@ package hu.wukki.tv.ui.app
 import hu.wukki.tv.LiveVideoGestures
 import hu.wukki.tv.WukkiModel
 import hu.wukki.tv.adjustSetting
+import hu.wukki.tv.ui.channels.ChannelEmptyAction
+import hu.wukki.tv.ui.channels.action
+import hu.wukki.tv.ui.channels.channelEmptyState
 import hu.wukki.tv.ui.components.tr
 import hu.wukki.tv.ui.guide.EpgGuideState
 import hu.wukki.tv.ui.guide.GuideDataSource
@@ -126,6 +129,35 @@ internal class AppSessionController(
             channelFocusedId = channelId
             channelRemoteFocus = ChannelRemoteFocus.LIST
         }
+    }
+
+    fun performChannelEmptyAction(action: ChannelEmptyAction) {
+        when (action) {
+            ChannelEmptyAction.REFRESH -> {
+                if (!model.playlistRefreshInProgress) scope.launch { model.refreshOfficialPlaylist() }
+            }
+
+            ChannelEmptyAction.CLEAR_SEARCH -> {
+                model.setChannelQuery("")
+            }
+
+            ChannelEmptyAction.SHOW_ALL -> {
+                model.showAllChannels()
+            }
+        }
+        session.channelListIndex = 0
+        session.channelRemoteFocus = ChannelRemoteFocus.LIST
+    }
+
+    private fun performCurrentChannelEmptyAction() {
+        channelEmptyState(
+            hasSourceChannels = model.hasChannels,
+            visibleChannelCount = visibleChannels.size,
+            query = model.query,
+            onlyFavorites = model.onlyFavorites,
+            selectedCategory = model.category,
+            playlistLoadFailed = model.playlistLoadFailed,
+        )?.let { performChannelEmptyAction(it.action()) }
     }
 
     fun openChannelFromBrowser(channelId: String) {
@@ -460,6 +492,10 @@ internal class AppSessionController(
                                 focusZone = TvFocusZone.MAIN_NAVIGATION
                             }
 
+                            ChannelNavigationEffect.ActivateEmptyState -> {
+                                performCurrentChannelEmptyAction()
+                            }
+
                             is ChannelNavigationEffect.ActivateFilter -> {
                                 when (action.index) {
                                     0 -> model.showAllChannels()
@@ -508,6 +544,7 @@ internal class AppSessionController(
                 },
                 onChannelPreviewSelect = ::selectChannelPreview,
                 onOpenChannel = ::openChannelFromBrowser,
+                onChannelEmptyAction = ::performChannelEmptyAction,
                 onChannelSearchOpenChange = { open ->
                     channelSearchOpen = open
                     if (open) {

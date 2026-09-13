@@ -26,6 +26,7 @@ import hu.wukki.tv.ui.channels.ChannelBrowserRowUiState
 import hu.wukki.tv.ui.channels.ChannelBrowserScreen
 import hu.wukki.tv.ui.channels.ChannelBrowserUiState
 import hu.wukki.tv.ui.channels.ChannelPreviewUiState
+import hu.wukki.tv.ui.channels.channelEmptyState
 import hu.wukki.tv.ui.components.text
 import hu.wukki.tv.ui.components.tr
 import hu.wukki.tv.ui.guide.EpgGuideScreen
@@ -91,6 +92,16 @@ private fun channelBrowserUiState(
         showLogos = model.settings.display.showLogos,
         showProgrammeImages = model.settings.display.showProgrammeImages,
         playingChannelId = playingChannelId,
+        emptyState =
+            channelEmptyState(
+                hasSourceChannels = model.hasChannels,
+                visibleChannelCount = channels.size,
+                query = model.query,
+                onlyFavorites = model.onlyFavorites,
+                selectedCategory = model.category,
+                playlistLoadFailed = model.playlistLoadFailed,
+            ),
+        playlistRefreshing = model.playlistRefreshInProgress,
         preview = null,
     )
 }
@@ -170,6 +181,8 @@ fun DashboardScreen(
                                 model.settings.language,
                                 model.settings.display,
                                 playingChannelId,
+                                model.playlistLoadFailed,
+                                model.playlistRefreshInProgress,
                                 session.tick,
                             ) { channelBrowserUiState(model, filteredChannels, session.tick, playingChannelId) }
                         val browserStateWithPreview =
@@ -187,6 +200,7 @@ fun DashboardScreen(
                                     onSelectChannel = callbacks.onChannelPreviewSelect,
                                     onOpenChannel = callbacks.onOpenChannel,
                                     onToggleFavorite = model::toggleFavorite,
+                                    onEmptyAction = callbacks.onChannelEmptyAction,
                                 ),
                             modifier = Modifier.fillMaxSize().padding(padding),
                             scale = scale.coerceAtMost(1f),

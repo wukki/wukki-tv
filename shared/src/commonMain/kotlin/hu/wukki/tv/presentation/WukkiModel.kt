@@ -79,6 +79,10 @@ class WukkiModel(
         private set
     var feedbackKind by mutableStateOf<AppFeedbackKind?>(null)
         private set
+    var playlistLoadFailed by mutableStateOf(false)
+        private set
+    var playlistRefreshInProgress by mutableStateOf(false)
+        private set
 
     /** Increments for every displayed feedback so an earlier timeout cannot dismiss a newer one. */
     var feedbackToken by mutableIntStateOf(0)
@@ -152,7 +156,17 @@ class WukkiModel(
         onlyFavorites = false
     }
 
-    suspend fun refreshOfficialPlaylist(showFeedback: Boolean = true): Boolean = application.refreshPlaylist(::showRefreshEvent, showFeedback)
+    suspend fun refreshOfficialPlaylist(showFeedback: Boolean = true): Boolean {
+        if (playlistRefreshInProgress) return false
+        playlistRefreshInProgress = true
+        return try {
+            application.refreshPlaylist(::showRefreshEvent, showFeedback).also { succeeded ->
+                if (succeeded) playlistLoadFailed = false
+            }
+        } finally {
+            playlistRefreshInProgress = false
+        }
+    }
 
     fun nextPlaylistRefreshDelayMillis(now: Long = clock.nowMillis()): Long = application.playlistRefreshDelay(now)
 
@@ -275,6 +289,27 @@ class WukkiModel(
     }
 
     internal fun showRefreshEvent(event: RefreshEvent) {
+        when (event) {
+            RefreshEvent.PlaylistLoading -> {
+                playlistRefreshInProgress = true
+            }
+
+            is RefreshEvent.PlaylistLoaded -> {
+                playlistRefreshInProgress = false
+                playlistLoadFailed = false
+            }
+
+            is RefreshEvent.Failed -> {
+                if (event.playlistUnavailable || playlistRefreshInProgress && event.sourceName == null) {
+                    playlistRefreshInProgress = false
+                    playlistLoadFailed = event.playlistUnavailable
+                }
+            }
+
+            is RefreshEvent.EpgLoading, is RefreshEvent.EpgLoaded -> {
+                // EPG refreshes do not change channel-list availability.
+            }
+        }
         val (kind, message) = event.feedback()
         showFeedback(kind, message)
     }

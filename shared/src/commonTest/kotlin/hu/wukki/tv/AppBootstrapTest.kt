@@ -7,9 +7,11 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class AppBootstrapTest {
@@ -84,6 +86,8 @@ class AppBootstrapTest {
             val ready = bootstrap.awaitReady()
 
             assertEquals(UserMessage.Key("error.wukki.playlist.unavailable", listOf(UserMessage.Key("error.network.unavailable"))), ready.model.error)
+            assertTrue(ready.model.playlistLoadFailed)
+            assertFalse(ready.model.playlistRefreshInProgress)
         }
 
     private fun dependencies(store: AppStateStore) =

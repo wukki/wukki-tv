@@ -1,6 +1,7 @@
 package hu.wukki.tv.ui.app
 
 import androidx.compose.runtime.Immutable
+import hu.wukki.tv.ui.channels.ChannelEmptyAction
 import hu.wukki.tv.ui.guide.GuideProgrammeDialogEvent
 import hu.wukki.tv.ui.navigation.DashboardSection
 import hu.wukki.tv.ui.settings.SettingsSection
@@ -13,6 +14,7 @@ data class DashboardCallbacks(
     val onChannelPreviewSelect: (String) -> Unit,
     val onOpenChannel: (String) -> Unit,
     val onChannelSearchOpenChange: (Boolean) -> Unit,
+    val onChannelEmptyAction: (ChannelEmptyAction) -> Unit,
     val onSettingsCategoryFocus: (Int) -> Unit,
     val onSettingsOptionFocus: (Int) -> Unit,
     val onShowGuideProgrammeDetails: () -> Unit,
