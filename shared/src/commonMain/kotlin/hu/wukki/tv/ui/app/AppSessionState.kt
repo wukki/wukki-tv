@@ -7,7 +7,10 @@ import hu.wukki.tv.ui.navigation.*
 
 /** Ephemeral dashboard state, owned by one composition rather than the persisted content model. */
 @Stable
-class AppSessionState(autoPlayOnLaunch: Boolean) {
+class AppSessionState(
+    autoPlayOnLaunch: Boolean,
+) {
+    var playbackRecoveryNavigation by mutableStateOf(PlaybackRecoveryNavigationState())
     var tick by mutableStateOf(System.currentTimeMillis())
     var settingsNavigation by mutableStateOf(SettingsNavigationState())
     var activeSection by mutableStateOf(if (autoPlayOnLaunch) DashboardSection.LIVE else DashboardSection.CHANNELS)

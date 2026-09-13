@@ -84,6 +84,7 @@ fun WukkiApp(
         }
     with(session) {
         with(controller) {
+            PlaybackRecoveryDialog(session, model, playbackController) { activateSection(DashboardSection.CHANNELS) }
             val uiPolicy = uiLifecyclePolicy(activeSection, uiActive, runForegroundRefreshes)
             val visibleChannels = model.filteredChannels()
             val visibleChannelIds = remember(visibleChannels) { visibleChannels.map { it.id } }
@@ -172,8 +173,6 @@ fun WukkiApp(
             LaunchedEffect(playbackController.state, automaticLaunchPending) {
                 if (automaticLaunchPending && playbackController.state == PlaybackState.ERROR) {
                     automaticLaunchPending = false
-                    activeSection = DashboardSection.CHANNELS
-                    model.showRawError(playbackController.detail ?: tr(model.settings.language, "playback.error"))
                 }
             }
             val feedbackToken = model.feedbackToken
@@ -232,6 +231,7 @@ fun WukkiApp(
                 model.settings.display.showProgrammeImages,
                 playbackController.state,
                 playbackController.detail,
+                playbackController.recovery,
             ) {
                 overlayChannel?.let { channel ->
                     playbackController.updateOverlay(
@@ -248,6 +248,7 @@ fun WukkiApp(
                             showProgrammeImages = model.settings.display.showProgrammeImages,
                             playbackState = playbackController.state,
                             playbackDetail = playbackController.detail,
+                            recovery = playbackController.recovery,
                         ),
                     )
                 }

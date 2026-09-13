@@ -7,12 +7,26 @@ package hu.wukki.tv
 interface PlaybackEngine {
     val state: PlaybackState
     val detail: String?
+    val recovery: PlaybackRecoveryState?
     val successfullyPlayedChannelId: String?
 
-    fun play(channel: Channel?, settings: PlaybackSettings, showLogos: Boolean = true, language: AppLanguage = AppLanguage.HUNGARIAN)
+    fun play(
+        channel: Channel?,
+        settings: PlaybackSettings,
+        showLogos: Boolean = true,
+        language: AppLanguage = AppLanguage.HUNGARIAN,
+    )
+
     fun updateSettings(settings: PlaybackSettings)
+
     fun updateOverlay(data: PlaybackOverlayData)
+
+    fun retry()
+
+    fun cancelReconnect()
+
     fun stop()
+
     fun release()
 }
 
@@ -21,7 +35,7 @@ data class LiveVideoGestures(
     val onTap: () -> Unit,
     val onNextChannel: () -> Unit,
     val onPreviousChannel: () -> Unit,
-    val onShowNavigation: () -> Unit
+    val onShowNavigation: () -> Unit,
 )
 
 enum class LiveTouchAction { TAP, NEXT_CHANNEL, PREVIOUS_CHANNEL, SHOW_NAVIGATION, NONE }
@@ -32,19 +46,33 @@ fun classifyLiveTouch(
     durationMillis: Long,
     thresholdPx: Float,
     maxTapDurationMillis: Long,
-    startedInTopEdge: Boolean = false
-): LiveTouchAction = when {
-    startedInTopEdge && deltaY >= thresholdPx && kotlin.math.abs(deltaY) > kotlin.math.abs(deltaX) ->
-        LiveTouchAction.SHOW_NAVIGATION
-    kotlin.math.abs(deltaY) >= thresholdPx && kotlin.math.abs(deltaY) > kotlin.math.abs(deltaX) ->
-        if (deltaY < 0f) LiveTouchAction.NEXT_CHANNEL else LiveTouchAction.PREVIOUS_CHANNEL
-    kotlin.math.abs(deltaX) < thresholdPx && kotlin.math.abs(deltaY) < thresholdPx && durationMillis <= maxTapDurationMillis ->
-        LiveTouchAction.TAP
-    else -> LiveTouchAction.NONE
-}
+    startedInTopEdge: Boolean = false,
+): LiveTouchAction =
+    when {
+        startedInTopEdge && deltaY >= thresholdPx && kotlin.math.abs(deltaY) > kotlin.math.abs(deltaX) -> {
+            LiveTouchAction.SHOW_NAVIGATION
+        }
+
+        kotlin.math.abs(deltaY) >= thresholdPx && kotlin.math.abs(deltaY) > kotlin.math.abs(deltaX) -> {
+            if (deltaY < 0f) LiveTouchAction.NEXT_CHANNEL else LiveTouchAction.PREVIOUS_CHANNEL
+        }
+
+        kotlin.math.abs(deltaX) < thresholdPx && kotlin.math.abs(deltaY) < thresholdPx && durationMillis <= maxTapDurationMillis -> {
+            LiveTouchAction.TAP
+        }
+
+        else -> {
+            LiveTouchAction.NONE
+        }
+    }
 
 enum class PlaybackState {
-    IDLE, OPENING, BUFFERING, PLAYING, RECONNECTING, ERROR
+    IDLE,
+    OPENING,
+    BUFFERING,
+    PLAYING,
+    RECONNECTING,
+    ERROR,
 }
 
 /** Data rendered above the platform video surface. */
@@ -60,7 +88,8 @@ data class PlaybackOverlayData(
     val programme: PlaybackProgrammeOverlay,
     val playbackStatus: String? = null,
     val playbackError: Boolean = false,
-    val buffering: PlaybackBufferingOverlay? = null
+    val recovery: PlaybackRecoveryState? = null,
+    val buffering: PlaybackBufferingOverlay? = null,
 )
 
 /** Fully mapped programme copy. Platform renderers only choose its size and position. */
@@ -68,8 +97,10 @@ data class PlaybackProgrammeOverlay(
     val title: String,
     val timeRange: String? = null,
     val progress: Float? = null,
-    val nextLine: String? = null
+    val nextLine: String? = null,
 )
 
 /** Keeping spinner visibility and its label together prevents partial platform rendering. */
-data class PlaybackBufferingOverlay(val label: String)
+data class PlaybackBufferingOverlay(
+    val label: String,
+)

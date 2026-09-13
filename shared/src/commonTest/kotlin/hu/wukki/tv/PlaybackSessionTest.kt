@@ -4,13 +4,23 @@ import kotlin.test.*
 
 class PlaybackSessionTest {
     private class Clock : PlaybackScheduler {
-        data class Task(val delay: Long, val action: () -> Unit, var cancelled: Boolean = false)
+        data class Task(
+            val delay: Long,
+            val action: () -> Unit,
+            var cancelled: Boolean = false,
+        )
+
         val tasks = mutableListOf<Task>()
-        override fun after(delayMillis: Long, action: () -> Unit): PlaybackCancellation {
+
+        override fun after(
+            delayMillis: Long,
+            action: () -> Unit,
+        ): PlaybackCancellation {
             val task = Task(delayMillis, action)
             tasks += task
             return PlaybackCancellation { task.cancelled = true }
         }
+
         fun next(): Long {
             val task = tasks.first { !it.cancelled }
             tasks.remove(task)
@@ -18,22 +28,36 @@ class PlaybackSessionTest {
             return task.delay
         }
     }
+
     private class Adapter : PlaybackAdapter {
         var token = 0L
         var starts = 0
         var policy: PlaybackBufferPolicy? = null
-        override fun play(channel: Channel, buffers: PlaybackBufferPolicy, generation: Long) {
-            starts++; token = generation; policy = buffers
+
+        override fun play(
+            channel: Channel,
+            buffers: PlaybackBufferPolicy,
+            generation: Long,
+        ) {
+            starts++
+            token = generation
+            policy = buffers
         }
+
         override fun stop() {}
+
         override fun volume(value: Int) {}
+
         override fun aspect(value: AspectRatioMode) {}
     }
+
     private val channel = Channel("one", "list", "One", "https://example.test/one", null, null, group = "", logo = null)
 
     @Test
     fun `three retries use the same backoff and then fail on every adapter`() {
-        val clock = Clock(); val adapter = Adapter(); val session = PlaybackSession(adapter, clock)
+        val clock = Clock()
+        val adapter = Adapter()
+        val session = PlaybackSession(adapter, clock)
         session.play(channel, PlaybackSettings(), AppLanguage.ENGLISH)
         assertEquals(PlaybackState.OPENING, session.state)
         repeat(3) { index ->
@@ -50,13 +74,16 @@ class PlaybackSessionTest {
 
     @Test
     fun `buffering is delayed and playing resets the retry budget`() {
-        val clock = Clock(); val adapter = Adapter(); val session = PlaybackSession(adapter, clock)
+        val clock = Clock()
+        val adapter = Adapter()
+        val session = PlaybackSession(adapter, clock)
         session.play(channel, PlaybackSettings(), AppLanguage.ENGLISH)
         session.bufferingStarted(adapter.token)
         assertEquals(PlaybackState.OPENING, session.state)
         assertEquals(250L, clock.next())
         assertEquals(PlaybackState.BUFFERING, session.state)
-        session.failed(adapter.token); clock.next()
+        session.failed(adapter.token)
+        clock.next()
         session.playing(adapter.token)
         assertEquals(PlaybackState.PLAYING, session.state)
         assertEquals(channel.id, session.successfullyPlayedChannelId)
@@ -66,7 +93,9 @@ class PlaybackSessionTest {
 
     @Test
     fun `cancelled buffering indicator cannot replace playing state`() {
-        val clock = Clock(); val adapter = Adapter(); val session = PlaybackSession(adapter, clock)
+        val clock = Clock()
+        val adapter = Adapter()
+        val session = PlaybackSession(adapter, clock)
         session.play(channel, PlaybackSettings(), AppLanguage.ENGLISH)
         session.bufferingStarted(adapter.token)
         val queuedCallback = clock.tasks.last().action
@@ -77,7 +106,8 @@ class PlaybackSessionTest {
 
     @Test
     fun `all profiles reach native adapters through the common policy`() {
-        val adapter = Adapter(); val session = PlaybackSession(adapter, Clock())
+        val adapter = Adapter()
+        val session = PlaybackSession(adapter, Clock())
         for (profile in BufferProfile.entries) {
             session.play(channel, PlaybackSettings(bufferProfile = profile), AppLanguage.ENGLISH)
             assertEquals(profile.bufferPolicy(), adapter.policy)
@@ -88,12 +118,16 @@ class PlaybackSessionTest {
 
     @Test
     fun `stop channel change and release reject stale events and timers`() {
-        val clock = Clock(); val adapter = Adapter(); val session = PlaybackSession(adapter, clock)
+        val clock = Clock()
+        val adapter = Adapter()
+        val session = PlaybackSession(adapter, clock)
         session.play(channel, PlaybackSettings(), AppLanguage.ENGLISH)
         val old = adapter.token
         session.failed(old)
         val staleTimer = clock.tasks.last().action
-        session.stop(); staleTimer(); session.playing(old)
+        session.stop()
+        staleTimer()
+        session.playing(old)
         assertEquals(PlaybackState.IDLE, session.state)
         assertEquals(1, adapter.starts)
         session.play(channel.copy(id = "two", streamUrl = "https://example.test/two"), PlaybackSettings(), AppLanguage.ENGLISH)
@@ -194,5 +228,42 @@ class PlaybackSessionTest {
         session.bufferingEnded(oldToken)
 
         assertEquals(PlaybackState.OPENING, session.state)
+    }
+
+    @Test
+    fun `cancel during retry opening invalidates native and scheduled callbacks`() {
+        val clock = Clock()
+        val adapter = Adapter()
+        val session = PlaybackSession(adapter, clock)
+        session.play(channel, PlaybackSettings(), AppLanguage.ENGLISH)
+        session.failed(adapter.token, "network timeout")
+        assertEquals(1, session.recovery?.reconnectAttempt)
+        val queued = clock.tasks.last().action
+        clock.next()
+        val oldToken = adapter.token
+        session.cancelReconnect()
+        queued()
+        session.playing(oldToken)
+        assertEquals(PlaybackState.ERROR, session.state)
+        assertEquals(2, adapter.starts)
+        session.retry()
+        session.retry()
+        assertEquals(3, adapter.starts)
+        assertNull(session.recovery)
+        session.playing(adapter.token)
+        assertEquals(PlaybackState.PLAYING, session.state)
+    }
+
+    @Test
+    fun `failure without automatic reconnect offers retry and channels`() {
+        val adapter = Adapter()
+        val session = PlaybackSession(adapter, Clock())
+        session.play(channel, PlaybackSettings(autoReconnect = false), AppLanguage.ENGLISH)
+        session.failed(adapter.token, "unavailable")
+        assertEquals(PlaybackOverlayAction.RETRY, session.recovery?.actions?.first())
+        assertTrue(PlaybackOverlayAction.CHANNELS in session.recovery!!.actions)
+        assertEquals("unavailable", session.recovery?.technicalDetail)
+        session.stop()
+        assertNull(session.recovery)
     }
 }

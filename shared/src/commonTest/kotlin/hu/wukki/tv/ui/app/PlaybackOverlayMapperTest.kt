@@ -60,6 +60,21 @@ class PlaybackOverlayMapperTest {
         assertEquals("Következő: Next", data.programme.nextLine)
     }
 
+    @Test
+    fun `recovery is shared by platform overlays without exposing technical error inline`() {
+        val recovery = hu.wukki.tv.PlaybackRecoveryState(
+            hu.wukki.tv.PlaybackFailureType.TIMEOUT, 2, 3, "network timeout",
+        )
+        val data = playbackOverlayData(
+            channel, programme, null, 2_000L, DashboardSection.LIVE, false, "",
+            AppLanguage.ENGLISH, false, false, PlaybackState.RECONNECTING,
+            "technical error", recovery,
+        )
+        assertEquals(recovery, data.recovery)
+        assertNull(data.playbackStatus)
+        assertEquals(listOf(hu.wukki.tv.PlaybackOverlayAction.CANCEL_RECONNECT), data.recovery?.actions)
+    }
+
     private fun overlay(
         section: DashboardSection,
         showImages: Boolean,

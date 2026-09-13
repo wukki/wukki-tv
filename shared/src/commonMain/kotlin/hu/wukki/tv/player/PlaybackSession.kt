@@ -3,8 +3,8 @@ package hu.wukki.tv
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import hu.wukki.tv.ui.components.tr
 import hu.wukki.tv.ui.components.displayName
+import hu.wukki.tv.ui.components.tr
 
 /** Engine-independent buffer budgets. Adapters translate these to their native load controls. */
 data class PlaybackBufferPolicy(
@@ -12,35 +12,54 @@ data class PlaybackBufferPolicy(
     val minBufferMs: Int,
     val maxBufferMs: Int,
     val playbackMs: Int,
-    val rebufferMs: Int
+    val rebufferMs: Int,
 )
 
-fun BufferProfile.bufferPolicy(): PlaybackBufferPolicy = when (this) {
-    BufferProfile.LOW_LATENCY -> PlaybackBufferPolicy(300, 1_000, 6_000, 500, 1_000)
-    BufferProfile.BALANCED -> PlaybackBufferPolicy(1_000, 3_000, 15_000, 1_000, 2_000)
-    BufferProfile.STABLE -> PlaybackBufferPolicy(3_000, 8_000, 30_000, 2_000, 4_000)
-}
+fun BufferProfile.bufferPolicy(): PlaybackBufferPolicy =
+    when (this) {
+        BufferProfile.LOW_LATENCY -> PlaybackBufferPolicy(300, 1_000, 6_000, 500, 1_000)
+        BufferProfile.BALANCED -> PlaybackBufferPolicy(1_000, 3_000, 15_000, 1_000, 2_000)
+        BufferProfile.STABLE -> PlaybackBufferPolicy(3_000, 8_000, 30_000, 2_000, 4_000)
+    }
 
 interface PlaybackAdapter {
-    fun play(channel: Channel, buffers: PlaybackBufferPolicy, generation: Long)
+    fun play(
+        channel: Channel,
+        buffers: PlaybackBufferPolicy,
+        generation: Long,
+    )
+
     fun stop()
+
     fun volume(value: Int)
+
     fun aspect(value: AspectRatioMode)
 }
 
-fun interface PlaybackCancellation { fun cancel() }
+fun interface PlaybackCancellation {
+    fun cancel()
+}
+
 fun interface PlaybackScheduler {
     /** Execute on the same event loop as session commands and native event delivery. */
-    fun after(delayMillis: Long, action: () -> Unit): PlaybackCancellation
+    fun after(
+        delayMillis: Long,
+        action: () -> Unit,
+    ): PlaybackCancellation
 }
 
 /** Sole owner of playback/retry policy. All calls must run on the host UI event loop. */
-class PlaybackSession(private val adapter: PlaybackAdapter, private val scheduler: PlaybackScheduler) {
+class PlaybackSession(
+    private val adapter: PlaybackAdapter,
+    private val scheduler: PlaybackScheduler,
+) {
     var state by mutableStateOf(PlaybackState.IDLE)
         private set
     var detail by mutableStateOf<String?>(null)
         private set
     var successfullyPlayedChannelId by mutableStateOf<String?>(null)
+        private set
+    var recovery by mutableStateOf<PlaybackRecoveryState?>(null)
         private set
     private var channel: Channel? = null
     private var settings = PlaybackSettings()
@@ -71,11 +90,11 @@ class PlaybackSession(private val adapter: PlaybackAdapter, private val schedule
         adapter.aspect(settings.aspectRatio)
         if (restart) {
             attempts = 0
+            recovery = null
             start()
         } else if (state == PlaybackState.RECONNECTING && (!settings.autoReconnect || attempts > settings.reconnectAttempts)) {
             cancelTimers()
-            state = PlaybackState.ERROR
-            detail = tr(language, "playback.stream.failed", next.displayName(language), tr(language, "error.unknown"))
+            finalFailure()
         }
     }
 
@@ -126,6 +145,7 @@ class PlaybackSession(private val adapter: PlaybackAdapter, private val schedule
         attempts = 0
         state = PlaybackState.PLAYING
         detail = null
+        recovery = null
         successfullyPlayedChannelId = channel?.id
     }
 
@@ -136,12 +156,25 @@ class PlaybackSession(private val adapter: PlaybackAdapter, private val schedule
         if (!accepts(token) || retry != null) return
         cancelTimers()
         val selected = channel ?: return
+        val technical = reason ?: recovery?.technicalDetail
+        recovery =
+            PlaybackRecoveryState(
+                failureType =
+                    when {
+                        technical?.contains("timeout", ignoreCase = true) == true -> PlaybackFailureType.TIMEOUT
+                        technical?.contains("network", ignoreCase = true) == true -> PlaybackFailureType.NETWORK
+                        else -> PlaybackFailureType.STREAM
+                    },
+                reconnectAttempt = null,
+                reconnectAttempts = settings.reconnectAttempts,
+                technicalDetail = technical,
+            )
         if (!settings.autoReconnect || attempts >= settings.reconnectAttempts) {
-            state = PlaybackState.ERROR
-            detail = tr(language, "playback.stream.failed", selected.displayName(language), reason ?: tr(language, "error.unknown"))
+            finalFailure()
             return
         }
         attempts++
+        recovery = recovery?.copy(reconnectAttempt = attempts)
         state = PlaybackState.RECONNECTING
         detail = tr(language, "playback.reconnect.attempt", selected.displayName(language), attempts, settings.reconnectAttempts)
         val version = timerVersion
@@ -154,12 +187,36 @@ class PlaybackSession(private val adapter: PlaybackAdapter, private val schedule
             }
     }
 
+    fun retry() {
+        if (released || state != PlaybackState.ERROR) return
+        attempts = 0
+        recovery = null
+        start()
+    }
+
+    fun cancelReconnect() {
+        if (recovery?.reconnectAttempt == null) return
+        generation++
+        cancelTimers()
+        finalFailure()
+        adapter.stop()
+    }
+
+    private fun finalFailure() {
+        state = PlaybackState.ERROR
+        recovery =
+            (recovery ?: PlaybackRecoveryState(PlaybackFailureType.STREAM, null, settings.reconnectAttempts, null))
+                .copy(reconnectAttempt = null)
+        detail = tr(language, "playback.error")
+    }
+
     fun stop() {
         paused = false
         generation++
         cancelTimers()
         state = PlaybackState.IDLE
         detail = null
+        recovery = null
         adapter.stop()
     }
 
@@ -173,6 +230,7 @@ class PlaybackSession(private val adapter: PlaybackAdapter, private val schedule
         if (!released && paused) {
             paused = false
             attempts = 0
+            recovery = null
             start()
         }
     }
