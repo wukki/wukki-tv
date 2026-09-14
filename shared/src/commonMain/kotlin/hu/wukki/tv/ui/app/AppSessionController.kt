@@ -443,8 +443,12 @@ internal class AppSessionController(
                         handleLiveNavigation(LiveNavigationVisibilityEvent.Interact)
                     }
 
-                    AppRemoteEffect.ShowGuideDetails -> {
-                        showGuideProgrammeDetails()
+                    AppRemoteEffect.ConfirmGuide -> {
+                        scope.launch {
+                            if (!guideState.confirm(guideDataSource, guideTimeline(tick, model.guideLatestProgrammeEnd()), tick)) {
+                                showGuideProgrammeDetails()
+                            }
+                        }
                     }
 
                     is AppRemoteEffect.GuideKey -> {

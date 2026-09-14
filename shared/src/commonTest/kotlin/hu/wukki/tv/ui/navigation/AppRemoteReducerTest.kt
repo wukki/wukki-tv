@@ -8,6 +8,22 @@ import kotlin.test.assertTrue
 
 class AppRemoteReducerTest {
     @Test
+    fun `closing guide details restores content focus before normal back navigation`() {
+        val state = AppRemoteState(section = DashboardSection.GUIDE, dialogVisible = true)
+        val dismissed = state.reduce(AppRemoteKey(back = true))
+        assertFalse(dismissed.state.dialogVisible)
+        assertEquals(TvFocusZone.CONTENT, dismissed.state.focus)
+        val next = dismissed.state.reduce(AppRemoteKey(remote = RemoteKey.RIGHT))
+        assertEquals(listOf(AppRemoteEffect.ResetExit, AppRemoteEffect.GuideKey(RemoteKey.RIGHT)), next.effects)
+        assertEquals(
+            TvFocusZone.MAIN_NAVIGATION,
+            dismissed.state
+                .reduce(AppRemoteKey(back = true))
+                .state.focus,
+        )
+    }
+
+    @Test
     fun `three digits then confirm selects exactly the entered channel number`() {
         var state = AppRemoteState(overlayVisible = true, preview = LiveChannelPreviewState("old"))
         for (digit in listOf("1", "2", "3")) {
@@ -54,7 +70,6 @@ class AppRemoteReducerTest {
     fun `closing non-live transient UI counts as first back`() {
         val states =
             listOf(
-                AppRemoteState(section = DashboardSection.GUIDE, dialogVisible = true),
                 AppRemoteState(section = DashboardSection.CHANNELS, searchOpen = true),
                 AppRemoteState(
                     section = DashboardSection.SETTINGS,
@@ -98,12 +113,13 @@ class AppRemoteReducerTest {
     @Test
     fun `handled live back clears an already armed exit confirmation`() {
         val armed = ExitConfirmationState(firstBackAtMillis = 100L)
-        val state = AppRemoteState(
-            navigationVisible = false,
-            requireDoubleBack = true,
-            exitConfirmation = armed,
-            nowMillis = 200L,
-        )
+        val state =
+            AppRemoteState(
+                navigationVisible = false,
+                requireDoubleBack = true,
+                exitConfirmation = armed,
+                nowMillis = 200L,
+            )
 
         val navigationRevealed = state.reduce(AppRemoteKey(back = true))
 

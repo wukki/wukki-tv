@@ -1,16 +1,5 @@
 package hu.wukki.tv.ui.guide
 
-import hu.wukki.tv.AppLanguage
-import hu.wukki.tv.Channel
-import hu.wukki.tv.Programme
-import hu.wukki.tv.ui.components.ChannelLogo
-import hu.wukki.tv.ui.components.WukkiBrushes
-import hu.wukki.tv.ui.components.WukkiColors
-import hu.wukki.tv.ui.components.displayTitle
-import hu.wukki.tv.ui.components.displayName
-import hu.wukki.tv.ui.components.formatTime
-import hu.wukki.tv.ui.components.tr
-
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -39,6 +28,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import hu.wukki.tv.AppLanguage
+import hu.wukki.tv.Channel
+import hu.wukki.tv.Programme
+import hu.wukki.tv.ui.components.ChannelLogo
+import hu.wukki.tv.ui.components.WukkiBrushes
+import hu.wukki.tv.ui.components.WukkiColors
+import hu.wukki.tv.ui.components.displayName
+import hu.wukki.tv.ui.components.displayTitle
+import hu.wukki.tv.ui.components.formatTime
+import hu.wukki.tv.ui.components.tr
 import kotlin.math.max
 import kotlin.math.min
 
@@ -50,35 +49,42 @@ internal fun GuideChannelRow(
     viewport: GuideViewport,
     state: EpgGuideState,
     metrics: GuideLayoutMetrics,
-    onProgrammeClick: (Channel, Programme) -> Unit
+    onProgrammeClick: (Channel, Programme) -> Unit,
 ) {
     val allProgrammes = data.programmesFor(channel, timeline.start, timeline.end)
     val programmes = allProgrammes.filter { programme -> programme.end > viewport.from && programme.start < viewport.to }
     val rowFocused = state.focusedChannelId == channel.id
+    val channelFocused = rowFocused && state.navigation.zone == GuideFocusZone.CHANNELS
+    val programmeFocused = rowFocused && state.navigation.zone == GuideFocusZone.PROGRAMMES
+    val channelBorder = guideChannelBorder(channelFocused)
     val density = LocalDensity.current
     val scrollPx = state.horizontalScroll.value
     Row(Modifier.fillMaxWidth().height(metrics.rowHeight).background(WukkiColors.backgroundRaised)) {
         Row(
-            modifier = Modifier.width(metrics.channelColumnWidth).fillMaxHeight()
-                .background(WukkiColors.navigationBackground).border(1.dp, GuideBorder)
-                .clickable { state.selectChannel(channel) }.padding(horizontal = 15.dp * metrics.scale),
-            verticalAlignment = Alignment.CenterVertically
+            modifier =
+                Modifier
+                    .width(metrics.channelColumnWidth)
+                    .fillMaxHeight()
+                    .background(WukkiColors.navigationBackground)
+                    .border(channelBorder)
+                    .clickable { state.selectChannel(channel, data, timeline) }
+                    .padding(horizontal = 15.dp * metrics.scale),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 channel.tvgChno?.toString() ?: "–",
                 color = WukkiColors.textPrimary,
                 fontSize = (24f * metrics.scale).sp,
                 fontWeight = FontWeight.Light,
-                modifier = Modifier.width(36.dp * metrics.scale)
+                modifier = Modifier.width(36.dp * metrics.scale),
             )
             if (data.showLogos) {
                 ChannelLogo(
                     channel = channel,
                     language = data.language,
-                    modifier = Modifier.padding(end = 8.dp * metrics.scale).size(38.dp * metrics.scale)
+                    modifier = Modifier.padding(end = 8.dp * metrics.scale).size(38.dp * metrics.scale),
                 )
-            }
-            else {
+            } else {
                 Text(
                     channel.displayName(data.language),
                     color = WukkiColors.textPrimary,
@@ -86,12 +92,16 @@ internal fun GuideChannelRow(
                     fontSize = (18f * metrics.scale).sp,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
                 )
             }
         }
         Box(
-            Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(0.dp)).clipToBounds()
+            Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .clip(RoundedCornerShape(0.dp))
+                .clipToBounds(),
         ) {
             Canvas(Modifier.matchParentSize()) {
                 viewport.tickIndices.forEach { index ->
@@ -101,7 +111,7 @@ internal fun GuideChannelRow(
                             color = GuideBorder.copy(alpha = .7f),
                             start = Offset(x, 0f),
                             end = Offset(x, size.height),
-                            strokeWidth = 1.dp.toPx()
+                            strokeWidth = 1.dp.toPx(),
                         )
                     }
                 }
@@ -115,23 +125,27 @@ internal fun GuideChannelRow(
                 ProgrammeCell(
                     programme = programme,
                     language = data.language,
-                    focused = rowFocused && state.focusedProgrammeKey == programme.guideKey(),
+                    focused = programmeFocused && state.focusedProgrammeKey == programme.guideKey(),
                     scale = metrics.scale,
-                    modifier = Modifier.offset(x = with(density) { startPx.toDp() })
-                        .width(metrics.minuteWidth * durationMinutes)
-                        .fillMaxHeight(),
+                    modifier =
+                        Modifier
+                            .offset(x = with(density) { startPx.toDp() })
+                            .width(metrics.minuteWidth * durationMinutes)
+                            .fillMaxHeight(),
                     onClick = {
                         state.selectProgramme(channel, programme)
                         onProgrammeClick(channel, programme)
-                    }
+                    },
                 )
             }
-            if (allProgrammes.isEmpty()) Text(
-                tr(data.language, "epg.none"),
-                color = GuideMuted,
-                fontSize = (15f * metrics.scale).sp,
-                modifier = Modifier.align(Alignment.CenterStart).padding(start = 18.dp * metrics.scale)
-            )
+            if (allProgrammes.isEmpty()) {
+                Text(
+                    tr(data.language, "epg.none"),
+                    color = GuideMuted,
+                    fontSize = (15f * metrics.scale).sp,
+                    modifier = Modifier.align(Alignment.CenterStart).padding(start = 18.dp * metrics.scale),
+                )
+            }
         }
     }
 }
@@ -143,15 +157,19 @@ private fun ProgrammeCell(
     focused: Boolean,
     scale: Float,
     modifier: Modifier,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ) {
     val shape = RoundedCornerShape(4.dp * scale)
     val background = if (focused) Modifier.background(WukkiBrushes.selectedSurface()) else Modifier.background(GuideSurface)
     Column(
-        modifier = modifier.padding(1.dp).clip(shape).then(background)
-            .border(if (focused) 2.dp else 1.dp, if (focused) WukkiColors.focus else GuideBorder, shape)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp * scale, vertical = 14.dp * scale)
+        modifier =
+            modifier
+                .padding(1.dp)
+                .clip(shape)
+                .then(background)
+                .border(if (focused) 2.dp else 1.dp, if (focused) WukkiColors.focus else GuideBorder, shape)
+                .clickable(onClick = onClick)
+                .padding(horizontal = 16.dp * scale, vertical = 14.dp * scale),
     ) {
         Text(
             programme.displayTitle(language),
@@ -159,7 +177,7 @@ private fun ProgrammeCell(
             fontSize = (18f * scale).sp,
             fontWeight = FontWeight.SemiBold,
             maxLines = 1,
-            overflow = TextOverflow.Ellipsis
+            overflow = TextOverflow.Ellipsis,
         )
         Spacer(Modifier.height(7.dp * scale))
         Text(
@@ -167,7 +185,13 @@ private fun ProgrammeCell(
             color = GuideMuted,
             fontSize = (15f * scale).sp,
             maxLines = 1,
-            overflow = TextOverflow.Clip
+            overflow = TextOverflow.Clip,
         )
     }
 }
+
+private fun guideChannelBorder(focused: Boolean) =
+    androidx.compose.foundation.BorderStroke(
+        if (focused) 2.dp else 1.dp,
+        if (focused) WukkiColors.focus else GuideBorder,
+    )

@@ -10,11 +10,11 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import hu.wukki.tv.ui.navigation.RemoteKey
 import hu.wukki.tv.Channel
 import hu.wukki.tv.Programme
 import hu.wukki.tv.ui.components.platformStartOfDay
 import hu.wukki.tv.ui.components.platformStartOfNextDay
+import hu.wukki.tv.ui.navigation.RemoteKey
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -26,8 +26,12 @@ internal const val HALF_HOUR_MINUTES = 30
 
 class EpgGuideState internal constructor(
     val horizontalScroll: ScrollState,
-    val verticalList: LazyListState
+    val verticalList: LazyListState,
 ) {
+    val navigation = GuideNavigationState()
+
+    fun channels(data: GuideDataSource): List<Channel> = data.channels().filter { !navigation.favoritesOnly || it.favorite }
+
     var focusedChannelId by mutableStateOf<String?>(null)
         private set
     var focusedProgrammeKey by mutableStateOf<String?>(null)
@@ -42,55 +46,94 @@ class EpgGuideState internal constructor(
     private var initialisedTimelineStart by mutableStateOf<Long?>(null)
     private var initiallyScrolledTimelineStart by mutableStateOf<Long?>(null)
 
-    fun selectProgramme(channel: Channel, programme: Programme) {
+    fun selectProgramme(
+        channel: Channel,
+        programme: Programme,
+    ) {
+        navigation.zone = GuideFocusZone.PROGRAMMES
         focusedChannelId = channel.id
         focusedProgrammeKey = programme.guideKey()
         focusTime = programme.middleTime()
     }
 
-    fun selectChannel(channel: Channel) {
+    fun selectChannel(
+        channel: Channel,
+        data: GuideDataSource,
+        timeline: GuideTimeline,
+    ) {
+        navigation.zone = GuideFocusZone.CHANNELS
         focusedChannelId = channel.id
-        focusedProgrammeKey = null
+        chooseProgrammeAt(data, channel, focusTime, timeline)
     }
 
-    fun focusCurrentProgramme(data: GuideDataSource, timeline: GuideTimeline, now: Long) {
-        val channel = data.channels().firstOrNull { it.id == data.selectedChannelId }
-            ?: data.channels().firstOrNull()
-            ?: return
+    fun focusCurrentProgramme(
+        data: GuideDataSource,
+        timeline: GuideTimeline,
+        now: Long,
+    ) {
+        navigation.favoritesOnly = false
+        navigation.zone = GuideFocusZone.HEADER
+        navigation.headerIndex = 0
+        val channel =
+            data.channels().firstOrNull { it.id == data.selectedChannelId }
+                ?: data.channels().firstOrNull()
+                ?: return
         focusedChannelId = channel.id
         chooseProgrammeAt(data, channel, now, timeline)
         guideOpenRequest++
     }
 
-    suspend fun applyGuideOpenFocus(data: GuideDataSource, channels: List<Channel>, timeline: GuideTimeline, now: Long) {
+    suspend fun applyGuideOpenFocus(
+        data: GuideDataSource,
+        channels: List<Channel>,
+        timeline: GuideTimeline,
+        now: Long,
+    ) {
         if (guideOpenRequest == 0 || channels.isEmpty()) return
         val channelIndex = channels.indexOfFirst { it.id == focusedChannelId }.takeIf { it >= 0 } ?: return
-        verticalList.scrollToItem(channelIndex)
+        verticalList.requestScrollToItem(channelIndex)
         scrollToInitialTime(timeline, now)
         guideOpenRequest = 0
     }
 
-    fun focusedProgramme(data: GuideDataSource, timeline: GuideTimeline): Pair<Channel, Programme>? {
+    fun focusedProgramme(
+        data: GuideDataSource,
+        timeline: GuideTimeline,
+    ): Pair<Channel, Programme>? {
         val channel = data.channels().firstOrNull { it.id == focusedChannelId } ?: return null
         val programmes = data.programmesFor(channel, timeline.start, timeline.end)
-        val programme = programmes.firstOrNull { it.guideKey() == focusedProgrammeKey }
-            ?: programmes.minByOrNull { abs(it.start - focusTime) }
-            ?: return null
+        val programme =
+            programmes.firstOrNull { it.guideKey() == focusedProgrammeKey }
+                ?: programmes.minByOrNull { abs(it.start - focusTime) }
+                ?: return null
         return channel to programme
     }
 
-    suspend fun initialise(data: GuideDataSource, channels: List<Channel>, timeline: GuideTimeline) {
-        if (channels.isEmpty()) return
+    suspend fun initialise(
+        data: GuideDataSource,
+        channels: List<Channel>,
+        timeline: GuideTimeline,
+    ) {
+        if (channels.isEmpty()) {
+            focusedChannelId = null
+            focusedProgrammeKey = null
+            navigation.zone = GuideFocusZone.HEADER
+            return
+        }
         val channelIds = channels.map { it.id }
-        val shouldRestoreVerticalPosition = initialisedChannelIds != channelIds ||
-            initialisedTimelineStart != timeline.start || focusedChannelId !in channelIds
-        val channelIndex = channels.indexOfFirst { it.id == focusedChannelId }.takeIf { it >= 0 }
-            ?: channels.indexOfFirst { it.id == data.selectedChannelId }.takeIf { it >= 0 }
-            ?: 0
+        val shouldRestoreVerticalPosition =
+            initialisedChannelIds != channelIds ||
+                initialisedTimelineStart != timeline.start || focusedChannelId !in channelIds
+        val channelIndex =
+            channels.indexOfFirst { it.id == focusedChannelId }.takeIf { it >= 0 }
+                ?: channels.indexOfFirst { it.id == data.selectedChannelId }.takeIf { it >= 0 }
+                ?: 0
         val channel = channels[channelIndex]
         focusedChannelId = channel.id
-        chooseProgrammeAt(data, channel, focusTime, timeline)
-        if (shouldRestoreVerticalPosition) verticalList.scrollToItem(channelIndex)
+        if (data.programmesFor(channel, timeline.start, timeline.end).none { it.guideKey() == focusedProgrammeKey }) {
+            chooseProgrammeAt(data, channel, focusTime, timeline)
+        }
+        if (shouldRestoreVerticalPosition) verticalList.requestScrollToItem(channelIndex)
         initialisedChannelIds = channelIds
         initialisedTimelineStart = timeline.start
     }
@@ -101,8 +144,14 @@ class EpgGuideState internal constructor(
         initiallyScrolledTimelineStart = timeline.start
     }
 
-    fun handleRemoteKey(key: RemoteKey, data: GuideDataSource, scope: CoroutineScope, timeline: GuideTimeline): Boolean {
-        val channels = data.channels()
+    fun handleRemoteKey(
+        key: RemoteKey,
+        data: GuideDataSource,
+        scope: CoroutineScope,
+        timeline: GuideTimeline,
+    ): Boolean {
+        val channels = channels(data)
+        if (navigation.moveFocus(key, channels.indexOfFirst { it.id == focusedChannelId })) return true
         return when (key) {
             RemoteKey.UP -> true.also { scope.launch { moveChannel(data, channels, timeline, -1) } }
             RemoteKey.DOWN -> true.also { scope.launch { moveChannel(data, channels, timeline, 1) } }
@@ -112,11 +161,19 @@ class EpgGuideState internal constructor(
         }
     }
 
-    suspend fun scrollToInitialTime(timeline: GuideTimeline, now: Long) {
+    suspend fun scrollToInitialTime(
+        timeline: GuideTimeline,
+        now: Long,
+    ) {
         scrollToTime((now - HALF_HOUR_MINUTES * 60_000L).coerceIn(timeline.start, timeline.end - 1), timeline, animate = false)
     }
 
-    private suspend fun moveChannel(data: GuideDataSource, channels: List<Channel>, timeline: GuideTimeline, delta: Int) {
+    private suspend fun moveChannel(
+        data: GuideDataSource,
+        channels: List<Channel>,
+        timeline: GuideTimeline,
+        delta: Int,
+    ) {
         if (channels.isEmpty()) return
         val current = channels.indexOfFirst { it.id == focusedChannelId }.let { if (it < 0) 0 else it }
         val target = (current + delta).coerceIn(0, channels.lastIndex)
@@ -126,45 +183,114 @@ class EpgGuideState internal constructor(
         verticalList.animateScrollToItem(target)
     }
 
-    private suspend fun moveProgramme(data: GuideDataSource, channels: List<Channel>, timeline: GuideTimeline, delta: Int) {
+    suspend fun confirm(
+        data: GuideDataSource,
+        timeline: GuideTimeline,
+        now: Long,
+    ): Boolean =
+        when (navigation.zone) {
+            GuideFocusZone.HEADER -> true.also { activateHeader(navigation.action, data, timeline, now) }
+            GuideFocusZone.CHANNELS -> true.also { navigation.zone = GuideFocusZone.PROGRAMMES }
+            GuideFocusZone.PROGRAMMES -> false
+        }
+
+    suspend fun activateHeader(
+        action: GuideHeaderAction,
+        data: GuideDataSource,
+        timeline: GuideTimeline,
+        now: Long,
+    ) {
+        guideOpenRequest = 0
+        markInitialTimelineScrollApplied(timeline)
+        navigation.zone = GuideFocusZone.HEADER
+        navigation.headerIndex = action.ordinal
+        if (action == GuideHeaderAction.ALL || action == GuideHeaderAction.FAVORITES) {
+            navigation.favoritesOnly = action == GuideHeaderAction.FAVORITES
+            val anchor = focusTime
+            initialise(data, channels(data), timeline)
+            focusTime = anchor
+            return
+        }
+        val target = navigation.targetTime(action, timeline, now, focusTime)
+        if (action == GuideHeaderAction.NOW) navigation.favoritesOnly = false
+        val channels = channels(data)
+        val preferred = if (action == GuideHeaderAction.NOW) data.selectedChannelId else focusedChannelId
+        val channel = channels.firstOrNull { it.id == preferred } ?: channels.firstOrNull()
+        if (channel != null) {
+            focusedChannelId = channel.id
+            chooseProgrammeAt(data, channel, target, timeline)
+            verticalList.requestScrollToItem(channels.indexOf(channel))
+            if (action == GuideHeaderAction.NOW || action == GuideHeaderAction.TONIGHT) {
+                navigation.zone = GuideFocusZone.PROGRAMMES
+            }
+        }
+        focusTime = target
+        scrollToInitialTime(timeline, target)
+    }
+
+    private suspend fun moveProgramme(
+        data: GuideDataSource,
+        channels: List<Channel>,
+        timeline: GuideTimeline,
+        delta: Int,
+    ) {
         val channel = channels.firstOrNull { it.id == focusedChannelId } ?: return
         val direction = delta.coerceIn(-1, 1)
         if (direction == 0) return
         val programmes = data.programmesFor(channel, timeline.start, timeline.end)
-        if (programmes.isEmpty()) return
-        val current = programmes.indexOfFirst { it.guideKey() == focusedProgrammeKey }.let { index ->
-            if (index >= 0) index else programmes.indexOfClosest(focusTime)
+        if (programmes.isEmpty()) {
+            if (direction < 0) navigation.zone = GuideFocusZone.CHANNELS
+            return
         }
+        val current =
+            programmes.indexOfFirst { it.guideKey() == focusedProgrammeKey }.let { index ->
+                if (index >= 0) index else programmes.indexOfClosest(focusTime)
+            }
         val target = current + direction
+        if (target < 0) navigation.zone = GuideFocusZone.CHANNELS
         if (target !in programmes.indices) return
         val programme = programmes[target]
         selectProgramme(channel, programme)
         ensureVisible(programme, timeline)
     }
 
-    private fun chooseProgrammeAt(data: GuideDataSource, channel: Channel, timestamp: Long, timeline: GuideTimeline) {
+    private fun chooseProgrammeAt(
+        data: GuideDataSource,
+        channel: Channel,
+        timestamp: Long,
+        timeline: GuideTimeline,
+    ) {
         val programmes = data.programmesFor(channel, timeline.start, timeline.end)
-        val programme = programmes.firstOrNull { timestamp in it.start until it.end }
-            ?: programmes.minByOrNull { abs(it.start - timestamp) }
+        val programme =
+            programmes.firstOrNull { timestamp in it.start until it.end }
+                ?: programmes.minByOrNull { abs(it.start - timestamp) }
         focusedProgrammeKey = programme?.guideKey()
         focusTime = programme?.middleTime() ?: timestamp.coerceIn(timeline.start, timeline.end - 1)
     }
 
-    private suspend fun ensureVisible(programme: Programme, timeline: GuideTimeline) {
+    private suspend fun ensureVisible(
+        programme: Programme,
+        timeline: GuideTimeline,
+    ) {
         if (viewportWidthPx <= 0) return
         val left = ((max(programme.start, timeline.start) - timeline.start) / 60_000f * pixelsPerMinute).roundToInt()
         val right = ((min(programme.end, timeline.end) - timeline.start) / 60_000f * pixelsPerMinute).roundToInt()
         val margin = (HALF_HOUR_MINUTES * pixelsPerMinute).roundToInt()
         val current = horizontalScroll.value
-        val target = when {
-            left < current + margin -> left - margin
-            right > current + viewportWidthPx - margin -> right - viewportWidthPx + margin
-            else -> current
-        }.coerceIn(0, horizontalScroll.maxValue)
+        val target =
+            when {
+                left < current + margin -> left - margin
+                right > current + viewportWidthPx - margin -> right - viewportWidthPx + margin
+                else -> current
+            }.coerceIn(0, horizontalScroll.maxValue)
         horizontalScroll.animateScrollTo(target)
     }
 
-    private suspend fun scrollToTime(time: Long, timeline: GuideTimeline, animate: Boolean) {
+    private suspend fun scrollToTime(
+        time: Long,
+        timeline: GuideTimeline,
+        animate: Boolean,
+    ) {
         val target = ((time - timeline.start) / 60_000f * pixelsPerMinute).roundToInt().coerceIn(0, horizontalScroll.maxValue)
         if (animate) horizontalScroll.animateScrollTo(target) else horizontalScroll.scrollTo(target)
     }
@@ -178,10 +304,15 @@ fun rememberEpgGuideState(): EpgGuideState {
 }
 
 internal fun Programme.guideKey(): String = "$channelId|$start|$end"
+
 private fun Programme.middleTime(): Long = (start + (end - start) / 2).coerceAtLeast(start)
+
 private fun List<Programme>.indexOfClosest(time: Long): Int = indices.minByOrNull { index -> abs(this[index].start - time) } ?: 0
 
-internal fun guideTimeline(now: Long, latestProgrammeEnd: Long?): GuideTimeline {
+internal fun guideTimeline(
+    now: Long,
+    latestProgrammeEnd: Long?,
+): GuideTimeline {
     val start = platformStartOfDay(now)
     val lastProgrammeInstant = latestProgrammeEnd?.takeIf { it > start }?.minus(1)
     val end = platformStartOfNextDay(lastProgrammeInstant ?: now)

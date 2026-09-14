@@ -59,7 +59,7 @@ sealed interface AppRemoteEffect {
 
     data object InteractNavigation : AppRemoteEffect
 
-    data object ShowGuideDetails : AppRemoteEffect
+    data object ConfirmGuide : AppRemoteEffect
 
     data class GuideKey(
         val key: RemoteKey,
@@ -124,7 +124,7 @@ fun AppRemoteState.reduce(key: AppRemoteKey): AppRemoteResult {
             }
         if (key.back) {
             return result(
-                copy(dialogVisible = false, focus = TvFocusZone.MAIN_NAVIGATION, menuIndex = activeMenuIndex),
+                copy(dialogVisible = false, focus = TvFocusZone.CONTENT),
                 AppRemoteEffect.Dialog(GuideProgrammeDialogEvent.BACK),
             )
         }
@@ -171,7 +171,7 @@ fun AppRemoteState.reduce(key: AppRemoteKey): AppRemoteResult {
         val next =
             when (effect) {
                 AppBackNavigationEffect.DISMISS_GUIDE_DIALOG -> {
-                    copy(dialogVisible = false, focus = TvFocusZone.MAIN_NAVIGATION, menuIndex = activeMenuIndex)
+                    copy(dialogVisible = false, focus = TvFocusZone.CONTENT)
                 }
 
                 AppBackNavigationEffect.CLOSE_CHANNEL_SEARCH -> {
@@ -224,7 +224,7 @@ fun AppRemoteState.reduce(key: AppRemoteKey): AppRemoteResult {
     if (section == DashboardSection.GUIDE && key.remote != null) {
         return result(
             effect =
-                if (key.remote == RemoteKey.CONFIRM) AppRemoteEffect.ShowGuideDetails else AppRemoteEffect.GuideKey(key.remote),
+                if (key.remote == RemoteKey.CONFIRM) AppRemoteEffect.ConfirmGuide else AppRemoteEffect.GuideKey(key.remote),
         )
     }
     if (section == DashboardSection.LIVE && key.remote == RemoteKey.CONFIRM) {

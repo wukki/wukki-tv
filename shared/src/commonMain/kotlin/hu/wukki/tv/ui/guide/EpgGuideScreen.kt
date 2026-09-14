@@ -63,7 +63,7 @@ fun EpgGuideScreen(
                 rowHeight = ReferenceGuideRowHeight * layoutScale,
                 timelineHeight = 70.dp * layoutScale,
             )
-        val channels = data.channels()
+        val channels = state.channels(data)
         val minuteWidthPx = with(LocalDensity.current) { metrics.minuteWidth.toPx() }
         val timeline = guideTimeline(tick, data.latestProgrammeEnd())
         val timelineWidth = metrics.minuteWidth * timeline.minutes
@@ -100,6 +100,9 @@ fun EpgGuideScreen(
         ) {
             Column(Modifier.fillMaxSize()) {
                 GuideTitle(data.language, layoutScale)
+                GuideNavigationHeader(data.language, state, layoutScale) { action ->
+                    scope.launch { state.activateHeader(action, data, timeline, tick) }
+                }
                 TimelineHeader(data.language, state, timeline, timelineWidth, viewport, tick, metrics)
                 Box(
                     modifier =
@@ -124,7 +127,7 @@ fun EpgGuideScreen(
                 ) {
                     if (channels.isEmpty()) {
                         Text(
-                            tr(data.language, "channels.empty"),
+                            tr(data.language, if (state.navigation.favoritesOnly) "epg.guide.emptyFavorites" else "channels.empty"),
                             color = GuideMuted,
                             modifier = Modifier.align(Alignment.Center),
                         )
