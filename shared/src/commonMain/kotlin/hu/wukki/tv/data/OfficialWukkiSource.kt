@@ -16,63 +16,78 @@ object OfficialWukkiSource {
      * Keeps only cache data that originated from the official M3U and rewrites it to
      * stable identifiers. All user-managed playlist and EPG sources are intentionally removed.
      */
-    fun provision(loadedState: AppState, now: Long = System.currentTimeMillis()): AppState {
+    fun provision(
+        loadedState: AppState,
+        now: Long = System.currentTimeMillis(),
+    ): AppState {
         val state = loadedState.normalized()
-        val previousOfficialIds = state.playlists
-            .filter { playlist -> playlist.source == PlaylistSource.URL && playlist.location == PLAYLIST_URL }
-            .map { it.id }
-            .toSet()
-        val cachedChannels = state.channels
-            .filter { it.playlistId in previousOfficialIds }
+        val previousOfficialIds =
+            state.playlists
+                .filter { playlist -> playlist.source == PlaylistSource.URL && playlist.location == PLAYLIST_URL }
+                .map { it.id }
+                .toSet()
+        val cachedChannels =
+            state.channels
+                .filter { it.playlistId in previousOfficialIds }
 
-        val cachedEpgSource = state.epgSources.firstOrNull { source ->
-            source.managedByPlaylist && state.epgProgrammesBySource[source.id] != null
-        }
-        val cachedProgrammes = cachedEpgSource
-            ?.let { source -> state.epgProgrammesBySource[source.id].orEmpty() }
-            .orEmpty()
-        val officialEpg = cachedEpgSource?.let { source ->
-            EpgSource(
-                id = EPG_SOURCE_ID,
-                name = "$PLAYLIST_NAME EPG",
-                url = source.url,
-                enabled = true,
-                priority = 0,
-                lastUpdatedAt = source.lastUpdatedAt,
-                managedByPlaylist = true
-            )
-        }
-        val migratedChannels = cachedChannels.map { channel ->
-            channel.copy(
-                playlistId = PLAYLIST_ID,
-                epgSourceId = channel.epgSourceId?.takeIf { it == cachedEpgSource?.id }?.let { EPG_SOURCE_ID }
-            )
-        }
-        val previousDefinition = state.playlists
-            .filter { playlist -> playlist.id in previousOfficialIds }
-            .maxByOrNull { it.updatedAt }
+        val cachedEpgSource =
+            state.epgSources.firstOrNull { source ->
+                source.managedByPlaylist && state.epgProgrammesBySource[source.id] != null
+            }
+        val cachedProgrammes =
+            cachedEpgSource
+                ?.let { source -> state.epgProgrammesBySource[source.id].orEmpty() }
+                .orEmpty()
+        val officialEpg =
+            cachedEpgSource?.let { source ->
+                EpgSource(
+                    id = EPG_SOURCE_ID,
+                    name = "$PLAYLIST_NAME EPG",
+                    url = source.url,
+                    enabled = true,
+                    priority = 0,
+                    lastUpdatedAt = source.lastUpdatedAt,
+                    managedByPlaylist = true,
+                )
+            }
+        val migratedChannels =
+            cachedChannels.map { channel ->
+                channel.copy(
+                    playlistId = PLAYLIST_ID,
+                    epgSourceId = channel.epgSourceId?.takeIf { it == cachedEpgSource?.id }?.let { EPG_SOURCE_ID },
+                )
+            }
+        val previousDefinition =
+            state.playlists
+                .filter { playlist -> playlist.id in previousOfficialIds }
+                .maxByOrNull { it.updatedAt }
         val lastChannelId = state.lastChannelId?.takeIf { id -> migratedChannels.any { it.id == id } }
 
         return state.copy(
-            playlists = listOf(
-                PlaylistDefinition(
-                    id = PLAYLIST_ID,
-                    name = PLAYLIST_NAME,
-                    location = PLAYLIST_URL,
-                    source = PlaylistSource.URL,
-                    updatedAt = previousDefinition?.updatedAt ?: 0L
-                )
-            ),
+            playlists =
+                listOf(
+                    PlaylistDefinition(
+                        id = PLAYLIST_ID,
+                        name = PLAYLIST_NAME,
+                        location = PLAYLIST_URL,
+                        source = PlaylistSource.URL,
+                        updatedAt = previousDefinition?.updatedAt ?: 0L,
+                    ),
+                ),
             channels = migratedChannels,
             programmes = emptyList(),
             epgUrl = officialEpg?.url.orEmpty(),
             lastChannelId = lastChannelId,
+            recentChannelIds = normalizedChannelHistory(state.recentChannelIds, migratedChannels),
             epgSources = officialEpg?.let(::listOf).orEmpty(),
-            epgProgrammesBySource = officialEpg?.let { mapOf(EPG_SOURCE_ID to cachedProgrammes) }.orEmpty()
+            epgProgrammesBySource = officialEpg?.let { mapOf(EPG_SOURCE_ID to cachedProgrammes) }.orEmpty(),
         )
     }
 
-    fun sameChannel(left: Channel, right: Channel): Boolean {
+    fun sameChannel(
+        left: Channel,
+        right: Channel,
+    ): Boolean {
         val leftTvgId = left.tvgId?.trim().orEmpty()
         val rightTvgId = right.tvgId?.trim().orEmpty()
         return if (leftTvgId.isNotEmpty() && rightTvgId.isNotEmpty()) {

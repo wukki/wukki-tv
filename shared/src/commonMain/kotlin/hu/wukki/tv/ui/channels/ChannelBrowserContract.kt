@@ -24,6 +24,8 @@ data class ChannelBrowserUiState(
     val emptyState: ChannelEmptyState?,
     val playlistRefreshing: Boolean,
     val preview: ChannelPreviewUiState?,
+    val onlyRecent: Boolean = false,
+    val hasPreviousChannel: Boolean = false,
 )
 
 enum class ChannelEmptyState {
@@ -31,6 +33,7 @@ enum class ChannelEmptyState {
     LOAD_FAILED,
     NO_SEARCH_RESULTS,
     NO_FAVORITES,
+    NO_RECENT,
     NO_CATEGORY_RESULTS,
 }
 
@@ -47,10 +50,12 @@ fun channelEmptyState(
     onlyFavorites: Boolean,
     selectedCategory: String?,
     playlistLoadFailed: Boolean,
+    onlyRecent: Boolean = false,
 ): ChannelEmptyState? =
     when {
         visibleChannelCount > 0 -> null
         query.isNotBlank() -> ChannelEmptyState.NO_SEARCH_RESULTS
+        onlyRecent -> ChannelEmptyState.NO_RECENT
         onlyFavorites -> ChannelEmptyState.NO_FAVORITES
         selectedCategory != null -> ChannelEmptyState.NO_CATEGORY_RESULTS
         playlistLoadFailed -> ChannelEmptyState.LOAD_FAILED
@@ -62,7 +67,7 @@ fun ChannelEmptyState.action(): ChannelEmptyAction =
     when (this) {
         ChannelEmptyState.NO_DATA, ChannelEmptyState.LOAD_FAILED -> ChannelEmptyAction.REFRESH
         ChannelEmptyState.NO_SEARCH_RESULTS -> ChannelEmptyAction.CLEAR_SEARCH
-        ChannelEmptyState.NO_FAVORITES, ChannelEmptyState.NO_CATEGORY_RESULTS -> ChannelEmptyAction.SHOW_ALL
+        ChannelEmptyState.NO_RECENT, ChannelEmptyState.NO_FAVORITES, ChannelEmptyState.NO_CATEGORY_RESULTS -> ChannelEmptyAction.SHOW_ALL
     }
 
 @Immutable
@@ -90,4 +95,6 @@ data class ChannelBrowserCallbacks(
     val onOpenChannel: (String) -> Unit,
     val onToggleFavorite: (String) -> Unit,
     val onEmptyAction: (ChannelEmptyAction) -> Unit,
+    val onSelectRecent: () -> Unit = {},
+    val onPreviousChannel: () -> Unit = {},
 )

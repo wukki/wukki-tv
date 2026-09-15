@@ -19,6 +19,7 @@ class DesktopStateStoreTest {
     private val sample =
         AppState(
             lastChannelId = "rtl",
+            recentChannelIds = listOf("rtl", "previous"),
             settings = AppSettings(language = AppLanguage.ENGLISH),
             epgSources = listOf(EpgSource("epg", "EPG", "https://example.test/epg", lastUpdatedAt = 100)),
             epgProgrammesBySource = mapOf("epg" to listOf(Programme("rtl", "News", 100, 200))),

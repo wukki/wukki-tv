@@ -61,13 +61,14 @@ internal fun ChannelEmptyContent(
                 onClick = { callbacks.onEmptyAction(action) },
                 enabled = !refreshing,
                 shape = buttonShape,
-                modifier = Modifier.then(
-                    if (remoteFocus == ChannelRemoteFocus.LIST) {
-                        Modifier.border(3.dp, WukkiColors.focus, buttonShape)
-                    } else {
-                        Modifier
-                    },
-                ),
+                modifier =
+                    Modifier.then(
+                        if (remoteFocus == ChannelRemoteFocus.LIST) {
+                            Modifier.border(3.dp, WukkiColors.focus, buttonShape)
+                        } else {
+                            Modifier
+                        },
+                    ),
             ) {
                 if (refreshing) {
                     CircularProgressIndicator(
@@ -87,22 +88,40 @@ private fun ChannelEmptyState.titleKey(): String =
         ChannelEmptyState.NO_DATA -> "channels.empty.no.data.title"
         ChannelEmptyState.LOAD_FAILED -> "channels.empty.load.failed.title"
         ChannelEmptyState.NO_SEARCH_RESULTS -> "channels.empty.search.title"
+        ChannelEmptyState.NO_RECENT -> "channels.empty.recent.title"
         ChannelEmptyState.NO_FAVORITES -> "channels.empty.favorites.title"
         ChannelEmptyState.NO_CATEGORY_RESULTS -> "channels.empty.category.title"
     }
 
 private fun ChannelEmptyState.description(state: ChannelBrowserUiState): String =
     when (this) {
-        ChannelEmptyState.NO_DATA -> tr(state.language, "channels.empty.no.data.description")
-        ChannelEmptyState.LOAD_FAILED -> tr(state.language, "channels.empty.load.failed.description")
-        ChannelEmptyState.NO_SEARCH_RESULTS -> tr(state.language, "channels.empty.search.description", state.query)
-        ChannelEmptyState.NO_FAVORITES -> tr(state.language, "channels.empty.favorites.description")
-        ChannelEmptyState.NO_CATEGORY_RESULTS ->
+        ChannelEmptyState.NO_DATA -> {
+            tr(state.language, "channels.empty.no.data.description")
+        }
+
+        ChannelEmptyState.LOAD_FAILED -> {
+            tr(state.language, "channels.empty.load.failed.description")
+        }
+
+        ChannelEmptyState.NO_SEARCH_RESULTS -> {
+            tr(state.language, "channels.empty.search.description", state.query)
+        }
+
+        ChannelEmptyState.NO_RECENT -> {
+            tr(state.language, "channels.empty.recent.description")
+        }
+
+        ChannelEmptyState.NO_FAVORITES -> {
+            tr(state.language, "channels.empty.favorites.description")
+        }
+
+        ChannelEmptyState.NO_CATEGORY_RESULTS -> {
             tr(
                 state.language,
                 "channels.empty.category.description",
                 state.selectedCategory?.displayCategoryName(state.language).orEmpty(),
             )
+        }
     }
 
 private fun ChannelEmptyState.actionLabel(state: ChannelBrowserUiState): String =

@@ -85,6 +85,7 @@ private fun channelBrowserUiState(
         query = model.query,
         selectedCategory = model.category,
         onlyFavorites = model.onlyFavorites,
+        onlyRecent = model.onlyRecent,
         channels = rows,
         displayMode = model.settings.display.channelListMode,
         showChannelProgramme = model.settings.display.showChannelProgramme,
@@ -98,11 +99,13 @@ private fun channelBrowserUiState(
                 visibleChannelCount = channels.size,
                 query = model.query,
                 onlyFavorites = model.onlyFavorites,
+                onlyRecent = model.onlyRecent,
                 selectedCategory = model.category,
                 playlistLoadFailed = model.playlistLoadFailed,
             ),
         playlistRefreshing = model.playlistRefreshInProgress,
         preview = null,
+        hasPreviousChannel = model.previousChannelId != null,
     )
 }
 
@@ -178,9 +181,11 @@ fun DashboardScreen(
                                 model.query,
                                 model.category,
                                 model.onlyFavorites,
+                                model.onlyRecent,
                                 model.settings.language,
                                 model.settings.display,
                                 playingChannelId,
+                                model.previousChannelId,
                                 model.playlistLoadFailed,
                                 model.playlistRefreshInProgress,
                                 session.tick,
@@ -196,6 +201,10 @@ fun DashboardScreen(
                                     onQueryChange = model::setChannelQuery,
                                     onSelectAll = model::showAllChannels,
                                     onSelectFavorites = model::showFavoriteChannels,
+                                    onSelectRecent = model::showRecentChannels,
+                                    onPreviousChannel = {
+                                        if (model.selectPreviousChannel()) callbacks.onSectionChange(DashboardSection.LIVE)
+                                    },
                                     onSelectCategory = model::showChannelCategory,
                                     onSelectChannel = callbacks.onChannelPreviewSelect,
                                     onOpenChannel = callbacks.onOpenChannel,

@@ -155,6 +155,7 @@ internal class AppSessionController(
             visibleChannelCount = visibleChannels.size,
             query = model.query,
             onlyFavorites = model.onlyFavorites,
+            onlyRecent = model.onlyRecent,
             selectedCategory = model.category,
             playlistLoadFailed = model.playlistLoadFailed,
         )?.let { performChannelEmptyAction(it.action()) }
@@ -383,7 +384,7 @@ internal class AppSessionController(
                     nowMillis = System.currentTimeMillis(),
                     settings = settingsNavigation,
                     channels = ChannelNavigationState(channelRemoteFocus, channelFilterIndex, channelListIndex),
-                    filterCount = model.categories().size + 2,
+                    filterCount = model.categories().size + 4,
                     channelIds = visibleChannelIds,
                     selectedChannelId = model.selectedChannelId,
                     searchHasText = model.query.isNotEmpty(),
@@ -429,6 +430,14 @@ internal class AppSessionController(
                     AppRemoteEffect.RevealNavigation -> {
                         // Keep the reducer's exit confirmation state.
                         handleLiveNavigation(LiveNavigationVisibilityEvent.Reveal(focusNavigation = true))
+                    }
+
+                    AppRemoteEffect.PreviousChannel -> {
+                        channelNumberInput = ""
+                        if (model.selectPreviousChannel()) {
+                            dismissLiveChannelPreview(hidePanel = true)
+                            overlayRequest++
+                        }
                     }
 
                     is AppRemoteEffect.SwitchChannel -> {
@@ -504,7 +513,9 @@ internal class AppSessionController(
                                 when (action.index) {
                                     0 -> model.showAllChannels()
                                     1 -> model.showFavoriteChannels()
-                                    else -> model.showChannelCategory(model.categories()[action.index - 2])
+                                    2 -> model.showRecentChannels()
+                                    3 -> if (model.selectPreviousChannel()) activateSection(DashboardSection.LIVE)
+                                    else -> model.showChannelCategory(model.categories()[action.index - 4])
                                 }
                                 channelListIndex = 0
                             }

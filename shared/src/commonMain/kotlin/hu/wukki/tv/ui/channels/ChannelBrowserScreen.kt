@@ -4,8 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,7 +21,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Favorite
@@ -59,8 +59,8 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -70,6 +70,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil3.compose.SubcomposeAsyncImage
 import hu.wukki.tv.ChannelListDisplayMode
 import hu.wukki.tv.Programme
 import hu.wukki.tv.ui.components.ChannelLogo
@@ -81,8 +82,6 @@ import hu.wukki.tv.ui.components.formatTime
 import hu.wukki.tv.ui.components.rememberWukkiImageRequest
 import hu.wukki.tv.ui.components.tr
 import hu.wukki.tv.ui.navigation.ChannelRemoteFocus
-import coil3.compose.SubcomposeAsyncImage
-
 
 /** Channels feature. */
 @Composable
@@ -96,7 +95,7 @@ fun ChannelBrowserScreen(
     remoteListIndex: Int,
     listOpenRequest: Int,
     searchOpen: Boolean,
-    onSearchOpenChange: (Boolean) -> Unit
+    onSearchOpenChange: (Boolean) -> Unit,
 ) {
     val screenFocusRequester = remember { FocusRequester() }
     val searchFocusRequester = remember { FocusRequester() }
@@ -105,8 +104,9 @@ fun ChannelBrowserScreen(
         if (searchOpen) searchFocusRequester.requestFocus() else screenFocusRequester.requestFocus()
     }
     LaunchedEffect(remoteFocus) {
-        if (remoteFocus == ChannelRemoteFocus.SEARCH) onSearchOpenChange(true)
-        else if (searchOpen) {
+        if (remoteFocus == ChannelRemoteFocus.SEARCH) {
+            onSearchOpenChange(true)
+        } else if (searchOpen) {
             callbacks.onQueryChange("")
             onSearchOpenChange(false)
         }
@@ -115,23 +115,40 @@ fun ChannelBrowserScreen(
 
     Column(
         modifier = modifier.focusRequester(screenFocusRequester).focusable(),
-        verticalArrangement = Arrangement.spacedBy(12.dp * scale)
+        verticalArrangement = Arrangement.spacedBy(12.dp * scale),
     ) {
         ChannelHeader(
-            state, callbacks, searchOpen, scale, searchFocusRequester, remoteFocus, remoteFilterIndex,
+            state,
+            callbacks,
+            searchOpen,
+            scale,
+            searchFocusRequester,
+            remoteFocus,
+            remoteFilterIndex,
             onOpenSearch = { onSearchOpenChange(true) },
-            onCloseSearch = { callbacks.onQueryChange(""); onSearchOpenChange(false) }
+            onCloseSearch = {
+                callbacks.onQueryChange("")
+                onSearchOpenChange(false)
+            },
         )
         Row(
             modifier = Modifier.fillMaxWidth().weight(1f),
-            horizontalArrangement = Arrangement.spacedBy(20.dp * scale)
+            horizontalArrangement = Arrangement.spacedBy(20.dp * scale),
         ) {
             ChannelDirectory(
-                state, callbacks, scale, remoteFocus, remoteListIndex, listOpenRequest,
-                modifier = Modifier.weight(.62f).fillMaxHeight()
+                state,
+                callbacks,
+                scale,
+                remoteFocus,
+                remoteListIndex,
+                listOpenRequest,
+                modifier = Modifier.weight(.62f).fillMaxHeight(),
             )
             ProgrammeInformation(
-                state, callbacks, scale, Modifier.weight(.38f).fillMaxHeight()
+                state,
+                callbacks,
+                scale,
+                Modifier.weight(.38f).fillMaxHeight(),
             )
         }
     }
@@ -147,7 +164,7 @@ private fun ChannelHeader(
     remoteFocus: ChannelRemoteFocus,
     remoteFilterIndex: Int,
     onOpenSearch: () -> Unit,
-    onCloseSearch: () -> Unit
+    onCloseSearch: () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(tr(state.language, "channels.title"), fontSize = (28f * scale).sp, fontWeight = FontWeight.Bold)
@@ -155,12 +172,20 @@ private fun ChannelHeader(
         if (searchOpen) {
             Row(Modifier.fillMaxWidth().height(56.dp * scale), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp * scale)) {
                 OutlinedTextField(
-                    value = state.query, onValueChange = callbacks.onQueryChange, singleLine = true,
+                    value = state.query,
+                    onValueChange = callbacks.onQueryChange,
+                    singleLine = true,
                     placeholder = { Text(tr(state.language, "channels.search")) },
                     textStyle = LocalTextStyle.current.copy(fontSize = (15f * scale).sp),
-                    modifier = Modifier.widthIn(min = 0.dp).weight(1f).fillMaxHeight().focusRequester(searchFocusRequester).onPreviewKeyEvent {
-                        if (it.type == KeyEventType.KeyDown && (it.key == Key.Escape || it.key == Key.Back)) { onCloseSearch(); true } else false
-                    }
+                    modifier =
+                        Modifier.widthIn(min = 0.dp).weight(1f).fillMaxHeight().focusRequester(searchFocusRequester).onPreviewKeyEvent {
+                            if (it.type == KeyEventType.KeyDown && (it.key == Key.Escape || it.key == Key.Back)) {
+                                onCloseSearch()
+                                true
+                            } else {
+                                false
+                            }
+                        },
                 )
                 ChannelHeaderIcon(true, tr(state.language, "channels.search.close"), scale, onCloseSearch)
             }
@@ -172,7 +197,7 @@ private fun ChannelHeader(
                     remoteFocus = remoteFocus,
                     remoteFilterIndex = remoteFilterIndex,
                     scale = scale,
-                    modifier = Modifier.weight(1f).fillMaxHeight()
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
                 )
                 ChannelHeaderIcon(false, tr(state.language, "channels.search"), scale, onOpenSearch)
             }
@@ -187,10 +212,10 @@ private fun ChannelFilters(
     remoteFocus: ChannelRemoteFocus,
     remoteFilterIndex: Int,
     scale: Float,
-    modifier: Modifier
+    modifier: Modifier,
 ) {
     val listState = rememberLazyListState()
-    val filterCount = state.categories.size + 2
+    val filterCount = state.categories.size + 4
     LaunchedEffect(remoteFocus, remoteFilterIndex, filterCount) {
         if (remoteFocus == ChannelRemoteFocus.FILTERS && remoteFilterIndex in 0 until filterCount) {
             listState.animateScrollToItem(remoteFilterIndex)
@@ -200,15 +225,15 @@ private fun ChannelFilters(
         state = listState,
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp * scale)
+        horizontalArrangement = Arrangement.spacedBy(8.dp * scale),
     ) {
         item(key = "all") {
             ChannelFilterTab(
                 tr(state.language, "channels.all"),
-                state.selectedCategory == null && !state.onlyFavorites,
+                state.selectedCategory == null && !state.onlyFavorites && !state.onlyRecent,
                 remoteFocus == ChannelRemoteFocus.FILTERS && remoteFilterIndex == 0,
                 scale,
-                callbacks.onSelectAll
+                callbacks.onSelectAll,
             )
         }
         item(key = "favorites") {
@@ -217,15 +242,27 @@ private fun ChannelFilters(
                 state.onlyFavorites,
                 remoteFocus == ChannelRemoteFocus.FILTERS && remoteFilterIndex == 1,
                 scale,
-                callbacks.onSelectFavorites
+                callbacks.onSelectFavorites,
             )
+        }
+        item(key = "recent") {
+            ChannelFilterTab(
+                tr(state.language, "channels.recent"),
+                state.onlyRecent,
+                remoteFocus == ChannelRemoteFocus.FILTERS && remoteFilterIndex == 2,
+                scale,
+                callbacks.onSelectRecent,
+            )
+        }
+        item(key = "previous-channel") {
+            PreviousChannelButton(state, callbacks, remoteFocus == ChannelRemoteFocus.FILTERS && remoteFilterIndex == 3)
         }
         itemsIndexed(state.categories, key = { _, category -> category }) { index, category ->
             ChannelFilterTab(
                 category.displayCategoryName(state.language),
                 state.selectedCategory == category && !state.onlyFavorites,
-                remoteFocus == ChannelRemoteFocus.FILTERS && remoteFilterIndex == index + 2,
-                scale
+                remoteFocus == ChannelRemoteFocus.FILTERS && remoteFilterIndex == index + 4,
+                scale,
             ) { callbacks.onSelectCategory(category) }
         }
     }
@@ -253,7 +290,12 @@ private fun ChannelFilterTab(
 }
 
 @Composable
-private fun ChannelHeaderIcon(close: Boolean, label: String, scale: Float, onClick: () -> Unit) {
+private fun ChannelHeaderIcon(
+    close: Boolean,
+    label: String,
+    scale: Float,
+    onClick: () -> Unit,
+) {
     IconButton(onClick = onClick, modifier = Modifier.size(46.dp * scale).iconButtonSemantics(label)) {
         Icon(if (close) Icons.Outlined.Close else Icons.Outlined.Search, null, modifier = Modifier.size(22.dp * scale))
     }
@@ -261,8 +303,13 @@ private fun ChannelHeaderIcon(close: Boolean, label: String, scale: Float, onCli
 
 @Composable
 private fun ChannelDirectory(
-    state: ChannelBrowserUiState, callbacks: ChannelBrowserCallbacks, scale: Float,
-    remoteFocus: ChannelRemoteFocus, remoteListIndex: Int, listOpenRequest: Int, modifier: Modifier
+    state: ChannelBrowserUiState,
+    callbacks: ChannelBrowserCallbacks,
+    scale: Float,
+    remoteFocus: ChannelRemoteFocus,
+    remoteListIndex: Int,
+    listOpenRequest: Int,
+    modifier: Modifier,
 ) {
     val listState = rememberLazyListState()
     val density = LocalDensity.current
@@ -277,28 +324,38 @@ private fun ChannelDirectory(
             val offset = -((viewportHeightPx - with(density) { rowHeight.roundToPx() }).coerceAtLeast(0) / 2)
             listState.scrollToItem(target, offset)
             centredOpenRequest = listOpenRequest
-        } else listState.animateScrollToItem(target)
+        } else {
+            listState.animateScrollToItem(target)
+        }
     }
     Card(modifier.onSizeChanged { viewportHeightPx = it.height }) {
-        if (state.channels.isEmpty()) ChannelEmptyContent(state, callbacks, remoteFocus, scale)
-        else LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
-            itemsIndexed(state.channels, key = { _, row -> row.channel.id }) { index, row ->
-                val focused = index == remoteListIndex &&
-                    (remoteFocus == ChannelRemoteFocus.LIST || remoteFocus == ChannelRemoteFocus.FAVORITE)
-                val previewed = state.preview?.channel?.id == row.channel.id
-                val playing = state.playingChannelId == row.channel.id
-                ChannelListRow(state, row, rowHeight, scale, focused, previewed, playing, callbacks)
-                if (index < state.channels.lastIndex) HorizontalDivider()
+        if (state.channels.isEmpty()) {
+            ChannelEmptyContent(state, callbacks, remoteFocus, scale)
+        } else {
+            LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
+                itemsIndexed(state.channels, key = { _, row -> row.channel.id }) { index, row ->
+                    val focused =
+                        index == remoteListIndex &&
+                            (remoteFocus == ChannelRemoteFocus.LIST || remoteFocus == ChannelRemoteFocus.FAVORITE)
+                    val previewed = state.preview?.channel?.id == row.channel.id
+                    val playing = state.playingChannelId == row.channel.id
+                    ChannelListRow(state, row, rowHeight, scale, focused, previewed, playing, callbacks)
+                    if (index < state.channels.lastIndex) HorizontalDivider()
+                }
             }
         }
     }
 }
 
-private fun rowHeight(mode: ChannelListDisplayMode, scale: Float): Dp = when (mode) {
-    ChannelListDisplayMode.COMPACT -> (64.dp * scale).coerceAtLeast(52.dp)
-    ChannelListDisplayMode.NORMAL -> (88.dp * scale).coerceAtLeast(66.dp)
-    ChannelListDisplayMode.DETAILED -> (120.dp * scale).coerceAtLeast(92.dp)
-}
+private fun rowHeight(
+    mode: ChannelListDisplayMode,
+    scale: Float,
+): Dp =
+    when (mode) {
+        ChannelListDisplayMode.COMPACT -> (64.dp * scale).coerceAtLeast(52.dp)
+        ChannelListDisplayMode.NORMAL -> (88.dp * scale).coerceAtLeast(66.dp)
+        ChannelListDisplayMode.DETAILED -> (120.dp * scale).coerceAtLeast(92.dp)
+    }
 
 @Composable
 private fun ChannelListRow(
@@ -315,7 +372,12 @@ private fun ChannelListRow(
     val compact = state.displayMode == ChannelListDisplayMode.COMPACT
     val detailed = state.displayMode == ChannelListDisplayMode.DETAILED
     val shape = RoundedCornerShape(8.dp * scale)
-    val logoSize = when (state.displayMode) { ChannelListDisplayMode.COMPACT -> 32.dp * scale; ChannelListDisplayMode.NORMAL -> 44.dp * scale; ChannelListDisplayMode.DETAILED -> 56.dp * scale }
+    val logoSize =
+        when (state.displayMode) {
+            ChannelListDisplayMode.COMPACT -> 32.dp * scale
+            ChannelListDisplayMode.NORMAL -> 44.dp * scale
+            ChannelListDisplayMode.DETAILED -> 56.dp * scale
+        }
     val stateLabel = channelStateLabel(state.language, previewed, playing)
     ListItem(
         modifier =
@@ -365,7 +427,10 @@ private fun channelStateLabel(
         tr(language, "channels.playing").takeIf { playing },
     ).joinToString(" · ")
 
-private fun channelRowColor(focused: Boolean, previewed: Boolean) = when {
+private fun channelRowColor(
+    focused: Boolean,
+    previewed: Boolean,
+) = when {
     previewed -> WukkiColors.surfaceSelected
     focused -> WukkiColors.surfaceRaised
     else -> WukkiColors.surface
@@ -406,28 +471,33 @@ private fun ChannelStatusBadge(
 }
 
 @Composable
-private fun DetailedChannelProgrammes(language: hu.wukki.tv.AppLanguage, current: Programme?, next: Programme?, scale: Float) {
+private fun DetailedChannelProgrammes(
+    language: hu.wukki.tv.AppLanguage,
+    current: Programme?,
+    next: Programme?,
+    scale: Float,
+) {
     Column(verticalArrangement = Arrangement.spacedBy(3.dp * scale)) {
         if (current == null) {
             Text(
                 tr(language, "epg.none"),
                 fontSize = (13f * scale).sp,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
             )
         } else {
             Text(
                 "${formatTime(current.start)}–${formatTime(current.end)}  ${current.displayTitle(language)}",
                 fontSize = (13f * scale).sp,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
             )
             next?.let { programme ->
                 Text(
                     "${tr(language, "epg.next")}: ${formatTime(programme.start)}  ${programme.displayTitle(language)}",
                     fontSize = (12f * scale).sp,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }
@@ -435,7 +505,12 @@ private fun DetailedChannelProgrammes(language: hu.wukki.tv.AppLanguage, current
 }
 
 @Composable
-private fun FavoriteButton(favorite: Boolean, label: String, scale: Float, onClick: () -> Unit) {
+private fun FavoriteButton(
+    favorite: Boolean,
+    label: String,
+    scale: Float,
+    onClick: () -> Unit,
+) {
     IconButton(onClick = onClick, modifier = Modifier.size(38.dp * scale).iconButtonSemantics(label)) {
         Icon(if (favorite) Icons.Outlined.Favorite else Icons.Outlined.FavoriteBorder, null, modifier = Modifier.size(27.dp * scale))
     }
@@ -446,38 +521,48 @@ private fun ProgrammeInformation(
     state: ChannelBrowserUiState,
     callbacks: ChannelBrowserCallbacks,
     scale: Float,
-    modifier: Modifier
+    modifier: Modifier,
 ) {
     SurfaceCard(modifier, contentPadding = 0.dp) {
         val preview = state.preview
-        if (preview == null) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text(tr(state.language, "channels.select"))
-        }
-        else {
+        if (preview == null) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(tr(state.language, "channels.select"))
+            }
+        } else {
             Column(
-                Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()).padding(18.dp * scale),
-                verticalArrangement = Arrangement.spacedBy(10.dp * scale)
+                Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
+                    .padding(18.dp * scale),
+                verticalArrangement = Arrangement.spacedBy(10.dp * scale),
             ) {
                 ProgrammeArtwork(state, preview, scale)
                 Text(preview.channel.displayName(state.language), fontSize = (24f * scale).sp, fontWeight = FontWeight.Bold)
                 ProgrammeTitleAndTime(state.language, preview.currentProgramme, scale)
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp * scale)) {
-                    if (preview.currentProgramme != null) ProgrammeProgress(preview.currentProgramme, preview.now, Modifier.weight(1f))
-                    else LinearProgressIndicator(progress = { 0f }, modifier = Modifier.weight(1f).height(5.dp * scale))
+                    if (preview.currentProgramme != null) {
+                        ProgrammeProgress(preview.currentProgramme, preview.now, Modifier.weight(1f))
+                    } else {
+                        LinearProgressIndicator(progress = { 0f }, modifier = Modifier.weight(1f).height(5.dp * scale))
+                    }
                     Text(formatTime(preview.now), fontSize = (12f * scale).sp)
                 }
                 Spacer(Modifier.height(8.dp * scale))
-                if (state.showMiniGuide) Text(
-                    preview.currentProgramme?.description?.takeIf { it.isNotBlank() }
-                        ?: tr(state.language, "epg.no.description"),
-                    fontSize = (13f * scale).sp
-                )
+                if (state.showMiniGuide) {
+                    Text(
+                        preview.currentProgramme?.description?.takeIf { it.isNotBlank() }
+                            ?: tr(state.language, "epg.no.description"),
+                        fontSize = (13f * scale).sp,
+                    )
+                }
             }
             HorizontalDivider()
             Box(Modifier.fillMaxWidth().padding(18.dp * scale)) {
                 Button(
                     onClick = { callbacks.onOpenChannel(preview.channel.id) },
-                    modifier = Modifier.fillMaxWidth().height(48.dp * scale)
+                    modifier = Modifier.fillMaxWidth().height(48.dp * scale),
                 ) {
                     Text(tr(state.language, "action.open"), fontSize = (14f * scale).sp)
                 }
@@ -487,12 +572,21 @@ private fun ProgrammeInformation(
 }
 
 @Composable
-private fun ProgrammeArtwork(state: ChannelBrowserUiState, preview: ChannelPreviewUiState, scale: Float) {
+private fun ProgrammeArtwork(
+    state: ChannelBrowserUiState,
+    preview: ChannelPreviewUiState,
+    scale: Float,
+) {
     val artworkUrl = preview.currentProgramme?.imageUrl?.takeIf { state.showProgrammeImages }
     val shape = RoundedCornerShape(12.dp * scale)
     Box(
-        modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(shape).background(WukkiColors.video),
-        contentAlignment = Alignment.Center
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .aspectRatio(16f / 9f)
+                .clip(shape)
+                .background(WukkiColors.video),
+        contentAlignment = Alignment.Center,
     ) {
         if (artworkUrl != null) {
             SubcomposeAsyncImage(
@@ -501,7 +595,7 @@ private fun ProgrammeArtwork(state: ChannelBrowserUiState, preview: ChannelPrevi
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
                 loading = { ProgrammeArtworkFallback(state, preview, scale) },
-                error = { ProgrammeArtworkFallback(state, preview, scale) }
+                error = { ProgrammeArtworkFallback(state, preview, scale) },
             )
         } else {
             ProgrammeArtworkFallback(state, preview, scale)
@@ -510,37 +604,53 @@ private fun ProgrammeArtwork(state: ChannelBrowserUiState, preview: ChannelPrevi
 }
 
 @Composable
-private fun ProgrammeArtworkFallback(state: ChannelBrowserUiState, preview: ChannelPreviewUiState, scale: Float) {
+private fun ProgrammeArtworkFallback(
+    state: ChannelBrowserUiState,
+    preview: ChannelPreviewUiState,
+    scale: Float,
+) {
     if (state.showLogos) {
         ChannelLogo(
             channel = preview.channel,
             language = state.language,
-            modifier = Modifier.fillMaxWidth(.45f).fillMaxHeight(.45f)
+            modifier = Modifier.fillMaxWidth(.45f).fillMaxHeight(.45f),
         )
     } else {
         Text(
             text = preview.channel.displayName(state.language),
             fontSize = (22f * scale).sp,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(16.dp * scale)
+            modifier = Modifier.padding(16.dp * scale),
         )
     }
 }
 
 @Composable
-private fun ProgrammeTitleAndTime(language: hu.wukki.tv.AppLanguage, programme: Programme?, scale: Float) {
+private fun ProgrammeTitleAndTime(
+    language: hu.wukki.tv.AppLanguage,
+    programme: Programme?,
+    scale: Float,
+) {
     Text(programme?.displayTitle(language) ?: tr(language, "epg.none"), fontSize = (17f * scale).sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
     Text(programme?.let { "${formatTime(it.start)} – ${formatTime(it.end)}" } ?: tr(language, "epg.none.description"), fontSize = (13f * scale).sp)
 }
 
 @Composable
-private fun ProgrammeProgress(programme: Programme, now: Long, modifier: Modifier = Modifier) {
+private fun ProgrammeProgress(
+    programme: Programme,
+    now: Long,
+    modifier: Modifier = Modifier,
+) {
     val progress = ((now - programme.start).toFloat() / (programme.end - programme.start).coerceAtLeast(1)).coerceIn(0f, 1f)
     LinearProgressIndicator(progress = { progress }, modifier = modifier.fillMaxWidth().height(5.dp))
 }
 
 @Composable
-private fun SurfaceCard(modifier: Modifier, contentPadding: Dp, content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
+private fun SurfaceCard(
+    modifier: Modifier,
+    contentPadding: Dp,
+    content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit,
+) {
     Card(modifier = modifier) {
         Column(Modifier.fillMaxSize().padding(contentPadding), content = content)
     }

@@ -25,6 +25,7 @@ class WukkiModel(
 
     private val clock: Clock get() = application.clock
     private var channels by mutableStateOf(application.store.current.channels, referentialEqualityPolicy())
+    private var recentChannelIds by mutableStateOf(application.store.current.recentChannelIds)
     private var playlists by mutableStateOf(application.store.current.playlists, referentialEqualityPolicy())
     var settings by mutableStateOf(application.store.current.settings)
         private set
@@ -49,6 +50,8 @@ class WukkiModel(
         private set
     var category by mutableStateOf<String?>(null)
         private set
+    var onlyRecent by mutableStateOf(false)
+        private set
     var onlyFavorites by mutableStateOf(false)
         private set
     private val channelDirectoryState =
@@ -66,7 +69,7 @@ class WukkiModel(
                         .sorted()
                         .toList(),
                 filteredChannels =
-                    sortedChannels.filter { channel ->
+                    (if (onlyRecent) recentChannelIds.mapNotNull { id -> sortedChannels.firstOrNull { it.id == id } } else sortedChannels).filter { channel ->
                         (!onlyFavorites || channel.favorite) &&
                             (category == null || channelCategoryName(channel) == category) &&
                             (query.isBlank() || normalize(channel.name).contains(normalizedQuery))
@@ -96,6 +99,7 @@ class WukkiModel(
         application.store.observe { next ->
             val previousChannels = channels
             state = next
+            recentChannelIds = next.recentChannelIds
             if (next.channels !== previousChannels) {
                 channels = next.channels
                 selectedChannelId = matchingChannelId(selectedChannelId, previousChannels, next.channels)
@@ -143,17 +147,34 @@ class WukkiModel(
 
     fun showAllChannels() {
         category = null
+        onlyRecent = false
         onlyFavorites = false
     }
 
     fun showFavoriteChannels() {
         category = null
+        onlyRecent = false
         onlyFavorites = true
     }
 
     fun showChannelCategory(value: String) {
         category = value
+        onlyRecent = false
         onlyFavorites = false
+    }
+
+    fun showRecentChannels() {
+        category = null
+        onlyFavorites = false
+        onlyRecent = true
+    }
+
+    val previousChannelId: String? get() = recentChannelIds.firstOrNull { it != selectedChannelId && channelById(it) != null }
+
+    fun selectPreviousChannel(): Boolean {
+        val previous = previousChannelId ?: return false
+        selectChannel(previous)
+        return true
     }
 
     suspend fun refreshOfficialPlaylist(showFeedback: Boolean = true): Boolean {
@@ -300,7 +321,7 @@ class WukkiModel(
             }
 
             is RefreshEvent.Failed -> {
-                if (event.playlistUnavailable || playlistRefreshInProgress && event.sourceName == null) {
+                if (event.playlistUnavailable || (playlistRefreshInProgress && event.sourceName == null)) {
                     playlistRefreshInProgress = false
                     playlistLoadFailed = event.playlistUnavailable
                 }

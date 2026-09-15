@@ -67,7 +67,15 @@ class StoreChannelRepository(
                 channels.map { fresh ->
                     fresh.copy(favorite = state.channels.firstOrNull { OfficialWukkiSource.sameChannel(it, fresh) }?.favorite == true)
                 }
-            state.copy(channels = merged, lastChannelId = matchingChannelId(state.lastChannelId, state.channels, merged))
+            state.copy(
+                channels = merged,
+                lastChannelId = matchingChannelId(state.lastChannelId, state.channels, merged),
+                recentChannelIds =
+                    normalizedChannelHistory(
+                        state.recentChannelIds.mapNotNull { matchingChannelId(it, state.channels, merged) },
+                        merged,
+                    ),
+            )
         }
 
     override fun markRefreshed(at: Long) = store.update { it.copy(playlists = listOf(it.playlists.single().copy(updatedAt = at))) }
@@ -78,7 +86,7 @@ class StoreChannelRepository(
         }
 
     override fun markPlaybackSuccessful(id: String) {
-        if (channels.any { it.id == id }) store.update { it.copy(lastChannelId = id) }
+        if (channels.any { it.id == id }) store.update { it.copy(lastChannelId = id, recentChannelIds = normalizedChannelHistory(listOf(id) + it.recentChannelIds, channels)) }
     }
 }
 

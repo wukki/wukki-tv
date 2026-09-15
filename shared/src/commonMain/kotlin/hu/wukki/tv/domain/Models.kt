@@ -3,10 +3,22 @@ package hu.wukki.tv
 import kotlinx.serialization.Serializable as KotlinSerializable
 
 @KotlinSerializable enum class PlaylistSource { URL, FILE }
+
 @KotlinSerializable enum class AppLanguage { HUNGARIAN, ENGLISH }
-@KotlinSerializable enum class RefreshInterval(val hours: Int) { MANUAL(0), SIX_HOURS(6), TWELVE_HOURS(12), DAILY(24) }
+
+@KotlinSerializable enum class RefreshInterval(
+    val hours: Int,
+) {
+    MANUAL(0),
+    SIX_HOURS(6),
+    TWELVE_HOURS(12),
+    DAILY(24),
+}
+
 @KotlinSerializable enum class BufferProfile { LOW_LATENCY, BALANCED, STABLE }
+
 @KotlinSerializable enum class AspectRatioMode { AUTO, RATIO_16_9, RATIO_4_3, RATIO_21_9, FILL_CROP }
+
 @KotlinSerializable enum class ChannelListDisplayMode { COMPACT, NORMAL, DETAILED }
 
 @KotlinSerializable
@@ -16,7 +28,7 @@ data class PlaybackSettings(
     val autoPlayOnLaunch: Boolean = true,
     val autoReconnect: Boolean = true,
     val reconnectAttempts: Int = 3,
-    val aspectRatio: AspectRatioMode = AspectRatioMode.AUTO
+    val aspectRatio: AspectRatioMode = AspectRatioMode.AUTO,
 )
 
 @KotlinSerializable
@@ -26,7 +38,7 @@ data class DisplaySettings(
     val showChannelProgramme: Boolean = true,
     val showMiniGuide: Boolean = true,
     val showLogos: Boolean = true,
-    val showProgrammeImages: Boolean = true
+    val showProgrammeImages: Boolean = true,
 )
 
 @KotlinSerializable
@@ -35,7 +47,7 @@ data class AppSettings(
     val playlistRefresh: RefreshInterval = RefreshInterval.MANUAL,
     val epgRefresh: RefreshInterval = RefreshInterval.MANUAL,
     val playback: PlaybackSettings = PlaybackSettings(),
-    val display: DisplaySettings = DisplaySettings()
+    val display: DisplaySettings = DisplaySettings(),
 )
 
 @KotlinSerializable
@@ -46,7 +58,7 @@ data class EpgSource(
     val enabled: Boolean = true,
     val priority: Int = 0,
     val lastUpdatedAt: Long? = null,
-    val managedByPlaylist: Boolean = false
+    val managedByPlaylist: Boolean = false,
 )
 
 @KotlinSerializable
@@ -55,7 +67,7 @@ data class PlaylistDefinition(
     val name: String,
     val location: String,
     val source: PlaylistSource,
-    val updatedAt: Long
+    val updatedAt: Long,
 )
 
 @KotlinSerializable
@@ -73,7 +85,7 @@ data class Channel(
     val epgChannelId: String? = null,
     val epgSourceId: String? = null,
     /** Optional M3U `tvg-shift`, expressed in hours, applied when this channel's EPG is shown. */
-    val tvgShiftHours: Double? = null
+    val tvgShiftHours: Double? = null,
 )
 
 @KotlinSerializable
@@ -84,7 +96,7 @@ data class Programme(
     val end: Long,
     val description: String? = null,
     /** Optional artwork URL supplied by XMLTV's programme icon metadata. */
-    val imageUrl: String? = null
+    val imageUrl: String? = null,
 )
 
 @KotlinSerializable
@@ -95,37 +107,52 @@ data class AppState(
     val epgUrl: String = "",
     val autoRefreshHours: Int = 0,
     val lastChannelId: String? = null,
+    val recentChannelIds: List<String> = emptyList(),
     val settings: AppSettings = AppSettings(),
     val epgSources: List<EpgSource> = emptyList(),
-    val epgProgrammesBySource: Map<String, List<Programme>> = emptyMap()
+    val epgProgrammesBySource: Map<String, List<Programme>> = emptyMap(),
 ) {
     fun normalized(): AppState {
-        val legacyPlaylistRefresh = RefreshInterval.entries.firstOrNull { it.hours == autoRefreshHours }
-            ?: RefreshInterval.MANUAL
-        val migratedSettings = if (autoRefreshHours > 0 && settings.playlistRefresh == RefreshInterval.MANUAL) {
-            settings.copy(playlistRefresh = legacyPlaylistRefresh)
-        } else settings
-        val migratedSources = epgSources.ifEmpty { epgUrl.takeIf { it.isNotBlank() }?.let {
-            listOf(EpgSource(id = "legacy-epg", name = "EPG", url = it, lastUpdatedAt = null))
-        }.orEmpty() }
-        val migratedCache = epgProgrammesBySource.ifEmpty {
-            migratedSources.firstOrNull()?.let { mapOf(it.id to programmes) }.orEmpty()
-        }
-        val migratedChannels = channels.map { channel ->
-            channel.copy(
-                name = channel.name.takeUnless { it.trim().equals(LEGACY_UNKNOWN_CHANNEL_NAME, ignoreCase = true) }
-                    ?: UNKNOWN_CHANNEL_NAME_ID,
-                group = channel.group.takeUnless { it.isBlank() || it.trim().equals(LEGACY_OTHER_CATEGORY_NAME, ignoreCase = true) }
-                    ?: OTHER_CATEGORY_ID
-            )
-        }
+        val legacyPlaylistRefresh =
+            RefreshInterval.entries.firstOrNull { it.hours == autoRefreshHours }
+                ?: RefreshInterval.MANUAL
+        val migratedSettings =
+            if (autoRefreshHours > 0 && settings.playlistRefresh == RefreshInterval.MANUAL) {
+                settings.copy(playlistRefresh = legacyPlaylistRefresh)
+            } else {
+                settings
+            }
+        val migratedSources =
+            epgSources.ifEmpty {
+                epgUrl
+                    .takeIf { it.isNotBlank() }
+                    ?.let {
+                        listOf(EpgSource(id = "legacy-epg", name = "EPG", url = it, lastUpdatedAt = null))
+                    }.orEmpty()
+            }
+        val migratedCache =
+            epgProgrammesBySource.ifEmpty {
+                migratedSources.firstOrNull()?.let { mapOf(it.id to programmes) }.orEmpty()
+            }
+        val migratedChannels =
+            channels.map { channel ->
+                channel.copy(
+                    name =
+                        channel.name.takeUnless { it.trim().equals(LEGACY_UNKNOWN_CHANNEL_NAME, ignoreCase = true) }
+                            ?: UNKNOWN_CHANNEL_NAME_ID,
+                    group =
+                        channel.group.takeUnless { it.isBlank() || it.trim().equals(LEGACY_OTHER_CATEGORY_NAME, ignoreCase = true) }
+                            ?: OTHER_CATEGORY_ID,
+                )
+            }
         return copy(
+            recentChannelIds = normalizedChannelHistory(recentChannelIds.ifEmpty { listOfNotNull(lastChannelId) }, migratedChannels),
             settings = migratedSettings,
             autoRefreshHours = 0,
             channels = migratedChannels,
             programmes = emptyList(),
             epgSources = migratedSources,
-            epgProgrammesBySource = migratedCache
+            epgProgrammesBySource = migratedCache,
         )
     }
 }
