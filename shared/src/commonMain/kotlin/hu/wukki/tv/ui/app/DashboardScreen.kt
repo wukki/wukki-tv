@@ -271,6 +271,12 @@ fun DashboardScreen(
                 }
             }
         }
+        if (session.activeSection == DashboardSection.LIVE && session.programmeOverlayVisible) {
+            androidx.compose.material3.Button(
+                onClick = { session.quickSettingsVisible = true },
+                modifier = Modifier.align(Alignment.CenterEnd).padding(16.dp),
+            ) { androidx.compose.material3.Text(tr(model.settings.language, "playback.quick.title")) }
+        }
         if (session.activeSection == DashboardSection.LIVE) {
             AnimatedVisibility(
                 visible = session.liveNavigationState.visible,

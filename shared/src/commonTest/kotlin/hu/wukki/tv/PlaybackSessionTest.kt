@@ -1,6 +1,9 @@
 package hu.wukki.tv
 
-import kotlin.test.*
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class PlaybackSessionTest {
     private class Clock : PlaybackScheduler {
@@ -31,6 +34,7 @@ class PlaybackSessionTest {
 
     private class Adapter : PlaybackAdapter {
         var token = 0L
+        var aspect = AspectRatioMode.AUTO
         var starts = 0
         var policy: PlaybackBufferPolicy? = null
 
@@ -48,10 +52,32 @@ class PlaybackSessionTest {
 
         override fun volume(value: Int) {}
 
-        override fun aspect(value: AspectRatioMode) {}
+        override fun aspect(value: AspectRatioMode) {
+            aspect = value
+        }
     }
 
     private val channel = Channel("one", "list", "One", "https://example.test/one", null, null, group = "", logo = null)
+
+    @Test
+    fun `quick aspect applies without restart survives volume edits and resets on channel change`() {
+        val adapter = Adapter()
+        val session = PlaybackSession(adapter, Clock())
+        val saved = PlaybackSettings(aspectRatio = AspectRatioMode.RATIO_16_9)
+        session.play(channel, saved, AppLanguage.ENGLISH)
+        session.setQuickAspectRatio(AspectRatioMode.RATIO_4_3)
+        assertEquals(AspectRatioMode.RATIO_4_3, adapter.aspect)
+        assertEquals(1, adapter.starts)
+        session.updateSettings(saved.copy(volume = 50))
+        assertEquals(AspectRatioMode.RATIO_4_3, adapter.aspect)
+        session.play(channel.copy(id = "two", streamUrl = "https://example.test/two"), saved, AppLanguage.ENGLISH)
+        assertEquals(AspectRatioMode.RATIO_16_9, adapter.aspect)
+        session.setQuickAspectRatio(AspectRatioMode.FILL_CROP)
+        session.stop()
+        session.play(channel, saved, AppLanguage.ENGLISH)
+        assertEquals(AspectRatioMode.RATIO_16_9, adapter.aspect)
+        assertEquals(AspectRatioMode.RATIO_16_9, saved.aspectRatio)
+    }
 
     @Test
     fun `three retries use the same backoff and then fail on every adapter`() {

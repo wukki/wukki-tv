@@ -12,6 +12,7 @@ data class AppRemoteKey(
     val channelDelta: Int? = null,
     val preview: LiveChannelPreviewEvent? = null,
     val previousChannel: Boolean = false,
+    val quickSettings: Boolean = false,
 )
 
 data class AppRemoteState(
@@ -36,6 +37,8 @@ data class AppRemoteState(
 )
 
 sealed interface AppRemoteEffect {
+    data object ShowQuickSettings : AppRemoteEffect
+
     data object PreviousChannel : AppRemoteEffect
 
     data object ShowExitHint : AppRemoteEffect
@@ -212,6 +215,10 @@ fun AppRemoteState.reduce(key: AppRemoteKey): AppRemoteResult {
                 }
             }
         return result(next, AppRemoteEffect.Back(effect))
+    }
+    val quickSettingsRequested = key.quickSettings || (overlayVisible && focus == TvFocusZone.CONTENT && key.remote == RemoteKey.RIGHT)
+    if (section == DashboardSection.LIVE && quickSettingsRequested) {
+        return result(effect = AppRemoteEffect.ShowQuickSettings)
     }
     if (section == DashboardSection.LIVE && key.previousChannel) return result(effect = AppRemoteEffect.PreviousChannel)
     if (section == DashboardSection.LIVE && key.channelDelta != null) return result(effect = AppRemoteEffect.SwitchChannel(key.channelDelta))

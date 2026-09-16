@@ -78,6 +78,42 @@ class PlaybackController(
     override val state get() = session.state
     override val recovery get() = session.recovery
 
+    override fun quickSettings() =
+        runCatching {
+            val native = component?.mediaPlayer()
+            PlaybackQuickSettings(
+                aspect = session.effectiveAspect,
+                audio =
+                    native?.audio()?.trackDescriptions().orEmpty().filter { it.id() >= 0 }.map {
+                        PlaybackTrack(it.id().toString(), it.description(), native?.audio()?.track() == it.id())
+                    },
+                subtitles =
+                    selectablePlaybackTracks(
+                        native?.subpictures()?.trackDescriptions().orEmpty().map {
+                            PlaybackTrack(if (it.id() == -1) "off" else it.id().toString(), it.description(), native?.subpictures()?.track() == it.id())
+                        },
+                        QuickSetting.SUBTITLES,
+                    ),
+            )
+        }.getOrElse { PlaybackQuickSettings(aspect = session.effectiveAspect) }
+
+    override fun setQuickAspectRatio(value: AspectRatioMode) = session.setQuickAspectRatio(value)
+
+    override fun selectTrack(
+        setting: QuickSetting,
+        id: String,
+    ) {
+        val available = quickSettings()
+        val tracks = if (setting == QuickSetting.AUDIO) available.audio else available.subtitles
+        if (tracks.none { it.id == id }) return
+        val native = component?.mediaPlayer() ?: return
+        if (setting == QuickSetting.AUDIO) {
+            native.audio().setTrack(id.toInt())
+        } else {
+            native.subpictures().setTrack(if (id == "off") -1 else id.toInt())
+        }
+    }
+
     override fun retry() = session.retry()
 
     override fun cancelReconnect() = session.cancelReconnect()

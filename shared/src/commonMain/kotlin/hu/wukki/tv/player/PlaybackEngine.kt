@@ -21,6 +21,15 @@ interface PlaybackEngine {
 
     fun updateOverlay(data: PlaybackOverlayData)
 
+    fun quickSettings(): PlaybackQuickSettings = PlaybackQuickSettings()
+
+    fun setQuickAspectRatio(value: AspectRatioMode) {}
+
+    fun selectTrack(
+        setting: QuickSetting,
+        id: String,
+    ) {}
+
     fun retry()
 
     fun cancelReconnect()

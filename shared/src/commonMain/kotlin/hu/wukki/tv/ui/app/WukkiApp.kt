@@ -84,7 +84,7 @@ fun WukkiApp(
         }
     with(session) {
         with(controller) {
-            PlaybackRecoveryDialog(session, model, playbackController) { activateSection(DashboardSection.CHANNELS) }
+            PlaybackDialogs(session, model, playbackController) { activateSection(DashboardSection.CHANNELS) }
             val uiPolicy = uiLifecyclePolicy(activeSection, uiActive, runForegroundRefreshes)
             val visibleChannels = model.filteredChannels()
             val visibleChannelIds = remember(visibleChannels) { visibleChannels.map { it.id } }

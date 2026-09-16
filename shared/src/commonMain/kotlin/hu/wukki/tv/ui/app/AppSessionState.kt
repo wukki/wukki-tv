@@ -1,15 +1,26 @@
 package hu.wukki.tv.ui.app
 
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import hu.wukki.tv.DeviceInfo
 import hu.wukki.tv.ui.guide.GuideProgrammeDialogState
-import hu.wukki.tv.ui.navigation.*
+import hu.wukki.tv.ui.navigation.ChannelRemoteFocus
+import hu.wukki.tv.ui.navigation.DashboardSection
+import hu.wukki.tv.ui.navigation.ExitConfirmationState
+import hu.wukki.tv.ui.navigation.LiveChannelPreviewState
+import hu.wukki.tv.ui.navigation.LiveNavigationVisibilityState
+import hu.wukki.tv.ui.navigation.SettingsNavigationState
+import hu.wukki.tv.ui.navigation.TvFocusZone
 
 /** Ephemeral dashboard state, owned by one composition rather than the persisted content model. */
 @Stable
 class AppSessionState(
     autoPlayOnLaunch: Boolean,
 ) {
+    var quickSettingsVisible by mutableStateOf(false)
     var playbackRecoveryNavigation by mutableStateOf(PlaybackRecoveryNavigationState())
     var tick by mutableStateOf(System.currentTimeMillis())
     var settingsNavigation by mutableStateOf(SettingsNavigationState())

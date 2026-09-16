@@ -432,6 +432,10 @@ internal class AppSessionController(
                         handleLiveNavigation(LiveNavigationVisibilityEvent.Reveal(focusNavigation = true))
                     }
 
+                    AppRemoteEffect.ShowQuickSettings -> {
+                        quickSettingsVisible = true
+                    }
+
                     AppRemoteEffect.PreviousChannel -> {
                         channelNumberInput = ""
                         if (model.selectPreviousChannel()) {

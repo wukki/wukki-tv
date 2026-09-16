@@ -80,6 +80,22 @@ class AndroidPlaybackController(
     override val state get() = session.state
     override val recovery get() = session.recovery
 
+    override fun quickSettings() =
+        PlaybackQuickSettings(
+            aspect = session.effectiveAspect,
+            audio = player?.playbackTracks(QuickSetting.AUDIO).orEmpty(),
+            subtitles = player?.playbackTracks(QuickSetting.SUBTITLES).orEmpty(),
+        )
+
+    override fun setQuickAspectRatio(value: AspectRatioMode) = session.setQuickAspectRatio(value)
+
+    override fun selectTrack(
+        setting: QuickSetting,
+        id: String,
+    ) {
+        player?.selectPlaybackTrack(setting, id)
+    }
+
     override fun retry() = session.retry()
 
     override fun cancelReconnect() = session.cancelReconnect()

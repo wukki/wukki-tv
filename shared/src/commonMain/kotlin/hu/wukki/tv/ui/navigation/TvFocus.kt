@@ -39,6 +39,7 @@ fun Key.livePreviewEvent(): LiveChannelPreviewEvent? =
 /** Translation only: no screen-specific routing belongs in the platform adapter. */
 fun Key.toAppRemoteKey(): AppRemoteKey =
     AppRemoteKey(
+        quickSettings = this == Key.F9 || this == Key.Menu,
         previousChannel = this == Key.F8 || this == Key.MediaPrevious,
         remote = toRemoteKey(),
         back = isBackKey(),

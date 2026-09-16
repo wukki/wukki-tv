@@ -73,12 +73,22 @@ class PlaybackSession(
     private var released = false
     private var paused = false
 
+    private var quickAspect by mutableStateOf<AspectRatioMode?>(null)
+    val effectiveAspect: AspectRatioMode get() = quickAspect ?: settings.aspectRatio
+
+    fun setQuickAspectRatio(value: AspectRatioMode) {
+        if (released || channel == null) return
+        quickAspect = value
+        adapter.aspect(value)
+    }
+
     fun play(
         next: Channel?,
         nextSettings: PlaybackSettings,
         nextLanguage: AppLanguage,
     ) {
         if (released || next == null) return
+        if (next.id != channel?.id || next.streamUrl != channel?.streamUrl || state == PlaybackState.IDLE) quickAspect = null
         val restart =
             next.streamUrl != channel?.streamUrl || settings.bufferProfile != nextSettings.bufferProfile ||
                 state == PlaybackState.IDLE || state == PlaybackState.ERROR
@@ -87,7 +97,7 @@ class PlaybackSession(
         language = nextLanguage
         paused = false
         adapter.volume(settings.volume)
-        adapter.aspect(settings.aspectRatio)
+        adapter.aspect(effectiveAspect)
         if (restart) {
             attempts = 0
             recovery = null
@@ -110,7 +120,7 @@ class PlaybackSession(
         try {
             adapter.play(selected, settings.bufferProfile.bufferPolicy(), generation)
             adapter.volume(settings.volume)
-            adapter.aspect(settings.aspectRatio)
+            adapter.aspect(effectiveAspect)
         } catch (exception: Exception) {
             failed(generation, exception.message)
         }
@@ -212,6 +222,7 @@ class PlaybackSession(
 
     fun stop() {
         paused = false
+        quickAspect = null
         generation++
         cancelTimers()
         state = PlaybackState.IDLE

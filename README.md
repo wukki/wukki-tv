@@ -21,6 +21,8 @@ beállítás-repositoryk kezelik. A `WukkiModel` a meglévő UI kompatibilis ada
 - Csatornaváltás `PageUp` / `PageDown`, nyilak, számbillentyűk és csatornalista segítségével
 - Legfeljebb 10 sikeresen nézett csatorna tartós előzménye a Csatornák oldal „Legutóbb nézett” szűrőjében; a sikertelen nyitások nem módosítják az előzményt
 - Az „Előző csatorna” gomb az előző sikeresen nézett csatornára vált; élő adás közben az `F8` vagy a média „előző” gomb ugyanezt teszi
+- Élő adásnál az információs panel „Gyorsbeállítások” gombja vagy a Menü/`F9` nyitja a képarány-, hangsáv- és feliratválasztót; távirányítóval az OK → jobbra → jobbra útvonal képarányt vált
+- A gyorsbeállítások csak az aktuális lejátszásra érvényesek, nem módosítják a mentett alapbeállításokat; hangsáv- és feliratválasztó csak lekérdezhető, támogatott sávoknál jelenik meg
 - Újracsatlakozás, hangerő, pufferprofil és képarány beállítása (`Automatikus`, `16:9`, `4:3`, `21:9`, `Kitöltés`)
 - Az M3U fejlécéből automatikusan felismert, rögzített XMLTV-forrás (`url-tvg` / `x-tvg-url` / `tvg-url`) és csatorna–EPG párosítás; egyéni playlist- és EPG-források nem használhatók
 - Memóriatakarékos, gzip-kompatibilis streaming XMLTV-feldolgozás és gyors, bináris keresésű műsorindex
