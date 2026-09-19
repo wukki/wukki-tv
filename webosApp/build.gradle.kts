@@ -39,3 +39,25 @@ kotlin {
         }
     }
 }
+
+val webOsDistribution = layout.buildDirectory.dir("dist/js/productionExecutable")
+val webOsPackageOutput = layout.buildDirectory.dir("outputs/webos")
+
+tasks.register<Exec>("packageWebOs") {
+    group = "distribution"
+    description = "Builds and packages the webOS application as an IPK with the LG webOS CLI."
+    dependsOn("jsBrowserDistribution")
+    inputs.dir(webOsDistribution)
+    outputs.dir(webOsPackageOutput)
+
+    doFirst {
+        webOsPackageOutput.get().asFile.mkdirs()
+    }
+    commandLine(
+        "ares-package",
+        "--no-minify",
+        "--outdir",
+        webOsPackageOutput.get().asFile.absolutePath,
+        webOsDistribution.get().asFile.absolutePath,
+    )
+}

@@ -7,5 +7,6 @@
   "title": "Wukki TV",
   "icon": "wukki-tv.png",
   "largeIcon": "wukki-tv.png",
-  "disableBackHistoryAPI": true
+  "disableBackHistoryAPI": true,
+  "requiredACG": []
 }

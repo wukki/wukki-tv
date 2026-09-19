@@ -11,6 +11,7 @@ import org.w3c.dom.events.Event
 import org.w3c.dom.events.KeyboardEvent
 
 private const val BACK_KEY = 461
+private const val DEFAULT_STREAM_URL = "http://88.212.15.19/live/m2_hun/index.m3u8"
 
 fun main() {
     val input = element<HTMLInputElement>("stream-url")
@@ -21,13 +22,14 @@ fun main() {
     val platform = element<HTMLElement>("platform")
 
     platform.textContent = "${window.navigator.userAgent} · Kotlin/JS core betöltve"
-    window.location.search
-        .removePrefix("?")
-        .split('&')
-        .firstOrNull { it.startsWith("stream=") }
-        ?.substringAfter('=')
-        ?.let(::decodeURIComponent)
-        ?.let { input.value = it }
+    val requestedStream =
+        window.location.search
+            .removePrefix("?")
+            .split('&')
+            .firstOrNull { it.startsWith("stream=") }
+            ?.substringAfter('=')
+            ?.let(::decodeURIComponent)
+    input.value = requestedStream ?: DEFAULT_STREAM_URL
 
     fun show(message: String) {
         status.textContent = message

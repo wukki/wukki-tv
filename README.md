@@ -152,6 +152,16 @@ könyvtárba kerülnek. A próba egy megadott stream URL-t nyit meg natív HTML-
 D-pad fókuszt és a platform Back gombját. Még nem tölti le a hivatalos playlistet, és fizikai LG
 TV-n nem lett ellenőrizve.
 
+Az LG webOS CLI telepítése után telepíthető IPK is készíthető:
+
+```sh
+npm install -g @webos-tools/cli
+./gradlew :webosApp:packageWebOs
+```
+
+Az IPK a `webosApp/build/outputs/webos` könyvtárba kerül. A próbaalkalmazás előre kitölti az M2
+tesztstream URL-jét; másik stream továbbra is megadható a mezőben vagy a `?stream=` paraméterrel.
+
 ## Android APK
 
 Az Android alkalmazás minimum Android 8.0-t (API 26) igényel, fekvő tájolásra optimalizált. Android TV-n a rendszer Leanback launcherében is megjelenik.

@@ -1,6 +1,6 @@
 # Wukki TV – LG webOS megvalósítási terv
 
-Készült: 2026-09-19. Állapot: P0/P1 technikai alap elkészült, fizikai TV-s mérés nélkül.
+Készült: 2026-09-19. Állapot: P0/P1 technikai alap és IPK-csomagolási feladat elkészült, fizikai TV-s mérés nélkül.
 
 ## Cél és döntési alap
 
@@ -34,7 +34,7 @@ A platformfüggetlen szerződések és tesztek helye a `core` modul. Ugyanazok a
 
 Először minimális, csomagolt alkalmazás készüljön egy videóelemmel, csatornaválasztóval és diagnosztikával. Nem elegendő a laptop böngészőjében működő prototípus.
 
-1. TV-modell, SDK-verzió, firmware és távirányító rögzítése; telepítés és debug kapcsolat ellenőrzése.
+1. TV-modell, SDK-verzió, firmware és távirányító rögzítése; a `packageWebOs` feladattal készített IPK telepítése és a debug kapcsolat ellenőrzése.
 2. A hivatalos M3U aktuális példányának vizsgálata: URL-ek, átirányítások, protokollok, manifesztek, kodekek, esetleges fejlécelvárások. A repó dokumentációja HTTP-s élő streameket említ; ez jelenleg dokumentált állapot, nem friss hálózati mérés.
 3. Playlist és EPG lekérése a csomagolt appból: CORS, TLS, gzip, méret és HTTP/HTTPS viselkedés mérése. A fejlesztői szerver proxyja ne fedje el a TV-s hibákat.
 4. Legalább 5 reprezentatív csatorna kipróbálása; ha kevesebb van, mindegyiké. Eltérő streamcsaládonként külön minta: HTTP/HTTPS, felbontás, kodek, master/media playlist és átirányítás.
