@@ -1,28 +1,45 @@
 package hu.wukki.tv.ui.settings
 
-import hu.wukki.tv.*
-import hu.wukki.tv.ui.components.tr
-
-import androidx.compose.foundation.*
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.ArrowForwardIos
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
-import androidx.compose.runtime.*
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import hu.wukki.tv.AppLanguage
+import hu.wukki.tv.ui.components.tr
 
 enum class SettingsSection { PLAYBACK, EPG, DISPLAY, PARENTAL, PLAYLISTS, LANGUAGE, ABOUT }
+
 private const val SETTINGS_REFERENCE_WIDTH = 1116f
 private const val SETTINGS_REFERENCE_HEIGHT = 892f
 
@@ -41,13 +58,14 @@ fun SettingsScreen(
     androidFullScreenSubmenus: Boolean = false,
     onCategoryFocus: (Int) -> Unit = {},
     onOptionFocus: (Int) -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     BoxWithConstraints(modifier) {
-        val scale = minOf(
-            maxWidth.value / SETTINGS_REFERENCE_WIDTH,
-            maxHeight.value / SETTINGS_REFERENCE_HEIGHT
-        ).coerceIn(.70f, 1f)
+        val scale =
+            minOf(
+                maxWidth.value / SETTINGS_REFERENCE_WIDTH,
+                maxHeight.value / SETTINGS_REFERENCE_HEIGHT,
+            ).coerceIn(.70f, 1f)
         if (androidFullScreenSubmenus) {
             AndroidSettingsLayout(
                 state = state,
@@ -62,44 +80,46 @@ fun SettingsScreen(
                 settingsAboutOpenRequest = settingsAboutOpenRequest,
                 onCategoryFocus = onCategoryFocus,
                 onOptionFocus = onOptionFocus,
-                scale = scale
+                scale = scale,
             )
-        } else Column(Modifier.fillMaxSize()) {
-            Text(
-                tr(state.language, "settings.title"),
-                fontWeight = FontWeight.Black,
-                fontSize = (29f * scale).sp,
-                modifier = Modifier.padding(start = 8.dp * scale, top = 8.dp * scale, bottom = 34.dp * scale)
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth().weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(34.dp * scale)
-            ) {
-                SettingsNavigation(
-                    state = state,
-                    selected = selectedSection,
-                    onSelect = onSectionChange,
-                    onCategoryFocus = onCategoryFocus,
-                    remoteCategoryIndex = remoteCategoryIndex,
-                    remoteNavigationActive = remoteNavigationActive,
-                    scale = scale,
-                    modifier = Modifier.width(430.dp * scale)
+        } else {
+            Column(Modifier.fillMaxSize()) {
+                Text(
+                    tr(state.language, "settings.title"),
+                    fontWeight = FontWeight.Black,
+                    fontSize = (29f * scale).sp,
+                    modifier = Modifier.padding(start = 8.dp * scale, top = 8.dp * scale, bottom = 34.dp * scale),
                 )
-                if (selectedSection == null) {
-                    SettingsHome(state.language, scale, Modifier.weight(1f).fillMaxHeight())
-                } else {
-                    SettingsDetail(
+                Row(
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    horizontalArrangement = Arrangement.spacedBy(34.dp * scale),
+                ) {
+                    SettingsNavigation(
                         state = state,
-                        callbacks = callbacks,
-                        selectedSection = selectedSection,
+                        selected = selectedSection,
+                        onSelect = onSectionChange,
+                        onCategoryFocus = onCategoryFocus,
+                        remoteCategoryIndex = remoteCategoryIndex,
+                        remoteNavigationActive = remoteNavigationActive,
                         scale = scale,
-                        remoteOptionIndex = remoteOptionIndex,
-                        settingsDropdownOpenRequest = settingsDropdownOpenRequest,
-                        settingsDropdownOptionIndex = settingsDropdownOptionIndex,
-                        settingsAboutOpenRequest = settingsAboutOpenRequest,
-                        onOptionFocus = onOptionFocus,
-                        modifier = Modifier.weight(1f).fillMaxHeight()
+                        modifier = Modifier.width(430.dp * scale),
                     )
+                    if (selectedSection == null) {
+                        SettingsHome(state.language, scale, Modifier.weight(1f).fillMaxHeight())
+                    } else {
+                        SettingsDetail(
+                            state = state,
+                            callbacks = callbacks,
+                            selectedSection = selectedSection,
+                            scale = scale,
+                            remoteOptionIndex = remoteOptionIndex,
+                            settingsDropdownOpenRequest = settingsDropdownOpenRequest,
+                            settingsDropdownOptionIndex = settingsDropdownOptionIndex,
+                            settingsAboutOpenRequest = settingsAboutOpenRequest,
+                            onOptionFocus = onOptionFocus,
+                            modifier = Modifier.weight(1f).fillMaxHeight(),
+                        )
+                    }
                 }
             }
         }
@@ -116,7 +136,7 @@ private fun SettingsNavigation(
     remoteNavigationActive: Boolean,
     scale: Float,
     modifier: Modifier,
-    scrollable: Boolean = false
+    scrollable: Boolean = false,
 ) {
     val listState = rememberLazyListState()
     LaunchedEffect(scrollable, selected, remoteNavigationActive, remoteCategoryIndex) {
@@ -132,14 +152,17 @@ private fun SettingsNavigation(
                 SettingsListRow(
                     title = item.title(state.language),
                     highlight = if (active || focused) SettingsRowHighlight.ACTIVE else SettingsRowHighlight.NONE,
-                    onClick = { onCategoryFocus(index); onSelect(item) },
+                    onClick = {
+                        onCategoryFocus(index)
+                        onSelect(item)
+                    },
                     scale = scale,
                     titleFontSize = 19.sp,
-                    titleWeight = if (active || focused) FontWeight.SemiBold else FontWeight.Normal
+                    titleWeight = if (active || focused) FontWeight.SemiBold else FontWeight.Normal,
                 ) {
                     Row(
                         modifier = Modifier.width((if (scrollable) 116.dp else 148.dp) * scale),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         if (item == SettingsSection.LANGUAGE) {
                             Text(
@@ -147,7 +170,7 @@ private fun SettingsNavigation(
                                 modifier = Modifier.weight(1f),
                                 fontSize = ((if (scrollable) 14f else 16f) * scale).sp,
                                 textAlign = androidx.compose.ui.text.style.TextAlign.End,
-                                maxLines = 1
+                                maxLines = 1,
                             )
                         } else {
                             Spacer(Modifier.weight(1f))
@@ -175,14 +198,14 @@ private fun AndroidSettingsLayout(
     settingsAboutOpenRequest: Int,
     onCategoryFocus: (Int) -> Unit,
     onOptionFocus: (Int) -> Unit,
-    scale: Float
+    scale: Float,
 ) {
     Column(Modifier.fillMaxSize()) {
         Text(
             tr(state.language, "settings.title"),
             fontWeight = FontWeight.Black,
             fontSize = (26f * scale).sp,
-            modifier = Modifier.padding(start = 8.dp * scale, top = 8.dp * scale, bottom = 18.dp * scale)
+            modifier = Modifier.padding(start = 8.dp * scale, top = 8.dp * scale, bottom = 18.dp * scale),
         )
         if (selectedSection == null) {
             SettingsNavigation(
@@ -194,7 +217,7 @@ private fun AndroidSettingsLayout(
                 remoteNavigationActive = remoteNavigationActive,
                 scale = scale,
                 modifier = Modifier.fillMaxWidth().weight(1f),
-                scrollable = true
+                scrollable = true,
             )
         } else {
             val sectionTitle = selectedSection.title(state.language)
@@ -205,7 +228,7 @@ private fun AndroidSettingsLayout(
                         Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = tr(state.language, "action.back"))
                     }
                 },
-                modifier = Modifier.fillMaxWidth().clickable { onSectionChange(null) }
+                modifier = Modifier.fillMaxWidth().clickable { onSectionChange(null) },
             )
             Spacer(Modifier.height(12.dp))
             SettingsDetail(
@@ -218,18 +241,22 @@ private fun AndroidSettingsLayout(
                 settingsDropdownOptionIndex = settingsDropdownOptionIndex,
                 settingsAboutOpenRequest = settingsAboutOpenRequest,
                 onOptionFocus = onOptionFocus,
-                modifier = Modifier.fillMaxWidth().weight(1f)
+                modifier = Modifier.fillMaxWidth().weight(1f),
             )
         }
     }
 }
 
 @Composable
-private fun SettingsHome(language: AppLanguage, scale: Float, modifier: Modifier) {
+private fun SettingsHome(
+    language: AppLanguage,
+    scale: Float,
+    modifier: Modifier,
+) {
     Column(
         modifier = modifier.padding(bottom = 80.dp * scale),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.Center,
     ) {
         SettingsGear(scale)
         Spacer(Modifier.height(52.dp * scale))
@@ -237,7 +264,7 @@ private fun SettingsHome(language: AppLanguage, scale: Float, modifier: Modifier
             tr(language, "settings.home"),
             fontSize = (18f * scale).sp,
             lineHeight = (28f * scale).sp,
-            fontWeight = FontWeight.SemiBold
+            fontWeight = FontWeight.SemiBold,
         )
     }
 }
@@ -258,66 +285,92 @@ private fun SettingsDetail(
     settingsDropdownOptionIndex: Int,
     settingsAboutOpenRequest: Int,
     onOptionFocus: (Int) -> Unit,
-    modifier: Modifier
+    modifier: Modifier,
 ) {
     SettingsCard(modifier) {
         Column(
-            modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())
+            modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),
         ) {
-                when (selectedSection) {
-                    SettingsSection.PLAYBACK -> PlaybackSettingsPane(
+            when (selectedSection) {
+                SettingsSection.PLAYBACK -> {
+                    PlaybackSettingsPane(
                         state = state,
                         callbacks = callbacks,
                         remoteOptionIndex = remoteOptionIndex,
                         dropdownOpenRequest = settingsDropdownOpenRequest,
                         dropdownOptionIndex = settingsDropdownOptionIndex,
                         onOptionFocus = onOptionFocus,
-                        scale = scale
+                        scale = scale,
                     )
-                    SettingsSection.EPG -> EpgSettingsPane(state, callbacks, remoteOptionIndex, onOptionFocus, scale)
-                    SettingsSection.DISPLAY -> DisplaySettingsPane(state, callbacks, remoteOptionIndex, onOptionFocus, scale)
-                    SettingsSection.PARENTAL -> ParentalSettingsPane(
+                }
+
+                SettingsSection.EPG -> {
+                    EpgSettingsPane(state, callbacks, remoteOptionIndex, onOptionFocus, scale)
+                }
+
+                SettingsSection.DISPLAY -> {
+                    DisplaySettingsPane(state, callbacks, remoteOptionIndex, onOptionFocus, scale)
+                }
+
+                SettingsSection.PARENTAL -> {
+                    ParentalSettingsPane(
                         state.language,
                         remoteOptionIndex,
                         onOptionFocus,
-                        scale
+                        scale,
                     )
-                    SettingsSection.PLAYLISTS -> PlaylistSettingsPane(state, callbacks, remoteOptionIndex, onOptionFocus, scale)
-                    SettingsSection.LANGUAGE -> LanguageSettingsPane(
+                }
+
+                SettingsSection.PLAYLISTS -> {
+                    PlaylistSettingsPane(state, callbacks, remoteOptionIndex, onOptionFocus, scale)
+                }
+
+                SettingsSection.LANGUAGE -> {
+                    LanguageSettingsPane(
                         state = state,
                         callbacks = callbacks,
                         remoteOptionIndex = remoteOptionIndex,
                         dropdownOpenRequest = settingsDropdownOpenRequest,
                         dropdownOptionIndex = settingsDropdownOptionIndex,
                         onOptionFocus = onOptionFocus,
-                        scale = scale
+                        scale = scale,
                     )
-                    SettingsSection.ABOUT -> AboutSettingsPane(
+                }
+
+                SettingsSection.ABOUT -> {
+                    AboutSettingsPane(
                         state,
                         remoteOptionIndex,
                         settingsAboutOpenRequest,
                         onOptionFocus,
-                        scale
+                        scale,
                     )
                 }
+            }
         }
     }
 }
 
-
 @Composable
-private fun SettingsCard(modifier: Modifier, content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
+private fun SettingsCard(
+    modifier: Modifier,
+    content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit,
+) {
     Card(modifier = modifier) {
         Column(modifier = Modifier.fillMaxSize(), content = content)
     }
 }
 
-private fun SettingsSection.title(language: AppLanguage): String = tr(language, when (this) {
-    SettingsSection.PLAYBACK -> "settings.playback"
-    SettingsSection.EPG -> "settings.epg"
-    SettingsSection.DISPLAY -> "settings.display"
-    SettingsSection.PARENTAL -> "settings.parental"
-    SettingsSection.PLAYLISTS -> "settings.playlists"
-    SettingsSection.LANGUAGE -> "settings.language"
-    SettingsSection.ABOUT -> "settings.about"
-})
+private fun SettingsSection.title(language: AppLanguage): String =
+    tr(
+        language,
+        when (this) {
+            SettingsSection.PLAYBACK -> "settings.playback"
+            SettingsSection.EPG -> "settings.epg"
+            SettingsSection.DISPLAY -> "settings.display"
+            SettingsSection.PARENTAL -> "settings.parental"
+            SettingsSection.PLAYLISTS -> "settings.playlists"
+            SettingsSection.LANGUAGE -> "settings.language"
+            SettingsSection.ABOUT -> "settings.about"
+        },
+    )

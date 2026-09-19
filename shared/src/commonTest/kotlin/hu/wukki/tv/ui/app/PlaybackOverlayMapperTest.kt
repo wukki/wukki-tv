@@ -7,27 +7,29 @@ import hu.wukki.tv.Programme
 import hu.wukki.tv.ui.navigation.DashboardSection
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNull
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 
 class PlaybackOverlayMapperTest {
-    private val channel = Channel(
-        id = "channel",
-        playlistId = "playlist",
-        name = "TV",
-        streamUrl = "https://example.com/live.m3u8",
-        tvgId = "tv",
-        tvgName = "TV",
-        group = "General",
-        logo = "https://example.com/logo.png"
-    )
-    private val programme = Programme(
-        channelId = "tv",
-        title = "Programme",
-        start = 1_000L,
-        end = 61_000L,
-        imageUrl = "https://example.com/programme.jpg"
-    )
+    private val channel =
+        Channel(
+            id = "channel",
+            playlistId = "playlist",
+            name = "TV",
+            streamUrl = "https://example.com/live.m3u8",
+            tvgId = "tv",
+            tvgName = "TV",
+            group = "General",
+            logo = "https://example.com/logo.png",
+        )
+    private val programme =
+        Programme(
+            channelId = "tv",
+            title = "Programme",
+            start = 1_000L,
+            end = 61_000L,
+            imageUrl = "https://example.com/programme.jpg",
+        )
 
     @Test
     fun `programme image is exposed only on live screen when enabled`() {
@@ -48,12 +50,21 @@ class PlaybackOverlayMapperTest {
 
     @Test
     fun `programme text timing progress and next line are mapped once`() {
-        val data = playbackOverlayData(
-            channel, programme, programme.copy(title = "Next", start = 61_000L, end = 121_000L),
-            now = 31_000L, section = DashboardSection.LIVE, showProgrammeInfo = true,
-            channelNumberInput = "", language = AppLanguage.HUNGARIAN, showLogos = true,
-            showProgrammeImages = true, playbackState = PlaybackState.PLAYING, playbackDetail = null
-        )
+        val data =
+            playbackOverlayData(
+                channel,
+                programme,
+                programme.copy(title = "Next", start = 61_000L, end = 121_000L),
+                now = 31_000L,
+                section = DashboardSection.LIVE,
+                showProgrammeInfo = true,
+                channelNumberInput = "",
+                language = AppLanguage.HUNGARIAN,
+                showLogos = true,
+                showProgrammeImages = true,
+                playbackState = PlaybackState.PLAYING,
+                playbackDetail = null,
+            )
 
         assertEquals("Programme", data.programme.title)
         assertEquals(0.5f, data.programme.progress)
@@ -62,14 +73,29 @@ class PlaybackOverlayMapperTest {
 
     @Test
     fun `recovery is shared by platform overlays without exposing technical error inline`() {
-        val recovery = hu.wukki.tv.PlaybackRecoveryState(
-            hu.wukki.tv.PlaybackFailureType.TIMEOUT, 2, 3, "network timeout",
-        )
-        val data = playbackOverlayData(
-            channel, programme, null, 2_000L, DashboardSection.LIVE, false, "",
-            AppLanguage.ENGLISH, false, false, PlaybackState.RECONNECTING,
-            "technical error", recovery,
-        )
+        val recovery =
+            hu.wukki.tv.PlaybackRecoveryState(
+                hu.wukki.tv.PlaybackFailureType.TIMEOUT,
+                2,
+                3,
+                "network timeout",
+            )
+        val data =
+            playbackOverlayData(
+                channel,
+                programme,
+                null,
+                2_000L,
+                DashboardSection.LIVE,
+                false,
+                "",
+                AppLanguage.ENGLISH,
+                false,
+                false,
+                PlaybackState.RECONNECTING,
+                "technical error",
+                recovery,
+            )
         assertEquals(recovery, data.recovery)
         assertNull(data.playbackStatus)
         assertEquals(listOf(hu.wukki.tv.PlaybackOverlayAction.CANCEL_RECONNECT), data.recovery?.actions)
@@ -78,7 +104,7 @@ class PlaybackOverlayMapperTest {
     private fun overlay(
         section: DashboardSection,
         showImages: Boolean,
-        state: PlaybackState = PlaybackState.PLAYING
+        state: PlaybackState = PlaybackState.PLAYING,
     ) = playbackOverlayData(
         channel = channel,
         currentProgramme = programme,
@@ -91,6 +117,6 @@ class PlaybackOverlayMapperTest {
         showLogos = true,
         showProgrammeImages = showImages,
         playbackState = state,
-        playbackDetail = null
+        playbackDetail = null,
     )
 }

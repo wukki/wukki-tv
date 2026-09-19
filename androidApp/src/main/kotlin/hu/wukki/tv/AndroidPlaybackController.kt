@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.view.MotionEvent
+import android.view.ViewOutlineProvider
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.aspectRatio
@@ -153,6 +154,9 @@ class AndroidPlaybackController(
             AndroidView(
                 factory = { viewContext ->
                     PlayerView(viewContext).apply {
+                        // AndroidView does not clip SurfaceView content to its Compose bounds.
+                        clipToOutline = true
+                        outlineProvider = ViewOutlineProvider.BOUNDS
                         useController = false
                         isFocusable = false
                         isFocusableInTouchMode = false

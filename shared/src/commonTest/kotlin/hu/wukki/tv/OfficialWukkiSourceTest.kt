@@ -14,19 +14,22 @@ class OfficialWukkiSourceTest {
         val officialChannel = channel(id = "legacy-rtl", playlistId = "legacy-wukki", favorite = true, epgSourceId = "legacy-epg")
         val customChannel = channel(id = "custom", playlistId = "custom-list", name = "Custom")
         val programme = Programme("rtl", "Híradó", 1_000, 2_000)
-        val state = AppState(
-            playlists = listOf(
-                PlaylistDefinition("legacy-wukki", "Old Wukki", OfficialWukkiSource.PLAYLIST_URL, PlaylistSource.URL, 12),
-                PlaylistDefinition("custom-list", "Custom", "https://example.test/list.m3u", PlaylistSource.URL, 14)
-            ),
-            channels = listOf(officialChannel, customChannel),
-            lastChannelId = officialChannel.id,
-            epgSources = listOf(
-                EpgSource("legacy-epg", "Old EPG", "https://example.test/guide.xml", managedByPlaylist = true),
-                EpgSource("custom-epg", "Custom EPG", "https://example.test/custom.xml")
-            ),
-            epgProgrammesBySource = mapOf("legacy-epg" to listOf(programme), "custom-epg" to listOf(programme))
-        )
+        val state =
+            AppState(
+                playlists =
+                    listOf(
+                        PlaylistDefinition("legacy-wukki", "Old Wukki", OfficialWukkiSource.PLAYLIST_URL, PlaylistSource.URL, 12),
+                        PlaylistDefinition("custom-list", "Custom", "https://example.test/list.m3u", PlaylistSource.URL, 14),
+                    ),
+                channels = listOf(officialChannel, customChannel),
+                lastChannelId = officialChannel.id,
+                epgSources =
+                    listOf(
+                        EpgSource("legacy-epg", "Old EPG", "https://example.test/guide.xml", managedByPlaylist = true),
+                        EpgSource("custom-epg", "Custom EPG", "https://example.test/custom.xml"),
+                    ),
+                epgProgrammesBySource = mapOf("legacy-epg" to listOf(programme), "custom-epg" to listOf(programme)),
+            )
 
         val migrated = OfficialWukkiSource.provision(state, now = 99)
 
@@ -41,122 +44,135 @@ class OfficialWukkiSourceTest {
     }
 
     @Test
-    fun `refresh preserves favourites and last channel while replacing the fixed source`() = runBlocking {
-        val legacy = channel(id = "legacy-rtl", playlistId = "legacy-wukki", favorite = true)
-        val initial = AppState(
-            playlists = listOf(PlaylistDefinition("legacy-wukki", "Wukki", OfficialWukkiSource.PLAYLIST_URL, PlaylistSource.URL, 1)),
-            channels = listOf(legacy),
-            lastChannelId = legacy.id
-        )
-        val loader = RemoteTextLoader { url ->
-            when (url) {
-                OfficialWukkiSource.PLAYLIST_URL -> m3u("https://epg.example/guide.xml")
-                "https://epg.example/guide.xml" -> xml("rtl", "Híradó")
-                else -> error("Unexpected URL: $url")
-            }
+    fun `refresh preserves favourites and last channel while replacing the fixed source`() =
+        runBlocking {
+            val legacy = channel(id = "legacy-rtl", playlistId = "legacy-wukki", favorite = true)
+            val initial =
+                AppState(
+                    playlists = listOf(PlaylistDefinition("legacy-wukki", "Wukki", OfficialWukkiSource.PLAYLIST_URL, PlaylistSource.URL, 1)),
+                    channels = listOf(legacy),
+                    lastChannelId = legacy.id,
+                )
+            val loader =
+                RemoteTextLoader { url ->
+                    when (url) {
+                        OfficialWukkiSource.PLAYLIST_URL -> m3u("https://epg.example/guide.xml")
+                        "https://epg.example/guide.xml" -> xml("rtl", "Híradó")
+                        else -> error("Unexpected URL: $url")
+                    }
+                }
+            val model = WukkiModel(initial, loader, xmlTvParser, stateSaver = {})
+
+            assertTrue(model.refreshOfficialPlaylist())
+
+            val refreshed = model.state.channels.single()
+            assertTrue(refreshed.favorite)
+            assertEquals(refreshed.id, model.state.lastChannelId)
+            assertEquals(OfficialWukkiSource.EPG_SOURCE_ID, refreshed.epgSourceId)
+            assertEquals("rtl", refreshed.epgChannelId)
+            assertEquals("https://epg.example/guide.xml", model.officialEpgSource?.url)
         }
-        val model = WukkiModel(initial, loader, xmlTvParser, stateSaver = {})
-
-        assertTrue(model.refreshOfficialPlaylist())
-
-        val refreshed = model.state.channels.single()
-        assertTrue(refreshed.favorite)
-        assertEquals(refreshed.id, model.state.lastChannelId)
-        assertEquals(OfficialWukkiSource.EPG_SOURCE_ID, refreshed.epgSourceId)
-        assertEquals("rtl", refreshed.epgChannelId)
-        assertEquals("https://epg.example/guide.xml", model.officialEpgSource?.url)
-    }
 
     @Test
-    fun `playlist tvg shift offsets only the matched channel EPG`() = runBlocking {
-        val loader = RemoteTextLoader { url ->
-            when (url) {
-                OfficialWukkiSource.PLAYLIST_URL -> m3u("https://epg.example/guide.xml", tvgShift = "+01:30")
-                "https://epg.example/guide.xml" -> xml("rtl", "Híradó")
-                else -> error("Unexpected URL: $url")
-            }
+    fun `playlist tvg shift offsets only the matched channel EPG`() =
+        runBlocking {
+            val loader =
+                RemoteTextLoader { url ->
+                    when (url) {
+                        OfficialWukkiSource.PLAYLIST_URL -> m3u("https://epg.example/guide.xml", tvgShift = "+01:30")
+                        "https://epg.example/guide.xml" -> xml("rtl", "Híradó")
+                        else -> error("Unexpected URL: $url")
+                    }
+                }
+            val model = WukkiModel(AppState(), loader, xmlTvParser, stateSaver = {})
+
+            assertTrue(model.refreshOfficialPlaylist(showFeedback = false))
+
+            val channel = model.state.channels.single()
+            val rawStart = 1_787_248_800_000L // 2026-08-20 18:00:00 UTC
+            val programme = model.programmesFor(channel, rawStart, rawStart + 8L * 60L * 60L * 1000L).single()
+            assertEquals(1.5, channel.tvgShiftHours)
+            assertEquals(rawStart + 90L * 60L * 1000L, programme.start)
+            assertEquals(rawStart + 150L * 60L * 1000L, programme.end)
         }
-        val model = WukkiModel(AppState(), loader, xmlTvParser, stateSaver = {})
-
-        assertTrue(model.refreshOfficialPlaylist(showFeedback = false))
-
-        val channel = model.state.channels.single()
-        val rawStart = 1_787_248_800_000L // 2026-08-20 18:00:00 UTC
-        val programme = model.programmesFor(channel, rawStart, rawStart + 8L * 60L * 60L * 1000L).single()
-        assertEquals(1.5, channel.tvgShiftHours)
-        assertEquals(rawStart + 90L * 60L * 1000L, programme.start)
-        assertEquals(rawStart + 150L * 60L * 1000L, programme.end)
-    }
 
     @Test
-    fun `new EPG URL replaces the old cache and missing EPG clears it`() = runBlocking {
-        var playlist = m3u("https://epg.example/first.xml")
-        val loader = RemoteTextLoader { url ->
-            when (url) {
-                OfficialWukkiSource.PLAYLIST_URL -> playlist
-                "https://epg.example/first.xml" -> xml("rtl", "Első")
-                "https://epg.example/second.xml" -> xml("rtl", "Második")
-                else -> error("Unexpected URL: $url")
-            }
+    fun `new EPG URL replaces the old cache and missing EPG clears it`() =
+        runBlocking {
+            var playlist = m3u("https://epg.example/first.xml")
+            val loader =
+                RemoteTextLoader { url ->
+                    when (url) {
+                        OfficialWukkiSource.PLAYLIST_URL -> playlist
+                        "https://epg.example/first.xml" -> xml("rtl", "Első")
+                        "https://epg.example/second.xml" -> xml("rtl", "Második")
+                        else -> error("Unexpected URL: $url")
+                    }
+                }
+            val model = WukkiModel(AppState(), loader, xmlTvParser, stateSaver = {})
+
+            assertTrue(model.refreshOfficialPlaylist())
+            assertEquals(
+                "Első",
+                model.programmesFor(model.state.channels.single(), 1_787_248_800_000L, 1_787_252_400_001L).single().title,
+            )
+            playlist = m3u("https://epg.example/second.xml")
+            assertTrue(model.refreshOfficialPlaylist())
+            assertEquals("https://epg.example/second.xml", model.officialEpgSource?.url)
+            assertEquals(
+                "Második",
+                model.state.epgProgrammesBySource[OfficialWukkiSource.EPG_SOURCE_ID]
+                    ?.single()
+                    ?.title,
+            )
+            assertEquals(
+                "Második",
+                model.programmesFor(model.state.channels.single(), 1_787_248_800_000L, 1_787_252_400_001L).single().title,
+            )
+
+            playlist = m3u(null)
+            assertTrue(model.refreshOfficialPlaylist())
+            assertNull(model.officialEpgSource)
+            assertTrue(model.state.programmes.isEmpty())
+            assertEquals("error.wukki.epg.missing", (model.error as? UserMessage.Key)?.key)
         }
-        val model = WukkiModel(AppState(), loader, xmlTvParser, stateSaver = {})
-
-        assertTrue(model.refreshOfficialPlaylist())
-        assertEquals(
-            "Első",
-            model.programmesFor(model.state.channels.single(), 1_787_248_800_000L, 1_787_252_400_001L).single().title
-        )
-        playlist = m3u("https://epg.example/second.xml")
-        assertTrue(model.refreshOfficialPlaylist())
-        assertEquals("https://epg.example/second.xml", model.officialEpgSource?.url)
-        assertEquals(
-            "Második",
-            model.state.epgProgrammesBySource[OfficialWukkiSource.EPG_SOURCE_ID]?.single()?.title
-        )
-        assertEquals(
-            "Második",
-            model.programmesFor(model.state.channels.single(), 1_787_248_800_000L, 1_787_252_400_001L).single().title
-        )
-
-        playlist = m3u(null)
-        assertTrue(model.refreshOfficialPlaylist())
-        assertNull(model.officialEpgSource)
-        assertTrue(model.state.programmes.isEmpty())
-        assertEquals("error.wukki.epg.missing", (model.error as? UserMessage.Key)?.key)
-    }
 
     @Test
-    fun `failed fixed playlist refresh retains the cache`() = runBlocking {
-        val cached = channel(id = "cached-rtl", playlistId = OfficialWukkiSource.PLAYLIST_ID)
-        val initial = AppState(
-            playlists = listOf(PlaylistDefinition(OfficialWukkiSource.PLAYLIST_ID, OfficialWukkiSource.PLAYLIST_NAME, OfficialWukkiSource.PLAYLIST_URL, PlaylistSource.URL, 1)),
-            channels = listOf(cached)
-        )
-        val model = WukkiModel(initial, RemoteTextLoader { error("offline") }, xmlTvParser, stateSaver = {})
+    fun `failed fixed playlist refresh retains the cache`() =
+        runBlocking {
+            val cached = channel(id = "cached-rtl", playlistId = OfficialWukkiSource.PLAYLIST_ID)
+            val initial =
+                AppState(
+                    playlists = listOf(PlaylistDefinition(OfficialWukkiSource.PLAYLIST_ID, OfficialWukkiSource.PLAYLIST_NAME, OfficialWukkiSource.PLAYLIST_URL, PlaylistSource.URL, 1)),
+                    channels = listOf(cached),
+                )
+            val model = WukkiModel(initial, RemoteTextLoader { error("offline") }, xmlTvParser, stateSaver = {})
 
-        assertFalse(model.refreshOfficialPlaylist(showFeedback = false))
-        assertEquals(listOf(cached.id), model.state.channels.map { it.id })
-        assertEquals(AppFeedbackKind.ERROR, model.feedbackKind)
-        assertNotNull(model.error)
-        Unit
-    }
+            assertFalse(model.refreshOfficialPlaylist(showFeedback = false))
+            assertEquals(listOf(cached.id), model.state.channels.map { it.id })
+            assertEquals(AppFeedbackKind.ERROR, model.feedbackKind)
+            assertNotNull(model.error)
+            Unit
+        }
 
     @Test
-    fun `automatic refresh stays silent after success`() = runBlocking {
-        val loader = RemoteTextLoader { url ->
-            when (url) {
-                OfficialWukkiSource.PLAYLIST_URL -> m3u("https://epg.example/guide.xml")
-                "https://epg.example/guide.xml" -> xml("rtl", "Híradó")
-                else -> error("Unexpected URL: $url")
-            }
-        }
-        val model = WukkiModel(AppState(), loader, xmlTvParser, stateSaver = {})
+    fun `automatic refresh stays silent after success`() =
+        runBlocking {
+            val loader =
+                RemoteTextLoader { url ->
+                    when (url) {
+                        OfficialWukkiSource.PLAYLIST_URL -> m3u("https://epg.example/guide.xml")
+                        "https://epg.example/guide.xml" -> xml("rtl", "Híradó")
+                        else -> error("Unexpected URL: $url")
+                    }
+                }
+            val model = WukkiModel(AppState(), loader, xmlTvParser, stateSaver = {})
 
-        assertTrue(model.refreshOfficialPlaylist(showFeedback = false))
-        assertNull(model.status)
-        assertNull(model.error)
-        assertNull(model.feedbackKind)
-    }
+            assertTrue(model.refreshOfficialPlaylist(showFeedback = false))
+            assertNull(model.status)
+            assertNull(model.error)
+            assertNull(model.feedbackKind)
+        }
 
     @Test
     fun `only the current feedback token can dismiss a message`() {
@@ -201,7 +217,7 @@ class OfficialWukkiSourceTest {
         name: String = "RTL",
         tvgId: String? = "rtl",
         favorite: Boolean = false,
-        epgSourceId: String? = null
+        epgSourceId: String? = null,
     ) = Channel(
         id = id,
         playlistId = playlistId,
@@ -214,30 +230,39 @@ class OfficialWukkiSourceTest {
         logo = null,
         favorite = favorite,
         epgSourceId = epgSourceId,
-        epgChannelId = epgSourceId?.let { "rtl" }
+        epgChannelId = epgSourceId?.let { "rtl" },
     )
 
-    private fun m3u(epgUrl: String?, tvgShift: String? = null): String = buildString {
-        append("#EXTM3U")
-        epgUrl?.let { append(" url-tvg=\"").append(it).append("\"") }
-        appendLine()
-        append("#EXTINF:-1 tvg-id=\"rtl\" tvg-name=\"RTL\" tvg-chno=\"1\" group-title=\"News\"")
-        tvgShift?.let { append(" tvg-shift=\"").append(it).append("\"") }
-        appendLine(",RTL")
-        appendLine("https://stream.example/rtl.m3u8")
-    }
+    private fun m3u(
+        epgUrl: String?,
+        tvgShift: String? = null,
+    ): String =
+        buildString {
+            append("#EXTM3U")
+            epgUrl?.let { append(" url-tvg=\"").append(it).append("\"") }
+            appendLine()
+            append("#EXTINF:-1 tvg-id=\"rtl\" tvg-name=\"RTL\" tvg-chno=\"1\" group-title=\"News\"")
+            tvgShift?.let { append(" tvg-shift=\"").append(it).append("\"") }
+            appendLine(",RTL")
+            appendLine("https://stream.example/rtl.m3u8")
+        }
 
-    private fun xml(channelId: String, title: String): String = """
+    private fun xml(
+        channelId: String,
+        title: String,
+    ): String =
+        """
         <tv>
           <programme channel="$channelId" start="20260820180000 +0000" stop="20260820190000 +0000">
             <title>$title</title>
           </programme>
         </tv>
-    """.trimIndent()
+        """.trimIndent()
 
-    private val xmlTvParser = XmlTvParser { source ->
-        val channelId = Regex("channel=\"([^\"]+)\"").find(source)?.groupValues?.get(1) ?: return@XmlTvParser emptyList()
-        val title = Regex("<title>([^<]+)</title>").find(source)?.groupValues?.get(1) ?: return@XmlTvParser emptyList()
-        listOf(Programme(channelId, title, 1_787_248_800_000L, 1_787_252_400_000L))
-    }
+    private val xmlTvParser =
+        XmlTvParser { source ->
+            val channelId = Regex("channel=\"([^\"]+)\"").find(source)?.groupValues?.get(1) ?: return@XmlTvParser emptyList()
+            val title = Regex("<title>([^<]+)</title>").find(source)?.groupValues?.get(1) ?: return@XmlTvParser emptyList()
+            listOf(Programme(channelId, title, 1_787_248_800_000L, 1_787_252_400_000L))
+        }
 }
