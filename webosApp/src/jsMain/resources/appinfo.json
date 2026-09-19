@@ -1,0 +1,11 @@
+{
+  "id": "hu.wukki.tv.webos",
+  "version": "0.1.0",
+  "vendor": "Wukki",
+  "type": "web",
+  "main": "index.html",
+  "title": "Wukki TV",
+  "icon": "wukki-tv.png",
+  "largeIcon": "wukki-tv.png",
+  "disableBackHistoryAPI": true
+}

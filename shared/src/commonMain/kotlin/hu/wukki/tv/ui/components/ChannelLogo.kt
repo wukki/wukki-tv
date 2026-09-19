@@ -28,7 +28,7 @@ fun ChannelLogo(channel: Channel, language: AppLanguage, modifier: Modifier = Mo
     Box(modifier = modifier.clip(shape), contentAlignment = Alignment.Center) {
         if (channel.logo.isNullOrBlank()) LogoFallback(channel, language) else {
             SubcomposeAsyncImage(
-                model = rememberWukkiImageRequest(channel.logo),
+                model = rememberWukkiImageRequest(channel.logo.orEmpty()),
                 contentDescription = tr(language, "logo.description", channel.displayName(language)),
                 contentScale = ContentScale.Fit,
                 modifier = Modifier.fillMaxSize(),

@@ -84,7 +84,6 @@ data class Channel(
     val favorite: Boolean = false,
     val epgChannelId: String? = null,
     val epgSourceId: String? = null,
-    /** Optional M3U `tvg-shift`, expressed in hours, applied when this channel's EPG is shown. */
     val tvgShiftHours: Double? = null,
 )
 
@@ -95,7 +94,6 @@ data class Programme(
     val start: Long,
     val end: Long,
     val description: String? = null,
-    /** Optional artwork URL supplied by XMLTV's programme icon metadata. */
     val imageUrl: String? = null,
 )
 
@@ -126,9 +124,8 @@ data class AppState(
             epgSources.ifEmpty {
                 epgUrl
                     .takeIf { it.isNotBlank() }
-                    ?.let {
-                        listOf(EpgSource(id = "legacy-epg", name = "EPG", url = it, lastUpdatedAt = null))
-                    }.orEmpty()
+                    ?.let { listOf(EpgSource(id = "legacy-epg", name = "EPG", url = it, lastUpdatedAt = null)) }
+                    .orEmpty()
             }
         val migratedCache =
             epgProgrammesBySource.ifEmpty {

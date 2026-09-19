@@ -1,0 +1,10 @@
+package hu.wukki.tv
+
+import java.text.Normalizer
+
+internal actual fun coreNormalize(value: String): String =
+    Normalizer
+        .normalize(value.lowercase(), Normalizer.Form.NFD)
+        .replace(Regex("\\p{M}"), "")
+        .replace(Regex("[^a-z0-9]+"), " ")
+        .trim()

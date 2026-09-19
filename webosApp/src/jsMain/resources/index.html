@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="hu">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Wukki TV webOS próba</title>
+    <link rel="stylesheet" href="styles.css">
+    <script>if (typeof globalThis === "undefined") window.globalThis = window;</script>
+</head>
+<body>
+<main>
+    <header>
+        <h1>Wukki TV</h1>
+        <span>Kotlin/JS webOS próba</span>
+    </header>
+    <video id="player" playsinline></video>
+    <section class="controls">
+        <label for="stream-url">HLS vagy közvetlen stream URL</label>
+        <input id="stream-url" type="url" inputmode="url" autocomplete="off" placeholder="https://…/stream.m3u8">
+        <div class="buttons">
+            <button id="play" type="button">Lejátszás</button>
+            <button id="stop" type="button">Leállítás</button>
+        </div>
+        <p id="status" role="status">Készen áll a TV-s lejátszási próbára.</p>
+        <small id="platform"></small>
+    </section>
+</main>
+<script src="wukki-tv-webos.js"></script>
+</body>
+</html>

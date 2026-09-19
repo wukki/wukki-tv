@@ -2,6 +2,8 @@ import dev.detekt.gradle.extensions.DetektExtension
 import org.cyclonedx.gradle.BaseCyclonedxTask
 import org.cyclonedx.gradle.CyclonedxDirectTask
 import org.jlleitschuh.gradle.ktlint.KtlintExtension
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsEnvSpec
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsPlugin
 
 plugins {
     alias(libs.plugins.kotlin.jvm) apply false
@@ -16,6 +18,13 @@ plugins {
     alias(libs.plugins.ktlint) apply false
 }
 
+plugins.withType<NodeJsPlugin>().configureEach {
+    extensions.configure<NodeJsEnvSpec> {
+        download.set(false)
+        command.set("node")
+    }
+}
+
 val wukkiVersionInfo = WukkiVersioning.resolve(project)
 
 allprojects {
@@ -28,6 +37,8 @@ allprojects {
                 ":androidApp" -> listOf("releaseRuntimeClasspath")
                 ":desktopApp" -> listOf("runtimeClasspath")
                 ":shared" -> listOf("androidRuntimeClasspath", "desktopRuntimeClasspath")
+                ":core" -> listOf("androidRuntimeClasspath", "desktopRuntimeClasspath", "jsRuntimeClasspath")
+                ":webosApp" -> listOf("jsRuntimeClasspath")
                 else -> listOf("(?!)")
             },
         )
@@ -97,16 +108,27 @@ val verifyBuildLogic by tasks.registering(GradleBuild::class) {
 val verifySupplyChainConfiguration by tasks.registering {
     group = "verification"
     description = "Checks dependency locks, verification metadata and immutable GitHub Action references."
+    mustRunAfter("kotlinStorePackageLock")
 
     val workflowFiles = fileTree(".github/workflows") { include("*.yml", "*.yaml") }
     inputs.files(workflowFiles)
-    inputs.files("shared/gradle.lockfile", "androidApp/gradle.lockfile", "gradle/verification-metadata.xml")
+    inputs.files(
+        "core/gradle.lockfile",
+        "shared/gradle.lockfile",
+        "androidApp/gradle.lockfile",
+        "webosApp/gradle.lockfile",
+        "kotlin-js-store/package-lock.json",
+        "gradle/verification-metadata.xml",
+    )
 
     doLast {
         val requiredFiles =
             listOf(
                 file("shared/gradle.lockfile"),
                 file("androidApp/gradle.lockfile"),
+                file("core/gradle.lockfile"),
+                file("webosApp/gradle.lockfile"),
+                file("kotlin-js-store/package-lock.json"),
                 file("gradle/verification-metadata.xml"),
             )
         val missingFiles = requiredFiles.filterNot { it.isFile }
@@ -151,6 +173,13 @@ tasks.register("verifyAll") {
         ":shared:desktopTest",
         ":shared:testAndroidHostTest",
         ":shared:checkLocalizationBundles",
+        ":core:desktopTest",
+        ":core:jsBrowserTest",
+        ":core:detekt",
+        ":core:ktlintCheck",
+        ":webosApp:jsBrowserDistribution",
+        ":webosApp:detekt",
+        ":webosApp:ktlintCheck",
         ":desktopApp:detekt",
         ":desktopApp:ktlintCheck",
         ":desktopApp:test",

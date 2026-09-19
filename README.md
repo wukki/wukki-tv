@@ -5,8 +5,10 @@ A Wukki TV Kotlin Multiplatform / Compose alapú IPTV alkalmazás. A hivatalos W
 ## Projektfelépítés
 
 - `shared`: közös KMP modul — Compose UI, domain, playlist- és EPG-logika, lokalizáció és közös tesztek.
+- `core`: UI-független KMP doménmag Android, JVM és JavaScript célplatformmal.
 - `desktopApp`: desktop belépési pont, libVLC lejátszó, helyi állapot, kijelző-ébrentartás és natív csomagolás.
 - `androidApp`: Android belépési pont, Media3 lejátszó, DataStore, WorkManager és Android TV integráció.
+- `webosApp`: Kotlin/JS alapú webOS lejátszási próba natív HTML-videóval és távirányító-kezeléssel.
 
 A közös üzleti műveleteket a Compose-független `WukkiApplication`, valamint a csatorna-, EPG- és
 beállítás-repositoryk kezelik. A `WukkiModel` a meglévő UI kompatibilis adaptere. Részletek:
@@ -89,7 +91,7 @@ az új feloldást és ellenőrzőösszegeket csak a diff átnézése mellett sza
 
 ```sh
 ./gradlew verifyAll cyclonedxBom --write-locks --write-verification-metadata sha256
-git diff -- shared/gradle.lockfile androidApp/gradle.lockfile gradle/verification-metadata.xml
+git diff -- core/gradle.lockfile shared/gradle.lockfile androidApp/gradle.lockfile webosApp/gradle.lockfile kotlin-js-store/package-lock.json gradle/verification-metadata.xml
 ```
 
 A `gradle/verification-metadata.xml` SHA-256 alapján ellenőrzi a letöltött Gradle artifactokat. A
@@ -136,6 +138,19 @@ WUKKI_VLC_RUNTIME="/elérési/út/vlc-runtime" ./gradlew :desktopApp:packageDist
 A release workflow a VLC runtime-ot is a desktop telepítőkbe csomagolja, ezért a kiadott alkalmazásokhoz nem szükséges külön VLC telepítés.
 
 > A helyben készített vagy Apple secretek nélkül kiadott macOS DMG nincs Developer ID tanúsítvánnyal aláírva és notarizálva. Első indításkor Finderben jobb klikk → **Megnyitás** szükséges lehet.
+
+## webOS próbaalkalmazás
+
+A Kotlin/JS alapú első mérési alkalmazás production csomagja ezzel készül:
+
+```sh
+./gradlew :webosApp:jsBrowserDistribution
+```
+
+A webOS-csomagolásra előkészített fájlok a `webosApp/build/dist/js/productionExecutable`
+könyvtárba kerülnek. A próba egy megadott stream URL-t nyit meg natív HTML-videóban, kezeli a
+D-pad fókuszt és a platform Back gombját. Még nem tölti le a hivatalos playlistet, és fizikai LG
+TV-n nem lett ellenőrizve.
 
 ## Android APK
 

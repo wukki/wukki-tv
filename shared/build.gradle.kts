@@ -63,6 +63,7 @@ kotlin {
         val commonMain by getting {
             kotlin.srcDir(generatedBuildInfo)
             dependencies {
+                api(project(":core"))
                 implementation(libs.bundles.compose.common)
                 implementation(libs.kotlinx.coroutines.core)
                 implementation(libs.kotlinx.serialization.json)

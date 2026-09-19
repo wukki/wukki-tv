@@ -22,4 +22,4 @@ internal fun desktopLiveNavigationPointerModifier(onShowNavigation: () -> Unit):
         }
 }
 
-internal fun isInDesktopNavigationEdge(logicalY: Float): Boolean = logicalY >= 0f && logicalY < 50f
+internal fun isInDesktopNavigationEdge(logicalY: Float): Boolean = logicalY >= 0f && logicalY < 20f

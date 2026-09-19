@@ -3,7 +3,10 @@ package hu.wukki.tv
 internal fun EpgSource.isEpgRefreshDue(
     interval: RefreshInterval,
     now: Long,
-): Boolean = enabled && interval.hours > 0 && (lastUpdatedAt == null || now - lastUpdatedAt >= interval.hours * 60L * 60L * 1000L)
+): Boolean {
+    val updatedAt = lastUpdatedAt
+    return enabled && interval.hours > 0 && (updatedAt == null || now - updatedAt >= interval.hours * 60L * 60L * 1000L)
+}
 
 internal fun nextEpgRefreshDelayMillis(
     sources: List<EpgSource>,

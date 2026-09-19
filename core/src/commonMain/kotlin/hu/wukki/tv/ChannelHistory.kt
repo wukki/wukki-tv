@@ -1,9 +1,9 @@
 package hu.wukki.tv
 
-internal const val CHANNEL_HISTORY_LIMIT = 10
+private const val CHANNEL_HISTORY_LIMIT = 10
 
 /** Newest successful playback first; stable ordering also defines the previous channel. */
-internal fun normalizedChannelHistory(
+fun normalizedChannelHistory(
     ids: List<String>,
     channels: List<Channel>,
 ): List<String> {
