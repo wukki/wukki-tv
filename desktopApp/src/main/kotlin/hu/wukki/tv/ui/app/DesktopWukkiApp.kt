@@ -19,6 +19,7 @@ fun DesktopWukkiApp() {
             videoHost = { modifier: Modifier, _ -> EmbeddedVlcPlayer(playbackController, modifier) },
             playbackEngineLabel = "VLC / libVLC",
             sharedModel = model,
+            liveNavigationPointerModifier = { onShow -> desktopLiveNavigationPointerModifier(onShow) },
         )
     }
 }

@@ -40,6 +40,7 @@ dependencies {
     implementation(libs.jna.core)
     implementation(libs.jna.platform)
     testImplementation(kotlin("test"))
+    testImplementation(libs.kotlinx.coroutines.test)
 }
 
 tasks.withType<org.gradle.api.tasks.compile.JavaCompile>().configureEach {

@@ -52,6 +52,7 @@ fun WukkiApp(
     uiActive: Boolean = true,
     runForegroundRefreshes: Boolean = true,
     sharedModel: WukkiModel,
+    liveNavigationPointerModifier: @Composable (() -> Unit) -> Modifier = { Modifier },
 ) {
     val model = sharedModel
     val scope = rememberCoroutineScope()
@@ -118,11 +119,8 @@ fun WukkiApp(
                 onActiveSectionChange(activeSection)
                 if (activeSection == DashboardSection.LIVE) focusRequester.requestFocus()
             }
-            LaunchedEffect(activeSection, liveNavigationState.visible, liveNavigationState.interactionSequence, uiPolicy.runTimeouts) {
-                if (uiPolicy.runTimeouts && activeSection == DashboardSection.LIVE && liveNavigationState.visible) {
-                    delay(LIVE_NAVIGATION_TIMEOUT_MS)
-                    handleLiveNavigation(LiveNavigationVisibilityEvent.Timeout)
-                }
+            LiveNavigationTimeout(activeSection, liveNavigationState, uiPolicy.runTimeouts) {
+                handleLiveNavigation(LiveNavigationVisibilityEvent.Timeout)
             }
             LaunchedEffect(activeSection, settingsNavigation.section) {
                 if (activeSection == DashboardSection.SETTINGS && settingsNavigation.section == SettingsSection.ABOUT && deviceInfo == null) {
@@ -259,6 +257,7 @@ fun WukkiApp(
                     modifier =
                         Modifier
                             .fillMaxSize()
+                            .then(if (activeSection == DashboardSection.LIVE) liveNavigationPointerModifier(liveVideoGestures.onShowNavigation) else Modifier)
                             .focusRequester(focusRequester)
                             .focusable()
                             .onPreviewKeyEvent { event ->
@@ -290,4 +289,3 @@ fun WukkiApp(
 
 private const val SUCCESS_FEEDBACK_TIMEOUT_MS = 3_000L
 private const val ERROR_FEEDBACK_TIMEOUT_MS = 8_000L
-private const val LIVE_NAVIGATION_TIMEOUT_MS = 5_000L

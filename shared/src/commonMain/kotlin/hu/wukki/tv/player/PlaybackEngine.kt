@@ -39,7 +39,7 @@ interface PlaybackEngine {
     fun release()
 }
 
-/** Live-video gestures are supplied by Android only; desktop video hosts deliberately ignore them. */
+/** Android uses live-video touch gestures; desktop uses onShowNavigation for its top-edge mouse interaction. */
 data class LiveVideoGestures(
     val onTap: () -> Unit,
     val onNextChannel: () -> Unit,
