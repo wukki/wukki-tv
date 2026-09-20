@@ -19,14 +19,14 @@ Flutter nem megfelelő a feltételezett minimumhoz: az LG hivatalos támogatása
 | `shared/build.gradle.kts`: desktop JVM + Android target | A UI-független típusok már a háromplatformos `core` modulban vannak. |
 | `WukkiApplication`, repositoryk, típusos hibák | Fokozatosan kerülnek a `core` modulba, platformadapterek mögé. |
 | `data/OfficialWukkiSource.kt` | Az egyetlen hivatalos playlist és a belőle származó EPG marad a forrás. |
-| `data/PlaylistParser.kt`, `data/XmlTvParser.kt` | Az EPG-párosítás már `core`; a playlist és platform XML-parser következő lépés. |
+| `data/PlaylistParser.kt`, `data/XmlTvParser.kt` | A playlist-parser és az EPG-párosítás már `core`; a platformfüggetlen XMLTV-parser következő lépés. |
 | `domain/Models.kt` | Áthelyezve a `core` modulba; ugyanaz a Kotlin-kód fut JS-en is. |
 | `JvmRemoteTextLoader`, `JvmXmlTvParser` | Új hálózati és streaming XML-adapter szükséges. |
 | Media3 / libVLC | HTML-video adapter, saját lejátszási állapotgéppel. |
 | Compose UI, Android WorkManager | DOM-felület és webOS-életciklus-kezelés. |
 | `docs/network-policy.md`, `docs/application-layer.md` | A hálózati limitek és állapotkezelési szabályok alapjai. |
 
-A Compose-független részek kiválasztása megkezdődött. A modellek, csatornaelőzmény és EPG-párosítás a `core` modulból JVM-en és JS-en is tesztelhető. A playlist-parser, alkalmazásréteg, hálózat és XML-feldolgozás következő szeletek; a teljes KMP-refaktor nem előfeltétele az első TV-s lejátszási mérésnek.
+A Compose-független részek kiválasztása megkezdődött. A modellek, csatornaelőzmény, M3U-feldolgozás, stabil csatornaazonosítás és EPG-párosítás a `core` modulból JVM-en és JS-en is tesztelhető. Az alkalmazásréteg, hálózat és XML-feldolgozás következő szeletek.
 
 A platformfüggetlen szerződések és tesztek helye a `core` modul. Ugyanazok a common tesztek futnak JVM-en és JavaScripten; fixture-rel kell lefedni az idézett M3U-attribútumokat, EPG URL-t, `tvg-chno`/`tvg-shift` értékeket, duplikátumokat, Unicode-normalizálást, EPG-párosítást és a sikeres lejátszási előzményt. A jelenlegi csatorna-ID Java `UUID.nameUUIDFromBytes` eredmény; a JS-megvalósításnak ezt a pontos algoritmust kell reprodukálnia és közös fixture-rel igazolnia.
 
@@ -128,4 +128,4 @@ Store-kiadás külön munka: aktuális LG checklist, alkalmazásazonosító és 
 
 ## Nyitott adatok az implementáció előtt
 
-A terv ezek nélkül is végrehajtható előkészítő munkára bontható; a P0 fizikai részéhez szükséges a TV pontos típusa és SDK-verziója, Developer Mode hozzáférés és tesztelési lehetőség. További döntés csak akkor kell, ha a streampróba külső proxy szükségességét mutatja. A Kotlin/JS production build és a közös JVM/JS doméntesztek sikeresek; streamteszt és TV-s telepítés még nem történt.
+A terv ezek nélkül is végrehajtható előkészítő munkára bontható; a teljes készülékmátrixhoz szükséges a TV pontos típusa és SDK-verziója. A Developer Mode telepítés, valamint egy referenciafolyam képe és hangja fizikai TV-n már igazolt. Az automatikus playlist-betöltés és a 0.3.0 csatornalista TV-s ellenőrzése még hátravan.

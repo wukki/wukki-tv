@@ -40,25 +40,6 @@
         <error line="55" column="69" source="standard:statement-wrapping" />
         <error line="55" column="77" source="standard:statement-wrapping" />
     </file>
-    <file name="src/commonMain/kotlin/hu/wukki/tv/data/PlaylistParser.kt">
-        <error line="4" column="15" source="standard:function-signature" />
-        <error line="4" column="29" source="standard:function-signature" />
-        <error line="4" column="47" source="standard:function-signature" />
-        <error line="10" column="53" source="standard:when-entry-bracing" />
-        <error line="11" column="1" source="standard:blank-line-between-when-conditions" />
-        <error line="14" column="32" source="standard:multiline-expression-wrapping" />
-        <error line="20" column="31" source="standard:multiline-expression-wrapping" />
-        <error line="30" column="79" source="standard:trailing-comma-on-call-site" />
-        <error line="41" column="60" source="standard:chain-method-continuation" />
-        <error line="41" column="68" source="standard:chain-method-continuation" />
-        <error line="41" column="112" source="standard:chain-method-continuation" />
-        <error line="47" column="24" source="standard:multiline-expression-wrapping" />
-        <error line="66" column="55" source="standard:multiline-expression-wrapping" />
-        <error line="66" column="55" source="standard:function-signature" />
-        <error line="90" column="1" source="standard:blank-line-before-declaration" />
-        <error line="94" column="44" source="standard:multiline-expression-wrapping" />
-        <error line="94" column="44" source="standard:function-signature" />
-    </file>
     <file name="src/commonMain/kotlin/hu/wukki/tv/data/XmlTvParser.kt">
         <error line="1" column="1" source="standard:filename" />
         <error line="4" column="15" source="standard:function-signature" />

@@ -1,8 +1,8 @@
 package hu.wukki.tv.webos
 
 import hu.wukki.tv.Channel
-import hu.wukki.tv.M3uPlaylistParser
 import hu.wukki.tv.OTHER_CATEGORY_ID
+import hu.wukki.tv.PlaylistParser
 import hu.wukki.tv.UNKNOWN_CHANNEL_NAME_ID
 import kotlinx.browser.document
 import kotlinx.browser.window
@@ -149,9 +149,7 @@ private class WebOsApp {
         fetchPlaylistText(url)
             .then { text ->
                 val parsed =
-                    M3uPlaylistParser
-                        .parse(text, WEBOS_PLAYLIST_ID)
-                        .map { channel -> channel.copy(streamUrl = resolveUrl(channel.streamUrl, url)) }
+                    PlaylistParser.parse(text, WEBOS_PLAYLIST_ID, url)
                 if (parsed.isEmpty()) {
                     throw IllegalArgumentException("A letöltött fájl nem tartalmaz lejátszható csatornát.")
                 } else {
@@ -332,11 +330,6 @@ private fun platformBack() {
 private inline fun <reified T : HTMLElement> element(id: String): T = requireNotNull(document.getElementById(id)) { "Missing #$id" } as T
 
 private fun decodeURIComponent(value: String): String = js("decodeURIComponent(value)") as String
-
-private fun resolveUrl(
-    value: String,
-    base: String,
-): String = js("new URL(value, base).href") as String
 
 private fun mediaErrorName(code: Short?): String =
     when (code?.toInt()) {
