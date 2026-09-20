@@ -162,6 +162,10 @@ npm install -g @webos-tools/cli
 Az IPK a `webosApp/build/outputs/webos` könyvtárba kerül. A próbaalkalmazás előre kitölti az M2
 tesztstream URL-jét; másik stream továbbra is megadható a mezőben vagy a `?stream=` paraméterrel.
 
+A forrásbeli `webosApp/src/jsMain/resources/index.html` közvetlen helyi megnyitásához előbb le kell
+futtatni a `jsBrowserDistribution` feladatot. Az oldal ilyenkor a `build` könyvtárból tölti be a
+lefordított Kotlin/JS bundle-t; az IPK-ban továbbra is a csomag gyökerében lévő bundle használatos.
+
 ## Android APK
 
 Az Android alkalmazás minimum Android 8.0-t (API 26) igényel, fekvő tájolásra optimalizált. Android TV-n a rendszer Leanback launcherében is megjelenik.

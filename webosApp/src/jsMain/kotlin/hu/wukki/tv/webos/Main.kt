@@ -68,6 +68,10 @@ fun main() {
         show("Lejátszás folyamatban.")
         null
     }
+    video.oncanplay = {
+        if (!video.paused) show("Lejátszás folyamatban.")
+        null
+    }
     video.onwaiting = {
         show("Pufferelés…")
         null
