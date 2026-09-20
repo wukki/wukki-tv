@@ -4,6 +4,7 @@ import hu.wukki.tv.Channel
 import hu.wukki.tv.OTHER_CATEGORY_ID
 import hu.wukki.tv.PlaylistParser
 import hu.wukki.tv.UNKNOWN_CHANNEL_NAME_ID
+import hu.wukki.tv.normalizedChannelHistory
 import kotlinx.browser.document
 import kotlinx.browser.window
 import org.w3c.dom.HTMLButtonElement
@@ -13,6 +14,7 @@ import org.w3c.dom.HTMLVideoElement
 import org.w3c.dom.events.Event
 import org.w3c.dom.events.KeyboardEvent
 import org.w3c.fetch.Response
+import kotlin.js.Date
 import kotlin.js.Promise
 
 private const val BACK_KEY = 461
@@ -42,11 +44,23 @@ private class WebOsApp {
     val platform = element<HTMLElement>("platform")
     val channelButtons = mutableListOf<HTMLButtonElement>()
     var channels = emptyList<Channel>()
+    private var cachedChannels = emptyList<Channel>()
     private var playingIndex = 0
     private var playlistLoading = false
     private var selectedChannelId: String? = null
+    private var lastSuccessfulChannelId: String? = null
+    private var recentChannelIds = emptyList<String>()
+    private var settings = WebOsSettings()
+    private var playlistCachedAt = 0L
+    private var storageProblem: String? = null
     private var hudTimer: Int? = null
     private var lastChannelSwitchAt = Double.NEGATIVE_INFINITY
+
+    private val stateStore =
+        WebOsStateStore(
+            read = { window.localStorage.getItem(WEBOS_STATE_STORAGE_KEY) },
+            write = { value -> window.localStorage.setItem(WEBOS_STATE_STORAGE_KEY, value) },
+        )
 
     private val hlsSupport = video.canPlayType("application/vnd.apple.mpegurl").toString().ifBlank { "nincs" }
 
@@ -57,7 +71,7 @@ private class WebOsApp {
         configureControls()
         configurePlayerEvents()
         configureKeyboard()
-        renderChannels()
+        restoreCachedState()
         fetchPlaylist()
     }
 
@@ -70,7 +84,7 @@ private class WebOsApp {
             ?.let(::decodeURIComponent)
 
     private fun show(message: String) {
-        status.textContent = message
+        status.textContent = listOfNotNull(message, storageProblem).joinToString(" · ")
     }
 
     private fun displayName(channel: Channel): String = channel.name.takeUnless { it == UNKNOWN_CHANNEL_NAME_ID } ?: "Ismeretlen csatorna"
@@ -222,15 +236,26 @@ private class WebOsApp {
                 if (parsed.isEmpty()) {
                     throw IllegalArgumentException("A letöltött fájl nem tartalmaz lejátszható csatornát.")
                 } else {
+                    cachedChannels = parsed
                     channels = parsed
+                    playlistCachedAt = Date.now().toLong()
+                    lastSuccessfulChannelId = lastSuccessfulChannelId?.takeIf { id -> parsed.any { it.id == id } }
+                    recentChannelIds = normalizedChannelHistory(recentChannelIds, parsed)
                     renderChannels()
+                    playingIndex = selectedChannelId?.let { id -> channels.indexOfFirst { it.id == id } }?.takeIf { it >= 0 } ?: 0
+                    persistState()
                     show("${channels.size} csatorna betöltve.")
-                    channelButtons.firstOrNull()?.focus()
+                    if (!isPlaybackActive()) restoreChannelFocus()
                 }
                 finishPlaylistLoad()
             }.catch { error ->
                 finishPlaylistLoad(retry = true)
-                show("A playlist nem tölthető be: ${error.asDynamic().message ?: error.toString()}")
+                val detail = error.asDynamic().message ?: error.toString()
+                if (cachedChannels.isEmpty()) {
+                    show("A playlist nem tölthető be: $detail")
+                } else {
+                    show("A hálózati frissítés sikertelen; a mentett lista böngészhető, de a lejátszáshoz hálózat kell: $detail")
+                }
             }
     }
 
@@ -262,6 +287,7 @@ private class WebOsApp {
 
     private fun configurePlayerEvents() {
         video.onplaying = {
+            recordSuccessfulPlayback()
             show("Lejátszás: ${video.videoWidth}×${video.videoHeight} · ready=${video.readyState}")
             showPlaybackHud()
             null
@@ -308,7 +334,7 @@ private class WebOsApp {
     }
 
     private fun handleKey(event: KeyboardEvent) {
-        val playbackActive = document.body?.classList?.contains("playback-active") == true
+        val playbackActive = isPlaybackActive()
         when (event.keyCode) {
             37, 38 -> {
                 event.preventDefault()
@@ -351,6 +377,54 @@ private class WebOsApp {
         switchChannel(step)
         showPlaybackHud()
     }
+
+    private fun restoreCachedState() {
+        val loaded = stateStore.load()
+        storageProblem = loaded.error?.let { "Tárolási hiba: $it" }
+        val state = loaded.state
+        if (state == null) {
+            renderChannels()
+            show("Nincs mentett csatornalista; hálózati betöltés indul.")
+            return
+        }
+
+        cachedChannels = state.channels
+        channels = state.channels
+        settings = state.settings
+        lastSuccessfulChannelId = state.lastChannelId?.takeIf { id -> channels.any { it.id == id } }
+        recentChannelIds = normalizedChannelHistory(state.recentChannelIds, channels)
+        playlistCachedAt = state.playlistUpdatedAt
+        selectedChannelId = lastSuccessfulChannelId ?: channels.firstOrNull()?.id
+        playingIndex = selectedChannelId?.let { id -> channels.indexOfFirst { it.id == id } }?.takeIf { it >= 0 } ?: 0
+        renderChannels()
+        restoreChannelFocus()
+        show("${channels.size} mentett csatorna betöltve; hálózati frissítés indul.")
+    }
+
+    private fun recordSuccessfulPlayback() {
+        val channel = channels.getOrNull(playingIndex) ?: return
+        if (cachedChannels.none { it.id == channel.id }) return
+        if (lastSuccessfulChannelId == channel.id && recentChannelIds.firstOrNull() == channel.id) return
+        lastSuccessfulChannelId = channel.id
+        recentChannelIds = normalizedChannelHistory(listOf(channel.id) + recentChannelIds, cachedChannels)
+        persistState()
+    }
+
+    private fun persistState() {
+        if (cachedChannels.isEmpty()) return
+        val state =
+            WebOsStoredState(
+                playlistUrl = OFFICIAL_PLAYLIST_URL,
+                playlistUpdatedAt = playlistCachedAt,
+                channels = cachedChannels,
+                lastChannelId = lastSuccessfulChannelId,
+                recentChannelIds = recentChannelIds,
+                settings = settings,
+            )
+        storageProblem = stateStore.save(state)?.let { "Tárolási hiba: $it" }
+    }
+
+    private fun isPlaybackActive(): Boolean = document.body?.classList?.contains("playback-active") == true
 }
 
 internal fun nextChannelIndex(
