@@ -116,6 +116,8 @@ button.channel {
     background: #18243a;
 }
 
+button.channel[aria-current="true"] { background: #29436d; }
+
 .channel-number {
     width: 70px;
     color: #84adff;
@@ -158,7 +160,7 @@ body.playback-active video {
     height: 1080px;
 }
 
-body.playback-active .playback-hud {
+body.playback-active.hud-visible .playback-hud {
     display: flex;
     position: absolute;
     right: 48px;
@@ -174,7 +176,10 @@ body.playback-active .playback-hud {
 .playback-hud small, .playback-hud span { color: #b8c3d6; font-size: 18px; }
 .playback-hud strong { font-size: 25px; }
 
-body.playback-active #status {
+body.playback-active #status { display: none; }
+
+body.playback-active.hud-visible #status {
+    display: block;
     right: 72px;
     bottom: 142px;
     left: 72px;

@@ -128,4 +128,4 @@ Store-kiadás külön munka: aktuális LG checklist, alkalmazásazonosító és 
 
 ## Nyitott adatok az implementáció előtt
 
-A terv ezek nélkül is végrehajtható előkészítő munkára bontható; a teljes készülékmátrixhoz szükséges a TV pontos típusa és SDK-verziója. A Developer Mode telepítés, valamint egy referenciafolyam képe és hangja fizikai TV-n már igazolt. Az automatikus playlist-betöltés és a 0.3.0 csatornalista TV-s ellenőrzése még hátravan.
+A terv ezek nélkül is végrehajtható előkészítő munkára bontható; a teljes készülékmátrixhoz szükséges a TV pontos típusa és SDK-verziója. A Developer Mode telepítés, egy referenciafolyam képe és hangja, valamint a 0.3.0 automatikus playlist-betöltése és csatornalistája fizikai TV-n már igazolt.

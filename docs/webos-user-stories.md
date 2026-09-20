@@ -1,6 +1,6 @@
 # Wukki TV webOS – következő user story-k
 
-Állapot: 2026-09-20. Kiindulás: webOS 0.3.0.
+Állapot: 2026-09-21. Kiindulás: webOS 0.4.0.
 Kapcsolódó dokumentum: [megvalósítási terv](webos-implementation-plan.md).
 Az alábbi backlog a jelenlegi kód alapján frissíti a korábbi terv készültségi állításait.
 
@@ -11,7 +11,7 @@ Az alábbi backlog a jelenlegi kód alapján frissíti a korábbi terv készült
 - M3U parser, kézi URL-betöltés, alap csatornalista, nyilas navigáció, csatornaváltás és Back.
 - JVM/JS parser-tesztek és sikeres `verifyAll` a 0.2.0 commitnál.
 
-A 0.2.1 automatikus playlist-betöltése és csatornalistája még fizikai TV-s ellenőrzésre vár.
+A 0.3.0 automatikus playlist-betöltését és közös csatorna-feldolgozását a felhasználó fizikai TV-n sikeresen ellenőrizte.
 
 ## Első szakasz – megbízható csatornaböngésző
 
@@ -19,7 +19,7 @@ A 0.2.1 automatikus playlist-betöltése és csatornalistája még fizikai TV-s 
 
 **Story:** Nézőként azt szeretném, hogy az alkalmazás megnyitásakor a Wukki csatornáit lássam, hogy ne kelljen URL-t gépelnem.
 
-**Prioritás:** P0. **Állapot:** implementálva, TV-s ellenőrzésre vár. **Függőség:** nincs.
+**Prioritás:** P0. **Állapot:** kész, TV-n ellenőrizve. **Függőség:** nincs.
 
 **Elfogadási feltételek:**
 - Első indításkor automatikusan letöltődik a hivatalos M3U, majd kiválasztható a csatorna.
@@ -33,7 +33,7 @@ A 0.2.1 automatikus playlist-betöltése és csatornalistája még fizikai TV-s 
 
 **Story:** Nézőként ugyanazokat a csatornaneveket, sorrendet és műsoradat-hozzárendelést szeretném webOS-en, mint a többi Wukki kliensben.
 
-**Prioritás:** P0. **Állapot:** implementálva, TV-s ellenőrzésre vár. **Függőség:** nincs.
+**Prioritás:** P0. **Állapot:** kész, TV-n ellenőrizve. **Függőség:** nincs.
 
 **Elfogadási feltételek:**
 - A közös parser kezeli az idézett, vesszőt tartalmazó attribútumokat, hiányzó neveket, duplikátumokat, `tvg-chno` és `tvg-shift` értékeket.
@@ -59,7 +59,7 @@ A 0.2.1 automatikus playlist-betöltése és csatornalistája még fizikai TV-s 
 
 **Story:** Nézőként kizárólag távirányítóval szeretném kezelni az alkalmazást, miközben a vezérlők nem takarják tartósan a műsort.
 
-**Prioritás:** P0. **Függőség:** WOS-03.
+**Prioritás:** P0. **Állapot:** implementálva, TV-s ellenőrzésre vár. **Függőség:** WOS-03.
 
 **Elfogadási feltételek:**
 - A lista nyilakkal bejárható, OK indít, a fókusz mindig látható és visszatéréskor az utoljára választott csatornára áll.
@@ -188,7 +188,7 @@ A 0.2.1 automatikus playlist-betöltése és csatornalistája még fizikai TV-s 
 
 ## Javasolt sorrend és közös készültségi feltétel
 
-1. Következő implementáció: **WOS-03**, utána **WOS-04**.
+1. Következő implementáció: **WOS-03**, majd a WOS-04 fizikai TV-s ellenőrzése.
 2. Napi használhatóság: **WOS-05–08**.
 3. EPG és beállítások: **WOS-09–11**.
 4. Stabil kiadás: **WOS-12**; későbbi bővítés: **WOS-13**.
