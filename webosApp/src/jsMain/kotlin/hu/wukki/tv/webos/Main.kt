@@ -46,6 +46,7 @@ fun main() {
         }
         val channel = probeChannel(url)
         show("Lejátszás indítása: ${channel.name} · HLS: $hlsSupport")
+        document.body?.classList?.add("playback-active")
         video.src = channel.streamUrl
         video.load()
         video.play().catch { error ->
@@ -57,6 +58,7 @@ fun main() {
         video.pause()
         video.removeAttribute("src")
         video.load()
+        document.body?.classList?.remove("playback-active")
         show("Lejátszás leállítva.")
     }
 
@@ -69,7 +71,7 @@ fun main() {
         null
     }
     video.onplaying = {
-        show("Lejátszás folyamatban.")
+        show("Lejátszás: ${video.videoWidth}×${video.videoHeight} · ready=${video.readyState}")
         null
     }
     video.oncanplay = {
@@ -83,6 +85,7 @@ fun main() {
     video.addEventListener(
         "error",
         {
+            document.body?.classList?.remove("playback-active")
             show(
                 "Lejátszási hiba: ${mediaErrorName(video.error?.code)} " +
                     "(ready=${video.readyState}, network=${video.networkState})",
