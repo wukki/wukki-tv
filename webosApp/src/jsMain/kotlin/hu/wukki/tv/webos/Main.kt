@@ -12,10 +12,15 @@ import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.HTMLVideoElement
 import org.w3c.dom.events.Event
 import org.w3c.dom.events.KeyboardEvent
+import org.w3c.fetch.Response
+import kotlin.js.Promise
 
 private const val BACK_KEY = 461
-private const val DEFAULT_STREAM_URL = "http://88.212.15.19/live/m2_hun/index.m3u8"
+private const val OFFICIAL_PLAYLIST_URL = "https://raw.githubusercontent.com/wukki/wukki-tv/refs/heads/main/wukki-tv.m3u"
+private const val DEFAULT_DIAGNOSTIC_STREAM_URL = "http://88.212.15.19/live/m2_hun/index.m3u8"
 private const val WEBOS_PLAYLIST_ID = "webos-playlist"
+private const val MAX_PLAYLIST_BYTES = 2 * 1024 * 1024
+private const val PLAYLIST_TIMEOUT_MS = 15_000
 
 fun main() {
     WebOsApp().start()
@@ -23,6 +28,7 @@ fun main() {
 
 private class WebOsApp {
     val sourceInput = element<HTMLInputElement>("source-url")
+    val diagnosticInput = element<HTMLInputElement>("diagnostic-url")
     val loadPlaylist = element<HTMLButtonElement>("load-playlist")
     val playDirect = element<HTMLButtonElement>("play-direct")
     val stop = element<HTMLButtonElement>("stop")
@@ -33,20 +39,21 @@ private class WebOsApp {
     val nowPlaying = element<HTMLElement>("now-playing")
     val platform = element<HTMLElement>("platform")
     val channelButtons = mutableListOf<HTMLButtonElement>()
-    var channels = listOf(probeChannel(DEFAULT_STREAM_URL))
+    var channels = emptyList<Channel>()
     private var playingIndex = 0
+    private var playlistLoading = false
 
     private val hlsSupport = video.canPlayType("application/vnd.apple.mpegurl").toString().ifBlank { "nincs" }
 
     fun start() {
         platform.textContent = "${window.navigator.userAgent} · HLS: $hlsSupport · Kotlin/JS core betöltve"
-        sourceInput.value = requestedStream() ?: DEFAULT_STREAM_URL
+        sourceInput.value = OFFICIAL_PLAYLIST_URL
+        diagnosticInput.value = requestedStream() ?: DEFAULT_DIAGNOSTIC_STREAM_URL
         configureControls()
         configurePlayerEvents()
         configureKeyboard()
         renderChannels()
-        show("Készen áll. Tölts be egy M3U listát, vagy indítsd el közvetlenül a streamet.")
-        playDirect.focus()
+        fetchPlaylist()
     }
 
     private fun requestedStream(): String? =
@@ -86,7 +93,7 @@ private class WebOsApp {
         video.load()
         document.body?.classList?.remove("playback-active")
         show("Lejátszás leállítva.")
-        channelButtons.getOrNull(playingIndex)?.focus() ?: playDirect.focus()
+        channelButtons.getOrNull(playingIndex)?.focus() ?: loadPlaylist.focus()
     }
 
     private fun renderChannels() {
@@ -121,10 +128,10 @@ private class WebOsApp {
     }
 
     private fun useDirectStream() {
-        val url = sourceInput.value.trim()
+        val url = diagnosticInput.value.trim()
         if (url.isEmpty()) {
             show("Adj meg egy stream URL-t.")
-            sourceInput.focus()
+            diagnosticInput.focus()
             return
         }
         channels = listOf(probeChannel(url))
@@ -133,35 +140,37 @@ private class WebOsApp {
     }
 
     private fun fetchPlaylist() {
-        val url = sourceInput.value.trim()
-        if (url.isEmpty()) {
-            show("Adj meg egy M3U playlist URL-t.")
-            sourceInput.focus()
-            return
-        }
+        if (playlistLoading) return
+        val url = OFFICIAL_PLAYLIST_URL
+        playlistLoading = true
         loadPlaylist.disabled = true
-        show("Playlist letöltése…")
-        window
-            .fetch(url)
-            .then { response -> response.text() }
+        loadPlaylist.textContent = "Betöltés…"
+        show("Hivatalos csatornalista betöltése…")
+        fetchPlaylistText(url)
             .then { text ->
                 val parsed =
                     M3uPlaylistParser
                         .parse(text, WEBOS_PLAYLIST_ID)
                         .map { channel -> channel.copy(streamUrl = resolveUrl(channel.streamUrl, url)) }
                 if (parsed.isEmpty()) {
-                    show("Ez nem IPTV csatornalista. Közvetlen streamként próbálható.")
+                    throw IllegalArgumentException("A letöltött fájl nem tartalmaz lejátszható csatornát.")
                 } else {
                     channels = parsed
                     renderChannels()
                     show("${channels.size} csatorna betöltve.")
                     channelButtons.firstOrNull()?.focus()
                 }
-                loadPlaylist.disabled = false
+                finishPlaylistLoad()
             }.catch { error ->
-                loadPlaylist.disabled = false
+                finishPlaylistLoad(retry = true)
                 show("A playlist nem tölthető be: ${error.asDynamic().message ?: error.toString()}")
             }
+    }
+
+    private fun finishPlaylistLoad(retry: Boolean = false) {
+        playlistLoading = false
+        loadPlaylist.disabled = false
+        loadPlaylist.textContent = if (retry) "Újrapróbálás" else "Playlist frissítése"
     }
 
     private fun switchChannel(step: Int) {
@@ -205,7 +214,7 @@ private class WebOsApp {
         )
     }
 
-    private fun focusableElements(): List<HTMLElement> = listOf(sourceInput, loadPlaylist, playDirect) + channelButtons
+    private fun focusableElements(): List<HTMLElement> = listOf(loadPlaylist, diagnosticInput, playDirect) + channelButtons
 
     private fun moveFocus(step: Int) {
         val focusable = focusableElements()
@@ -234,9 +243,9 @@ private class WebOsApp {
             }
 
             13 -> {
-                if (!playbackActive && document.activeElement === sourceInput) {
+                if (!playbackActive && document.activeElement === diagnosticInput) {
                     event.preventDefault()
-                    fetchPlaylist()
+                    useDirectStream()
                 }
             }
 
@@ -247,6 +256,57 @@ private class WebOsApp {
         }
     }
 }
+
+private fun fetchPlaylistText(url: String): Promise<String> =
+    Promise { resolve, reject ->
+        val controller = newAbortController()
+        val options = js("({})")
+        if (controller != null) options.signal = controller.signal
+        val timeout =
+            window.setTimeout(
+                {
+                    controller?.abort()
+                    reject(Throwable("A letöltés túllépte a ${PLAYLIST_TIMEOUT_MS / 1000} másodperces időkorlátot."))
+                },
+                PLAYLIST_TIMEOUT_MS,
+            )
+        window
+            .fetch(url, options)
+            .then { response -> validateResponse(response) }
+            .then { text ->
+                window.clearTimeout(timeout)
+                resolve(validatePlaylistBody(text))
+            }.catch { error ->
+                window.clearTimeout(timeout)
+                reject(error)
+            }
+    }
+
+private fun validateResponse(response: Response): Promise<String> {
+    validatePlaylistResponse(response.status.toInt(), response.statusText, response.headers.get("Content-Length")?.toIntOrNull())
+    return response.text()
+}
+
+internal fun validatePlaylistResponse(
+    status: Int,
+    statusText: String,
+    declaredSize: Int?,
+) {
+    if (status !in 200..299) throw IllegalStateException("HTTP $status $statusText".trim())
+    if (declaredSize != null && declaredSize > MAX_PLAYLIST_BYTES) {
+        throw IllegalArgumentException("A playlist túl nagy: $declaredSize bájt, maximum $MAX_PLAYLIST_BYTES bájt lehet.")
+    }
+}
+
+internal fun validatePlaylistBody(text: String): String {
+    val size = text.encodeToByteArray().size
+    require(size <= MAX_PLAYLIST_BYTES) {
+        "A playlist túl nagy: $size bájt, maximum $MAX_PLAYLIST_BYTES bájt lehet."
+    }
+    return text
+}
+
+private fun newAbortController(): dynamic = js("typeof AbortController === 'undefined' ? null : new AbortController()")
 
 private fun probeChannel(url: String): Channel =
     Channel(

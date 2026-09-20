@@ -148,9 +148,10 @@ A Kotlin/JS alapú első mérési alkalmazás production csomagja ezzel készül
 ```
 
 A webOS-csomagolásra előkészített fájlok a `webosApp/build/dist/js/productionExecutable`
-könyvtárba kerülnek. A próba egy megadott stream URL-t nyit meg natív HTML-videóban, kezeli a
-D-pad fókuszt és a platform Back gombját. Még nem tölti le a hivatalos playlistet, és fizikai LG
-TV-n nem lett ellenőrizve.
+könyvtárba kerülnek. Az alkalmazás induláskor letölti a rögzített hivatalos playlistet, megjeleníti
+a csatornalistát, natív HTML-videóban játszik le, valamint kezeli a D-pad fókuszt és a platform Back
+gombját. A közvetlen streampróba külön diagnosztikai mezőből indítható. A playlist automatikus
+betöltése még fizikai LG TV-s ellenőrzésre vár; a natív videó képe és hangja TV-n már igazolt.
 
 Az LG webOS CLI telepítése után telepíthető IPK is készíthető:
 
@@ -159,8 +160,8 @@ npm install -g @webos-tools/cli
 ./gradlew :webosApp:packageWebOs
 ```
 
-Az IPK a `webosApp/build/outputs/webos` könyvtárba kerül. A próbaalkalmazás előre kitölti az M2
-tesztstream URL-jét; másik stream továbbra is megadható a mezőben vagy a `?stream=` paraméterrel.
+Az IPK a `webosApp/build/outputs/webos` könyvtárba kerül. A diagnosztikai mező előre kitölti az M2
+tesztstream URL-jét; másik tesztstream a mezőben vagy a `?stream=` paraméterrel adható meg.
 
 A forrásbeli `webosApp/src/jsMain/resources/index.html` közvetlen helyi megnyitásához előbb le kell
 futtatni a `jsBrowserDistribution` feladatot. Az oldal ilyenkor a `build` könyvtárból tölti be a

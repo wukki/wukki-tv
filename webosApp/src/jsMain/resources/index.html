@@ -16,10 +16,14 @@
     <video id="player" playsinline></video>
     <section class="browser">
         <div class="source-panel">
-            <label for="source-url">M3U playlist vagy közvetlen stream URL</label>
-            <input id="source-url" type="url" inputmode="url" autocomplete="off" placeholder="http://…/playlist.m3u">
+            <label for="source-url">Hivatalos Wukki playlist</label>
+            <input id="source-url" type="url" readonly tabindex="-1">
             <div class="buttons">
-                <button id="load-playlist" type="button">Playlist betöltése</button>
+                <button id="load-playlist" type="button">Playlist frissítése</button>
+            </div>
+            <div class="diagnostics">
+                <label for="diagnostic-url">Diagnosztikai stream URL</label>
+                <input id="diagnostic-url" type="url" inputmode="url" autocomplete="off" placeholder="http://…/stream.m3u8">
                 <button id="play-direct" type="button">Közvetlen lejátszás</button>
             </div>
         </div>

@@ -64,7 +64,19 @@ input {
     font-size: 21px;
 }
 
+input[readonly] { color: #9ca9bf; }
+
 .buttons { display: flex; gap: 16px; margin-top: 18px; }
+
+.diagnostics {
+    display: grid;
+    gap: 12px;
+    margin-top: 42px;
+    padding-top: 28px;
+    border-top: 1px solid #33415a;
+}
+
+.diagnostics button { justify-self: start; }
 
 button {
     padding: 14px 24px;
