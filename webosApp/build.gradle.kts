@@ -58,8 +58,12 @@ val verifyWebOs5Bundle by tasks.registering {
 
     doLast {
         val source = bundle.get().asFile.readText()
-        val unsupported = listOf("??" to "nullish coalescing", "?." to "optional chaining")
-        val detected = unsupported.filter { (token, _) -> token in source }.map { (_, name) -> name }
+        val unsupported =
+            listOf(
+                Regex("(?<=[A-Za-z0-9_$)\\]])\\?\\?(?=[A-Za-z0-9_$('\\\"\\[])") to "nullish coalescing",
+                Regex("(?<=[A-Za-z0-9_$)\\]])\\?\\.(?=[A-Za-z0-9_$\\[(])") to "optional chaining",
+            )
+        val detected = unsupported.filter { (pattern, _) -> pattern.containsMatchIn(source) }.map { (_, name) -> name }
         check(detected.isEmpty()) {
             "The webOS bundle contains syntax unsupported by Chromium 68: ${detected.joinToString()}"
         }

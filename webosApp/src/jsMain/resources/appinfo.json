@@ -1,6 +1,6 @@
 {
   "id": "hu.wukki.tv.webos",
-  "version": "0.1.3",
+  "version": "0.2.0",
   "vendor": "Wukki",
   "type": "web",
   "main": "index.html",

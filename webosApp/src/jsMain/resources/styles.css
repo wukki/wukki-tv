@@ -18,70 +18,127 @@ main {
     position: relative;
     width: 1920px;
     height: 1080px;
-    padding: 40px 56px;
-    background: radial-gradient(circle at 70% 20%, #24365b 0, #080b13 48%);
+    padding: 42px 56px;
+    background: radial-gradient(circle at 70% 20%, #24365b 0, #080b13 52%);
 }
 
 header {
     display: flex;
-    align-items: baseline;
-    gap: 24px;
-    margin-bottom: 24px;
+    align-items: flex-start;
+    justify-content: space-between;
+    height: 92px;
 }
 
+header div { display: flex; align-items: baseline; gap: 24px; }
 h1 { margin: 0; font-size: 42px; }
 header span { color: #9ca9bf; font-size: 22px; }
+#platform { max-width: 780px; color: #7f8ba0; text-align: right; }
 
 video {
-    display: block;
-    width: 1280px;
-    height: 720px;
+    display: none;
     background: transparent;
 }
 
-.controls { width: 1280px; max-width: 100%; margin-top: 22px; }
-label { display: block; margin-bottom: 8px; color: #b8c3d6; }
+.browser {
+    display: grid;
+    grid-template-columns: 720px 1fr;
+    gap: 40px;
+    height: 830px;
+}
+
+.source-panel, .channels-panel {
+    padding: 28px;
+    background: rgba(18, 25, 39, 0.88);
+    border-radius: 16px;
+}
+
+label { display: block; margin-bottom: 12px; color: #b8c3d6; font-size: 22px; }
 
 input {
     width: 100%;
-    padding: 16px 18px;
+    padding: 17px 18px;
     color: #fff;
-    background: #161d2b;
+    background: #0c111c;
     border: 3px solid transparent;
     border-radius: 9px;
-    font-size: 22px;
+    font-size: 21px;
 }
 
-.buttons { display: flex; gap: 16px; margin-top: 16px; }
+.buttons { display: flex; gap: 16px; margin-top: 18px; }
 
 button {
-    padding: 14px 28px;
+    padding: 14px 24px;
     color: #fff;
     background: #304a78;
     border: 3px solid transparent;
     border-radius: 9px;
-    font-size: 22px;
+    font-size: 21px;
 }
 
+button:disabled { opacity: .55; }
 button:focus, input:focus {
     outline: none;
     border-color: #fff;
     box-shadow: 0 0 0 4px #4f8cff;
 }
 
-#status { margin: 18px 0 8px; font-size: 20px; }
-#platform { color: #7f8ba0; }
+.channels-panel { min-width: 0; padding-bottom: 18px; }
+.channels-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.channels-heading h2 { margin: 0; font-size: 30px; }
+.channels-heading span { color: #9ca9bf; font-size: 20px; }
+
+.channel-list {
+    display: grid;
+    gap: 10px;
+    max-height: 740px;
+    padding: 4px 10px 10px 4px;
+    overflow-y: auto;
+}
+
+button.channel {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 13px 18px;
+    text-align: left;
+    background: #18243a;
+}
+
+.channel-number {
+    width: 70px;
+    color: #84adff;
+    font-size: 24px;
+    font-weight: bold;
+}
+
+.channel-text { display: grid; gap: 3px; }
+.channel-text strong { font-size: 23px; }
+.channel-text small { color: #9ca9bf; font-size: 17px; }
+
+#status {
+    position: absolute;
+    right: 56px;
+    bottom: 20px;
+    left: 56px;
+    margin: 0;
+    color: #c5cede;
+    font-size: 19px;
+}
+
+.playback-hud { display: none; }
 
 body.playback-active main {
     padding: 0;
     background: transparent;
 }
 
-body.playback-active header {
+body.playback-active header,
+body.playback-active .browser {
     display: none;
 }
 
 body.playback-active video {
+    display: block;
     position: absolute;
     top: 0;
     left: 0;
@@ -89,13 +146,26 @@ body.playback-active video {
     height: 1080px;
 }
 
-body.playback-active .controls {
+body.playback-active .playback-hud {
+    display: flex;
     position: absolute;
     right: 48px;
-    bottom: 36px;
+    bottom: 42px;
     left: 48px;
-    width: auto;
-    margin: 0;
+    align-items: center;
+    justify-content: space-between;
     padding: 18px 24px;
     background: rgba(8, 11, 19, 0.82);
+}
+
+.playback-hud div { display: grid; gap: 3px; }
+.playback-hud small, .playback-hud span { color: #b8c3d6; font-size: 18px; }
+.playback-hud strong { font-size: 25px; }
+
+body.playback-active #status {
+    right: 72px;
+    bottom: 142px;
+    left: 72px;
+    color: #fff;
+    text-shadow: 0 2px 4px #000;
 }
