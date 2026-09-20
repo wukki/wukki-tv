@@ -27,6 +27,9 @@ kotlin {
         withHostTest {}
     }
     js {
+        compilerOptions {
+            target.set("es5")
+        }
         browser()
     }
 

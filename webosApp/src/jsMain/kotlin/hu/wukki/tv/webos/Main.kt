@@ -21,7 +21,9 @@ fun main() {
     val status = element<HTMLElement>("status")
     val platform = element<HTMLElement>("platform")
 
-    platform.textContent = "${window.navigator.userAgent} · Kotlin/JS core betöltve"
+    val hlsSupport = video.canPlayType("application/vnd.apple.mpegurl").toString().ifBlank { "nincs" }
+    platform.textContent = "${window.navigator.userAgent} · HLS: $hlsSupport · Kotlin/JS core betöltve"
+    status.textContent = "Alkalmazás betöltve. Nyomd meg a Lejátszás gombot."
     val requestedStream =
         window.location.search
             .removePrefix("?")
@@ -43,10 +45,12 @@ fun main() {
             return
         }
         val channel = probeChannel(url)
-        show("Megnyitás: ${channel.name}")
+        show("Lejátszás indítása: ${channel.name} · HLS: $hlsSupport")
         video.src = channel.streamUrl
         video.load()
-        video.play()
+        video.play().catch { error ->
+            show("A lejátszás indítása sikertelen: ${error.asDynamic().message ?: error.toString()}")
+        }
     }
 
     fun stopPlayback() {
@@ -76,7 +80,15 @@ fun main() {
         show("Pufferelés…")
         null
     }
-    video.addEventListener("error", { show("Lejátszási hiba: ${video.error?.code ?: "ismeretlen"}") })
+    video.addEventListener(
+        "error",
+        {
+            show(
+                "Lejátszási hiba: ${mediaErrorName(video.error?.code)} " +
+                    "(ready=${video.readyState}, network=${video.networkState})",
+            )
+        },
+    )
 
     val focusable = listOf(input, play, stop)
 
@@ -140,3 +152,12 @@ private fun platformBack() {
 private inline fun <reified T : HTMLElement> element(id: String): T = requireNotNull(document.getElementById(id)) { "Missing #$id" } as T
 
 private fun decodeURIComponent(value: String): String = js("decodeURIComponent(value)") as String
+
+private fun mediaErrorName(code: Short?): String =
+    when (code?.toInt()) {
+        1 -> "megszakítva"
+        2 -> "hálózati hiba"
+        3 -> "dekódolási hiba"
+        4 -> "nem támogatott médiaforrás"
+        else -> "ismeretlen hibakód: $code"
+    }
