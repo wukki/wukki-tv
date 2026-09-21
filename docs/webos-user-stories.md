@@ -1,6 +1,6 @@
 # Wukki TV webOS – következő user story-k
 
-Állapot: 2026-09-21. Kiindulás: webOS 0.5.0.
+Állapot: 2026-09-21. Kiindulás: webOS 0.6.0.
 Kapcsolódó dokumentum: [megvalósítási terv](webos-implementation-plan.md).
 Az alábbi backlog a jelenlegi kód alapján frissíti a korábbi terv készültségi állításait.
 
@@ -87,7 +87,7 @@ A 0.3.0 automatikus playlist-betöltését és közös csatorna-feldolgozását 
 
 **Story:** Nézőként név és kategória szerint szeretnék csatornát keresni, hogy egy hosszú listában is gyorsan megtaláljam a műsort.
 
-**Prioritás:** P1. **Függőség:** WOS-02, WOS-04.
+**Prioritás:** P1. **Állapot:** implementálva, TV-s ellenőrzésre vár. **Függőség:** WOS-02, WOS-04.
 
 **Elfogadási feltételek:**
 - A névkeresés kis-/nagybetűtől és ékezettől független, kategóriaszűréssel együtt is működik.
@@ -188,7 +188,7 @@ A 0.3.0 automatikus playlist-betöltését és közös csatorna-feldolgozását 
 
 ## Javasolt sorrend és közös készültségi feltétel
 
-1. Következő implementáció: **WOS-03**, majd a WOS-04 és WOS-05 fizikai TV-s ellenőrzése.
+1. Következő implementáció: **WOS-03**, majd a WOS-04–06 fizikai TV-s ellenőrzése.
 2. Napi használhatóság: **WOS-05–08**.
 3. EPG és beállítások: **WOS-09–11**.
 4. Stabil kiadás: **WOS-12**; későbbi bővítés: **WOS-13**.

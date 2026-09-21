@@ -29,7 +29,14 @@
         </div>
         <div class="channels-panel">
             <div class="channels-heading"><h2>Csatornák</h2><span id="channel-count"></span></div>
-            <div id="channel-list" class="channel-list"></div>
+            <div class="channel-filters">
+                <label class="visually-hidden" for="channel-search">Csatorna keresése</label>
+                <input id="channel-search" type="search" autocomplete="off" placeholder="Keresés csatornanév szerint">
+                <button id="category-filter" type="button">Kategória: Összes</button>
+                <button id="clear-filters" type="button" disabled>Szűrés törlése</button>
+            </div>
+            <p id="channel-empty" class="channel-empty" hidden></p>
+            <div id="channel-list" class="channel-list" role="list" aria-label="Szűrt csatornák"></div>
         </div>
     </section>
     <section class="playback-hud">

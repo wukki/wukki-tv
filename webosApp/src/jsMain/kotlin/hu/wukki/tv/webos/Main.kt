@@ -37,13 +37,21 @@ private class WebOsApp {
     val playDirect = element<HTMLButtonElement>("play-direct")
     val stop = element<HTMLButtonElement>("stop")
     val video = element<HTMLVideoElement>("player")
+    val channelSearch = element<HTMLInputElement>("channel-search")
+    val categoryFilter = element<HTMLButtonElement>("category-filter")
+    val clearFilters = element<HTMLButtonElement>("clear-filters")
     val channelList = element<HTMLElement>("channel-list")
+    val channelEmpty = element<HTMLElement>("channel-empty")
     val channelCount = element<HTMLElement>("channel-count")
     val status = element<HTMLElement>("status")
     val nowPlaying = element<HTMLElement>("now-playing")
     val platform = element<HTMLElement>("platform")
     val channelButtons = mutableListOf<HTMLButtonElement>()
     var channels = emptyList<Channel>()
+    private var filteredChannels = emptyList<Channel>()
+    private var categories = listOf<String?>(null)
+    private var selectedCategory: String? = null
+    private var renderedWindow = ChannelRenderWindow(0, 0)
     private var cachedChannels = emptyList<Channel>()
     private var playingIndex = 0
     private var playlistLoading = false
@@ -86,10 +94,6 @@ private class WebOsApp {
     private fun show(message: String) {
         status.textContent = listOfNotNull(message, storageProblem).joinToString(" · ")
     }
-
-    private fun displayName(channel: Channel): String = channel.name.takeUnless { it == UNKNOWN_CHANNEL_NAME_ID } ?: "Ismeretlen csatorna"
-
-    private fun displayGroup(channel: Channel): String = channel.group.takeUnless { it == OTHER_CATEGORY_ID } ?: "Egyéb"
 
     private fun startPlayback(index: Int) {
         val channel = channels.getOrNull(index) ?: return
@@ -151,19 +155,45 @@ private class WebOsApp {
     }
 
     private fun renderChannels() {
+        val categoryOptions = sortedChannelCategories(channels)
+        categories = listOf(null) + categoryOptions
+        if (selectedCategory !in categoryOptions) selectedCategory = null
+        filteredChannels = filterAndSortChannels(channels, channelSearch.value, selectedCategory)
+        categoryFilter.textContent = "Kategória: ${selectedCategory?.let(::displayGroup) ?: "Összes"}"
+        clearFilters.disabled = channelSearch.value.isBlank() && selectedCategory == null
+        channelCount.textContent = "${filteredChannels.size} / ${channels.size} csatorna"
+        channelEmpty.hidden = filteredChannels.isNotEmpty()
+        channelEmpty.textContent = "Nincs találat. Töröld a keresést vagy válassz másik kategóriát."
+        channelList.scrollTop = 0.0
+        renderedWindow = ChannelRenderWindow(-1, -1)
+        renderChannelWindow()
+        updateSelectedChannel()
+    }
+
+    private fun renderChannelWindow(focusIndex: Int? = null) {
+        val window = calculateChannelRenderWindow(filteredChannels.size, channelList.scrollTop, channelList.clientHeight)
+        if (window == renderedWindow) {
+            focusIndex?.let(::focusRenderedChannel)
+            return
+        }
+
+        val previouslyFocusedIndex = focusedChannelIndex()
         channelList.innerHTML = ""
         channelButtons.clear()
-        channelCount.textContent = "${channels.size} csatorna"
-        if (channels.none { it.id == selectedChannelId }) selectedChannelId = channels.firstOrNull()?.id
-        channels.forEachIndexed { index, channel ->
+        renderedWindow = window
+        channelList.appendChild(channelSpacer(window.start * VIRTUAL_CHANNEL_ROW_HEIGHT))
+        filteredChannels.subList(window.start, window.endExclusive).forEachIndexed { offset, channel ->
+            val filteredIndex = window.start + offset
+            val sourceIndex = channels.indexOfFirst { it.id == channel.id }
             val button = document.createElement("button") as HTMLButtonElement
             button.type = "button"
             button.className = "channel"
             button.setAttribute("data-channel-id", channel.id)
+            button.setAttribute("data-filtered-index", filteredIndex.toString())
 
             val number = document.createElement("span") as HTMLElement
             number.className = "channel-number"
-            number.textContent = (channel.tvgChno ?: index + 1).toString()
+            number.textContent = (channel.tvgChno ?: sourceIndex + 1).toString()
             val text = document.createElement("span") as HTMLElement
             text.className = "channel-text"
             val name = document.createElement("strong") as HTMLElement
@@ -177,7 +207,6 @@ private class WebOsApp {
             button.onfocus = {
                 selectedChannelId = channel.id
                 updateSelectedChannel()
-                scrollIntoView(button)
                 null
             }
             button.onmouseover = {
@@ -186,14 +215,23 @@ private class WebOsApp {
             }
             button.onclick = {
                 selectedChannelId = channel.id
-                startPlayback(index)
+                startPlayback(sourceIndex)
                 null
             }
             channelList.appendChild(button)
             channelButtons += button
         }
+        channelList.appendChild(channelSpacer((filteredChannels.size - window.endExclusive) * VIRTUAL_CHANNEL_ROW_HEIGHT))
         updateSelectedChannel()
+        (focusIndex ?: previouslyFocusedIndex)?.let(::focusRenderedChannel)
     }
+
+    private fun channelSpacer(height: Int): HTMLElement =
+        (document.createElement("div") as HTMLElement).apply {
+            className = "channel-spacer"
+            style.height = "${height}px"
+            setAttribute("aria-hidden", "true")
+        }
 
     private fun updateSelectedChannel() {
         channelButtons.forEach { button ->
@@ -206,9 +244,36 @@ private class WebOsApp {
     }
 
     private fun restoreChannelFocus() {
-        val selected = channelButtons.firstOrNull { it.getAttribute("data-channel-id") == selectedChannelId }
-        focusAndReveal(selected ?: channelButtons.getOrNull(playingIndex) ?: loadPlaylist)
+        val selectedIndex = filteredChannels.indexOfFirst { it.id == selectedChannelId }
+        if (filteredChannels.isNotEmpty()) {
+            focusChannelAt(selectedIndex.takeIf { it >= 0 } ?: 0)
+        } else {
+            focusAndReveal(channelSearch)
+        }
     }
+
+    private fun focusChannelAt(index: Int) {
+        if (filteredChannels.isEmpty()) {
+            focusAndReveal(channelSearch)
+            return
+        }
+        val target = index.coerceIn(filteredChannels.indices)
+        val rowTop = target * VIRTUAL_CHANNEL_ROW_HEIGHT
+        val rowBottom = rowTop + VIRTUAL_CHANNEL_ROW_HEIGHT
+        val viewportBottom = channelList.scrollTop + channelList.clientHeight
+        when {
+            rowTop < channelList.scrollTop -> channelList.scrollTop = rowTop.toDouble()
+            rowBottom > viewportBottom -> channelList.scrollTop = (rowBottom - channelList.clientHeight).coerceAtLeast(0).toDouble()
+        }
+        renderChannelWindow(target)
+    }
+
+    private fun focusRenderedChannel(index: Int) {
+        val button = channelButtons.firstOrNull { it.getAttribute("data-filtered-index")?.toIntOrNull() == index } ?: return
+        button.focus()
+    }
+
+    private fun focusedChannelIndex(): Int? = (document.activeElement as? HTMLElement)?.getAttribute("data-filtered-index")?.toIntOrNull()
 
     private fun useDirectStream() {
         val url = diagnosticInput.value.trim()
@@ -283,6 +348,28 @@ private class WebOsApp {
             stopPlayback()
             null
         }
+        channelSearch.oninput = {
+            renderChannels()
+            null
+        }
+        categoryFilter.onclick = {
+            val current = categories.indexOf(selectedCategory).coerceAtLeast(0)
+            selectedCategory = categories[(current + 1) % categories.size]
+            renderChannels()
+            categoryFilter.focus()
+            null
+        }
+        clearFilters.onclick = {
+            channelSearch.value = ""
+            selectedCategory = null
+            renderChannels()
+            channelSearch.focus()
+            null
+        }
+        channelList.onscroll = {
+            renderChannelWindow()
+            null
+        }
     }
 
     private fun configurePlayerEvents() {
@@ -317,14 +404,30 @@ private class WebOsApp {
         )
     }
 
-    private fun focusableElements(): List<HTMLElement> = (listOf(loadPlaylist, diagnosticInput, playDirect) + channelButtons).filter(::isFocusable)
-
     private fun moveFocus(step: Int) {
-        val focusable = focusableElements()
-        if (focusable.isEmpty()) return
-        val current = focusable.indexOfFirst { it === document.activeElement }.coerceAtLeast(0)
-        focusAndReveal(focusable[(current + step + focusable.size) % focusable.size])
+        val channelIndex = focusedChannelIndex()
+        if (channelIndex != null) {
+            val target = channelIndex + step
+            when {
+                target in filteredChannels.indices -> focusChannelAt(target)
+                target < 0 -> focusAndReveal(filterControls().lastOrNull() ?: loadPlaylist)
+                else -> focusAndReveal(filterControls().firstOrNull() ?: loadPlaylist)
+            }
+            return
+        }
+
+        val controls = filterControls()
+        if (controls.isEmpty()) return
+        val current = controls.indexOfFirst { it === document.activeElement }.coerceAtLeast(0)
+        val target = current + step
+        when {
+            target >= controls.size && filteredChannels.isNotEmpty() -> focusChannelAt(0)
+            target < 0 && filteredChannels.isNotEmpty() -> focusChannelAt(filteredChannels.lastIndex)
+            else -> focusAndReveal(controls[(target + controls.size) % controls.size])
+        }
     }
+
+    private fun filterControls(): List<HTMLElement> = listOf(loadPlaylist, diagnosticInput, playDirect, channelSearch, categoryFilter, clearFilters).filter(::isFocusable)
 
     private fun configureKeyboard() {
         document.onkeydown = { rawEvent: Event ->
@@ -334,36 +437,48 @@ private class WebOsApp {
     }
 
     private fun handleKey(event: KeyboardEvent) {
-        val playbackActive = isPlaybackActive()
         when (event.keyCode) {
-            37, 38 -> {
+            38 -> handleDirectionalKey(event, -1, allowInTextInput = true)
+            40 -> handleDirectionalKey(event, 1, allowInTextInput = true)
+            37 -> handleDirectionalKey(event, -1, allowInTextInput = false)
+            39 -> handleDirectionalKey(event, 1, allowInTextInput = false)
+            13 -> handleEnterKey(event)
+            BACK_KEY -> handleBackKey(event)
+        }
+    }
+
+    private fun handleDirectionalKey(
+        event: KeyboardEvent,
+        step: Int,
+        allowInTextInput: Boolean,
+    ) {
+        val playbackActive = isPlaybackActive()
+        val textInputFocused = document.activeElement === diagnosticInput || document.activeElement === channelSearch
+        if (!allowInTextInput && textInputFocused && !playbackActive) return
+        event.preventDefault()
+        if (playbackActive) handleChannelSwitch(event, step) else moveFocus(step)
+    }
+
+    private fun handleEnterKey(event: KeyboardEvent) {
+        when {
+            isPlaybackActive() -> {
                 event.preventDefault()
-                if (playbackActive) handleChannelSwitch(event, -1) else moveFocus(-1)
+                showPlaybackHud()
             }
 
-            39, 40 -> {
+            document.activeElement === diagnosticInput -> {
                 event.preventDefault()
-                if (playbackActive) handleChannelSwitch(event, 1) else moveFocus(1)
+                useDirectStream()
             }
+        }
+    }
 
-            13 -> {
-                if (playbackActive) {
-                    event.preventDefault()
-                    showPlaybackHud()
-                } else if (document.activeElement === diagnosticInput) {
-                    event.preventDefault()
-                    useDirectStream()
-                }
-            }
-
-            BACK_KEY -> {
-                event.preventDefault()
-                when {
-                    playbackActive && document.body?.classList?.contains("hud-visible") == true -> hidePlaybackHud()
-                    playbackActive -> stopPlayback()
-                    else -> platformBack()
-                }
-            }
+    private fun handleBackKey(event: KeyboardEvent) {
+        event.preventDefault()
+        when {
+            isPlaybackActive() && document.body?.classList?.contains("hud-visible") == true -> hidePlaybackHud()
+            isPlaybackActive() -> stopPlayback()
+            else -> platformBack()
         }
     }
 
@@ -426,6 +541,12 @@ private class WebOsApp {
 
     private fun isPlaybackActive(): Boolean = document.body?.classList?.contains("playback-active") == true
 }
+
+private fun displayName(channel: Channel): String = channel.name.takeUnless { it == UNKNOWN_CHANNEL_NAME_ID } ?: "Ismeretlen csatorna"
+
+private fun displayGroup(channel: Channel): String = displayGroup(channel.group)
+
+private fun displayGroup(group: String): String = group.takeUnless { it == OTHER_CATEGORY_ID } ?: "Egyéb"
 
 internal fun nextChannelIndex(
     current: Int,
