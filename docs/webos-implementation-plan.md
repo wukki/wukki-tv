@@ -2,6 +2,12 @@
 
 Készült: 2026-09-19. Állapot: P0/P1 technikai alap és IPK-csomagolási feladat elkészült, fizikai TV-s mérés nélkül.
 
+## 2026-09-21-i termékirány és elsőbbség
+
+A cél a desktop/Android kliens megjelenésének és működésének webOS-paritása. Az aktív hatókört, sorrendet és kiadási feltételeket az [újratervezett user storyk](webos-user-stories.md) adják; az alábbi korábbi technikai terv eltérő prioritásai helyett ezek érvényesek. A DOM-prototípus újrahasználható technikai alap, nem végleges termékfelület. Következő feladat WOS-14, majd közös arculat és navigáció (WOS-15–16).
+
+A teljes műsorújság az egységes első kiadás része. A médiaadapter készülékfüggő képességeit külön igazoljuk; a látható eltéréseket nem tekintjük automatikusan elfogadott paritási kivételnek. A terv többi szakasza technikai háttéranyagként marad meg.
+
 ## Cél és döntési alap
 
 A Wukki TV külön, telepíthető webOS kliensként megvalósítható. Első cél a saját TV-n, Developer Mode segítségével telepített alkalmazás. A korábbi beszélgetés alapján a tervezési minimum webOS 5.x; a pontos TV-modell, SDK-verzió és firmware még ellenőrizendő. A firmware verziószáma önmagában nem azonos a webOS platformverzióval.
@@ -65,7 +71,7 @@ A felület a use case-ekkel és adapterekkel kommunikál. A lejátszó a stream 
 | Hivatalos M3U, rendezés, kategória, keresés | Igen | — |
 | Natív HLS, csatornaváltás, hibajelzés | Igen | További igazolt médiaformátumok |
 | Kedvencek, utolsó csatorna, legutóbbi 10 sikeres csatorna | Igen | — |
-| Most/következő EPG | Igen | Teljes, virtualizált műsorújság |
+| Most/következő EPG és teljes, virtualizált műsorújság | Igen, WOS-20 és WOS-23 | — |
 | D-pad, OK, Back, Magic Remote kattintás | Igen | További készülékspecifikus gombok |
 | Magyar/angol, helyi állapot, kézi frissítés | Igen | — |
 | 6/12/24 órás frissítés | Előtérben és visszatéréskor, ha esedékes | Háttérütemezés csak külön igazolással |
