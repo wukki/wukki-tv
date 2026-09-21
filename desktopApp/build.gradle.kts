@@ -192,3 +192,21 @@ tasks.withType<AbstractJPackageTask>().configureEach {
         }
     }
 }
+
+// WOS-14 reference harness is compiled only into tests, never into the shipped application.
+kotlin.sourceSets.named("test") { kotlin.srcDir(rootProject.file("tools/parity/kotlin")) }
+tasks.withType<Test>().configureEach {
+    systemProperty("user.timezone", "Europe/Budapest")
+    systemProperty("parity.traces", rootProject.file("docs/webos-parity/v1/input-traces.json").absolutePath)
+    systemProperty("parity.output", rootProject.file("docs/webos-parity/v1/screenshots/desktop").absolutePath)
+}
+
+tasks.named<Test>("test") { filter { excludeTestsMatching("*ParityCaptureTest") } }
+tasks.register<Test>("captureParityReferences") {
+    group = "verification"
+    description = "Explicitly regenerates WOS-14 desktop reference images; review changes before committing."
+    testClassesDirs = sourceSets["test"].output.classesDirs
+    classpath = sourceSets["test"].runtimeClasspath
+    filter { includeTestsMatching("*ParityCaptureTest") }
+    outputs.upToDateWhen { false }
+}

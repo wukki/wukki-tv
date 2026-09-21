@@ -1,0 +1,309 @@
+{
+    "playlists": [
+        {
+            "id": "reference",
+            "name": "Reference",
+            "location": "https://raw.githubusercontent.com/wukki/wukki-tv/refs/heads/main/wukki-tv.m3u",
+            "source": "URL",
+            "updatedAt": 1790006400000
+        }
+    ],
+    "channels": [
+        {
+            "id": "ref-1",
+            "playlistId": "reference",
+            "name": "Hírek",
+            "streamUrl": "https://example.invalid/1.m3u8",
+            "tvgId": "ref-1",
+            "tvgName": "Hírek",
+            "tvgChno": 1,
+            "group": "Közszolgálati",
+            "logo": null,
+            "favorite": true,
+            "epgChannelId": "ref-1",
+            "epgSourceId": "reference-epg",
+            "tvgShiftHours": null
+        },
+        {
+            "id": "ref-2",
+            "playlistId": "reference",
+            "name": "Kultúra",
+            "streamUrl": "https://example.invalid/2.m3u8",
+            "tvgId": "ref-2",
+            "tvgName": "Kultúra",
+            "tvgChno": 2,
+            "group": "Közszolgálati",
+            "logo": null,
+            "favorite": false,
+            "epgChannelId": "ref-2",
+            "epgSourceId": "reference-epg",
+            "tvgShiftHours": null
+        },
+        {
+            "id": "ref-3",
+            "playlistId": "reference",
+            "name": "Sport",
+            "streamUrl": "https://example.invalid/3.m3u8",
+            "tvgId": "ref-3",
+            "tvgName": "Sport",
+            "tvgChno": 3,
+            "group": "Szórakozás",
+            "logo": null,
+            "favorite": false,
+            "epgChannelId": "ref-3",
+            "epgSourceId": "reference-epg",
+            "tvgShiftHours": null
+        },
+        {
+            "id": "ref-4",
+            "playlistId": "reference",
+            "name": "Film – nagyon hosszú csatornanév a csonkolás ellenőrzéséhez",
+            "streamUrl": "https://example.invalid/4.m3u8",
+            "tvgId": "ref-4",
+            "tvgName": "Film – nagyon hosszú csatornanév a csonkolás ellenőrzéséhez",
+            "tvgChno": 4,
+            "group": "Szórakozás",
+            "logo": null,
+            "favorite": false,
+            "epgChannelId": "ref-4",
+            "epgSourceId": "reference-epg",
+            "tvgShiftHours": null
+        }
+    ],
+    "programmes": [],
+    "epgUrl": "",
+    "autoRefreshHours": 0,
+    "lastChannelId": "ref-1",
+    "recentChannelIds": [
+        "ref-2",
+        "ref-1"
+    ],
+    "settings": {
+        "language": "HUNGARIAN",
+        "playlistRefresh": "MANUAL",
+        "epgRefresh": "MANUAL",
+        "playback": {
+            "volume": 100,
+            "bufferProfile": "BALANCED",
+            "autoPlayOnLaunch": false,
+            "autoReconnect": true,
+            "reconnectAttempts": 3,
+            "aspectRatio": "AUTO"
+        },
+        "display": {
+            "uiScale": 1.0,
+            "channelListMode": "NORMAL",
+            "showChannelProgramme": true,
+            "showMiniGuide": true,
+            "showLogos": true,
+            "showProgrammeImages": true
+        }
+    },
+    "epgSources": [
+        {
+            "id": "reference-epg",
+            "name": "Referencia EPG",
+            "url": "https://example.invalid/epg.xml",
+            "enabled": true,
+            "priority": 0,
+            "lastUpdatedAt": 1790006400000,
+            "managedByPlaylist": true
+        }
+    ],
+    "epgProgrammesBySource": {
+        "reference-epg": [
+            {
+                "channelId": "ref-1",
+                "title": "Műsor 1",
+                "start": 1789998300000,
+                "end": 1790001900000,
+                "description": "Rögzített műsorleírás. Árvíztűrő tükörfúrógép; több soros tartalom ellenőrzéséhez.",
+                "imageUrl": null
+            },
+            {
+                "channelId": "ref-1",
+                "title": "Műsor 2",
+                "start": 1790001900000,
+                "end": 1790005500000,
+                "description": "Rögzített műsorleírás. Árvíztűrő tükörfúrógép; több soros tartalom ellenőrzéséhez.",
+                "imageUrl": null
+            },
+            {
+                "channelId": "ref-1",
+                "title": "Esti műsor – Hírek",
+                "start": 1790005500000,
+                "end": 1790009100000,
+                "description": "Rögzített műsorleírás. Árvíztűrő tükörfúrógép; több soros tartalom ellenőrzéséhez.",
+                "imageUrl": null
+            },
+            {
+                "channelId": "ref-1",
+                "title": "Műsor 4",
+                "start": 1790009100000,
+                "end": 1790012700000,
+                "description": "Rögzített műsorleírás. Árvíztűrő tükörfúrógép; több soros tartalom ellenőrzéséhez.",
+                "imageUrl": null
+            },
+            {
+                "channelId": "ref-1",
+                "title": "Műsor 5",
+                "start": 1790012700000,
+                "end": 1790016300000,
+                "description": "Rögzített műsorleírás. Árvíztűrő tükörfúrógép; több soros tartalom ellenőrzéséhez.",
+                "imageUrl": null
+            },
+            {
+                "channelId": "ref-1",
+                "title": "Műsor 6",
+                "start": 1790016300000,
+                "end": 1790019900000,
+                "description": "Rögzített műsorleírás. Árvíztűrő tükörfúrógép; több soros tartalom ellenőrzéséhez.",
+                "imageUrl": null
+            },
+            {
+                "channelId": "ref-2",
+                "title": "Műsor 1",
+                "start": 1789998300000,
+                "end": 1790001900000,
+                "description": "Rögzített műsorleírás. Árvíztűrő tükörfúrógép; több soros tartalom ellenőrzéséhez.",
+                "imageUrl": null
+            },
+            {
+                "channelId": "ref-2",
+                "title": "Műsor 2",
+                "start": 1790001900000,
+                "end": 1790005500000,
+                "description": "Rögzített műsorleírás. Árvíztűrő tükörfúrógép; több soros tartalom ellenőrzéséhez.",
+                "imageUrl": null
+            },
+            {
+                "channelId": "ref-2",
+                "title": "Esti műsor – Kultúra",
+                "start": 1790005500000,
+                "end": 1790009100000,
+                "description": "Rögzített műsorleírás. Árvíztűrő tükörfúrógép; több soros tartalom ellenőrzéséhez.",
+                "imageUrl": null
+            },
+            {
+                "channelId": "ref-2",
+                "title": "Műsor 4",
+                "start": 1790009100000,
+                "end": 1790012700000,
+                "description": "Rögzített műsorleírás. Árvíztűrő tükörfúrógép; több soros tartalom ellenőrzéséhez.",
+                "imageUrl": null
+            },
+            {
+                "channelId": "ref-2",
+                "title": "Műsor 5",
+                "start": 1790012700000,
+                "end": 1790016300000,
+                "description": "Rögzített műsorleírás. Árvíztűrő tükörfúrógép; több soros tartalom ellenőrzéséhez.",
+                "imageUrl": null
+            },
+            {
+                "channelId": "ref-2",
+                "title": "Műsor 6",
+                "start": 1790016300000,
+                "end": 1790019900000,
+                "description": "Rögzített műsorleírás. Árvíztűrő tükörfúrógép; több soros tartalom ellenőrzéséhez.",
+                "imageUrl": null
+            },
+            {
+                "channelId": "ref-3",
+                "title": "Műsor 1",
+                "start": 1789998300000,
+                "end": 1790001900000,
+                "description": "Rögzített műsorleírás. Árvíztűrő tükörfúrógép; több soros tartalom ellenőrzéséhez.",
+                "imageUrl": null
+            },
+            {
+                "channelId": "ref-3",
+                "title": "Műsor 2",
+                "start": 1790001900000,
+                "end": 1790005500000,
+                "description": "Rögzített műsorleírás. Árvíztűrő tükörfúrógép; több soros tartalom ellenőrzéséhez.",
+                "imageUrl": null
+            },
+            {
+                "channelId": "ref-3",
+                "title": "Esti műsor – Sport",
+                "start": 1790005500000,
+                "end": 1790009100000,
+                "description": "Rögzített műsorleírás. Árvíztűrő tükörfúrógép; több soros tartalom ellenőrzéséhez.",
+                "imageUrl": null
+            },
+            {
+                "channelId": "ref-3",
+                "title": "Műsor 4",
+                "start": 1790009100000,
+                "end": 1790012700000,
+                "description": "Rögzített műsorleírás. Árvíztűrő tükörfúrógép; több soros tartalom ellenőrzéséhez.",
+                "imageUrl": null
+            },
+            {
+                "channelId": "ref-3",
+                "title": "Műsor 5",
+                "start": 1790012700000,
+                "end": 1790016300000,
+                "description": "Rögzített műsorleírás. Árvíztűrő tükörfúrógép; több soros tartalom ellenőrzéséhez.",
+                "imageUrl": null
+            },
+            {
+                "channelId": "ref-3",
+                "title": "Műsor 6",
+                "start": 1790016300000,
+                "end": 1790019900000,
+                "description": "Rögzített műsorleírás. Árvíztűrő tükörfúrógép; több soros tartalom ellenőrzéséhez.",
+                "imageUrl": null
+            },
+            {
+                "channelId": "ref-4",
+                "title": "Műsor 1",
+                "start": 1789998300000,
+                "end": 1790001900000,
+                "description": "Rögzített műsorleírás. Árvíztűrő tükörfúrógép; több soros tartalom ellenőrzéséhez.",
+                "imageUrl": null
+            },
+            {
+                "channelId": "ref-4",
+                "title": "Műsor 2",
+                "start": 1790001900000,
+                "end": 1790005500000,
+                "description": "Rögzített műsorleírás. Árvíztűrő tükörfúrógép; több soros tartalom ellenőrzéséhez.",
+                "imageUrl": null
+            },
+            {
+                "channelId": "ref-4",
+                "title": "Esti műsor – Film – nagyon hosszú csatornanév a csonkolás ellenőrzéséhez",
+                "start": 1790005500000,
+                "end": 1790009100000,
+                "description": "Rögzített műsorleírás. Árvíztűrő tükörfúrógép; több soros tartalom ellenőrzéséhez.",
+                "imageUrl": null
+            },
+            {
+                "channelId": "ref-4",
+                "title": "Műsor 4",
+                "start": 1790009100000,
+                "end": 1790012700000,
+                "description": "Rögzített műsorleírás. Árvíztűrő tükörfúrógép; több soros tartalom ellenőrzéséhez.",
+                "imageUrl": null
+            },
+            {
+                "channelId": "ref-4",
+                "title": "Műsor 5",
+                "start": 1790012700000,
+                "end": 1790016300000,
+                "description": "Rögzített műsorleírás. Árvíztűrő tükörfúrógép; több soros tartalom ellenőrzéséhez.",
+                "imageUrl": null
+            },
+            {
+                "channelId": "ref-4",
+                "title": "Műsor 6",
+                "start": 1790016300000,
+                "end": 1790019900000,
+                "description": "Rögzített műsorleírás. Árvíztűrő tükörfúrógép; több soros tartalom ellenőrzéséhez.",
+                "imageUrl": null
+            }
+        ]
+    }
+}

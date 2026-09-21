@@ -8,10 +8,11 @@ plugins {
     id("wukki.dependency-locking")
 }
 
-val releaseSigningProperties = Properties().apply {
-    val propertiesFile = rootProject.file("androidApp/keystore.properties")
-    if (propertiesFile.isFile) propertiesFile.inputStream().use(::load)
-}
+val releaseSigningProperties =
+    Properties().apply {
+        val propertiesFile = rootProject.file("androidApp/keystore.properties")
+        if (propertiesFile.isFile) propertiesFile.inputStream().use(::load)
+    }
 val wukkiVersion = rootProject.extra["wukkiDisplayVersion"].toString()
 val wukkiVersionCode = rootProject.extra["wukkiAndroidVersionCode"] as Int
 
@@ -54,3 +55,9 @@ dependencies {
     implementation(libs.bundles.android.media3)
     testImplementation(kotlin("test-junit"))
 }
+
+// Reference activity and fixtures must not enter release APKs.
+android.sourceSets
+    .getByName("debug")
+    .kotlin
+    .srcDir(rootProject.file("tools/parity/kotlin"))

@@ -51,13 +51,13 @@ A régi azonosítókat nem számozzuk át és nem használjuk fel más célra. A
 | WOS-12 | Kiadás és ellenőrzés → WOS-24 |
 | WOS-13 | Teljes műsorújság → WOS-23, a paritási kiadás része |
 
-WOS-04–06 korábbi állapota „implementálva, TV-s ellenőrzésre vár”; ez nem jelent igazolt UI-paritást. Minden alábbi új story állapota: **tervezett**.
+WOS-04–06 korábbi állapota „implementálva, TV-s ellenőrzésre vár”; ez nem jelent igazolt UI-paritást. WOS-14 állapota: **implementálva és referencia-harness-szel ellenőrizve**; [verziózott referenciacsomag](webos-parity/v1/README.md). WOS-15–24 állapota: **tervezett**.
 
 ## WOS-14 – Rögzített képernyő- és viselkedési referencia
 
 **Story:** Nézőként minden platformon ugyanazt a terméket szeretném használni, egyértelműen meghatározott közös működéssel.
 
-**Prioritás:** P0. **Függőség:** nincs. Ez az első következő feladat.
+**Prioritás:** P0. **Függőség:** nincs. A rögzített referencia és az ellenőrzési eredmények a [WOS-14 csomagban](webos-parity/v1/README.md) vannak.
 
 **Elfogadás:**
 
@@ -76,7 +76,7 @@ WOS-04–06 korábbi állapota „implementálva, TV-s ellenőrzésre vár”; e
 **Elfogadás:**
 
 - A WukkiColors szemantikus színei, márkajelzése, ikonrendszere, betűméretei, térközei, sarokkerekítései és fókuszjelölései megjelennek webOS-en, a referencia skálázási szabályával.
-- Az oldalsó főmenü sorrendje Élő TV, Műsorújság, Csatornák, Beállítások; az aktív, fókuszált és inaktív állapot különbözik.
+- A vízszintes felső főmenü sorrendje Élő adás, Műsorújság, Csatornák, Beállítások; a referencia szerint a fókuszált elem kiemelése elsőbbséget élvez az aktívval szemben.
 - A nézetváltás és a videó elhelyezése a dashboard referenciáját követi. Nem keletkezik második stream vagy indokolatlan újraindítás nézetváltáskor.
 - A főképernyőről eltűnik a forrás- és diagnosztikai panel; a diagnosztika a megfelelő beállítási területről érhető el. A stream-URL nem része a napi böngészésnek.
 - Minden főnézet útvonala létezik. Átmeneti placeholder fejlesztés közben lehetséges, de nem teljesíti a kapcsolódó képernyőstoryt vagy a paritási kiadást.
@@ -93,7 +93,7 @@ WOS-04–06 korábbi állapota „implementálva, TV-s ellenőrzésre vár”; e
 - A Compose-független navigációs szabályok közös KMP-rétegbe kerülnek, vagy ugyanazon esemény-fixture-ök igazolják a két implementációt. A referencia javítását mindhárom kliens örökli.
 - A főmenü, tartalom, szűrők, kereső, lista, kedvencgomb, beállítások és dialógusok között a referencia fókuszútjai működnek; visszalépés után az előző érvényes cél áll helyre.
 - Back a referencia állapotgépe szerint zár keresést/réteget/részletet, jelenít meg navigációt vagy tér vissza Élő TV-re; platformkilépés csak a gyökérbeli kilépési szabály teljesülésekor történik.
-- D-pad, OK, hosszú gombnyomás, Magic Remote, valamint keresőben kurzormozgatás és képernyőbillentyűzet nem aktivál rejtett vezérlőt. A pointeres és távirányítós út ugyanazt a műveletet váltja ki.
+- D-pad, OK, hosszú gombnyomás, Magic Remote, valamint keresőben kurzormozgatás és képernyőbillentyűzet nem aktivál rejtett vezérlőt. Az azonos szándékú pointeres és távirányítós művelet azonos hatású; a sorclick előnézetet, a Megnyitás/OK lejátszást kér a WOS-14 szerződés szerint.
 - A készüléken elérhető szám-, csatorna- és egyéb gyorsgombokhoz dokumentált leképezés tartozik; hiányzó gomb funkciója látható vezérlővel elérhető.
 
 ## WOS-17 – A teljes Csatornák képernyő paritása

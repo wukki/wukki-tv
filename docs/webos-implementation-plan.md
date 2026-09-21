@@ -4,7 +4,7 @@ Készült: 2026-09-19. Állapot: P0/P1 technikai alap és IPK-csomagolási felad
 
 ## 2026-09-21-i termékirány és elsőbbség
 
-A cél a desktop/Android kliens megjelenésének és működésének webOS-paritása. Az aktív hatókört, sorrendet és kiadási feltételeket az [újratervezett user storyk](webos-user-stories.md) adják; az alábbi korábbi technikai terv eltérő prioritásai helyett ezek érvényesek. A DOM-prototípus újrahasználható technikai alap, nem végleges termékfelület. Következő feladat WOS-14, majd közös arculat és navigáció (WOS-15–16).
+A cél a desktop/Android kliens megjelenésének és működésének webOS-paritása. Az aktív hatókört, sorrendet és kiadási feltételeket az [újratervezett user storyk](webos-user-stories.md) adják; az alábbi korábbi technikai terv eltérő prioritásai helyett ezek érvényesek. A DOM-prototípus újrahasználható technikai alap, nem végleges termékfelület. A WOS-14 [rögzített referenciacsomagja](webos-parity/v1/README.md) elkészült; következő feladat a közös arculat és navigáció (WOS-15–16). A közös főmenü vízszintes felső menü.
 
 A teljes műsorújság az egységes első kiadás része. A médiaadapter készülékfüggő képességeit külön igazoljuk; a látható eltéréseket nem tekintjük automatikusan elfogadott paritási kivételnek. A terv többi szakasza technikai háttéranyagként marad meg.
 

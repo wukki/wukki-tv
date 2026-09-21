@@ -1,0 +1,1072 @@
+{
+  "schemaVersion": 1,
+  "scope": "AppRemoteState reducer; effects are asserted, not applied by this runner",
+  "channelIds": [
+    "ref-1",
+    "ref-2",
+    "ref-3",
+    "ref-4"
+  ],
+  "selectedChannelId": "ref-1",
+  "searchHasText": true,
+  "requireDoubleBack": true,
+  "cases": [
+    {
+      "id": "preview-confirm",
+      "initial": {
+        "section": "LIVE",
+        "focus": "CONTENT",
+        "menuIndex": 0,
+        "channelFocus": "LIST",
+        "channelIndex": 0,
+        "filterIndex": 0,
+        "searchOpen": false,
+        "dialogVisible": false,
+        "overlayVisible": false,
+        "navigationVisible": true,
+        "previewId": null,
+        "previewSequence": 0,
+        "number": "",
+        "settingsSection": null,
+        "exitAt": null
+      },
+      "steps": [
+        {
+          "event": {
+            "preview": "NEXT"
+          },
+          "expected": {
+            "section": "LIVE",
+            "focus": "CONTENT",
+            "menuIndex": 0,
+            "channelFocus": "LIST",
+            "channelIndex": 0,
+            "filterIndex": 0,
+            "searchOpen": false,
+            "dialogVisible": false,
+            "overlayVisible": false,
+            "navigationVisible": true,
+            "previewId": "ref-1",
+            "previewSequence": 1,
+            "number": "",
+            "settingsSection": null,
+            "exitAt": null
+          },
+          "effects": [
+            "ResetExit",
+            "Preview:NONE:"
+          ],
+          "handled": true
+        },
+        {
+          "event": {
+            "preview": "NEXT"
+          },
+          "expected": {
+            "section": "LIVE",
+            "focus": "CONTENT",
+            "menuIndex": 0,
+            "channelFocus": "LIST",
+            "channelIndex": 0,
+            "filterIndex": 0,
+            "searchOpen": false,
+            "dialogVisible": false,
+            "overlayVisible": false,
+            "navigationVisible": true,
+            "previewId": "ref-2",
+            "previewSequence": 2,
+            "number": "",
+            "settingsSection": null,
+            "exitAt": null
+          },
+          "effects": [
+            "ResetExit",
+            "Preview:NONE:"
+          ],
+          "handled": true
+        },
+        {
+          "event": {
+            "remote": "CONFIRM"
+          },
+          "expected": {
+            "section": "LIVE",
+            "focus": "CONTENT",
+            "menuIndex": 0,
+            "channelFocus": "LIST",
+            "channelIndex": 0,
+            "filterIndex": 0,
+            "searchOpen": false,
+            "dialogVisible": false,
+            "overlayVisible": false,
+            "navigationVisible": true,
+            "previewId": null,
+            "previewSequence": 3,
+            "number": "",
+            "settingsSection": null,
+            "exitAt": null
+          },
+          "effects": [
+            "ResetExit",
+            "Preview:OPEN_CHANNEL:ref-2"
+          ],
+          "handled": true
+        }
+      ]
+    },
+    {
+      "id": "preview-timeout",
+      "initial": {
+        "section": "LIVE",
+        "focus": "CONTENT",
+        "menuIndex": 0,
+        "channelFocus": "LIST",
+        "channelIndex": 0,
+        "filterIndex": 0,
+        "searchOpen": false,
+        "dialogVisible": false,
+        "overlayVisible": false,
+        "navigationVisible": true,
+        "previewId": "ref-2",
+        "previewSequence": 2,
+        "number": "",
+        "settingsSection": null,
+        "exitAt": null
+      },
+      "steps": [
+        {
+          "event": {
+            "preview": "TIMEOUT"
+          },
+          "expected": {
+            "section": "LIVE",
+            "focus": "CONTENT",
+            "menuIndex": 0,
+            "channelFocus": "LIST",
+            "channelIndex": 0,
+            "filterIndex": 0,
+            "searchOpen": false,
+            "dialogVisible": false,
+            "overlayVisible": false,
+            "navigationVisible": true,
+            "previewId": null,
+            "previewSequence": 3,
+            "number": "",
+            "settingsSection": null,
+            "exitAt": null
+          },
+          "effects": [
+            "ResetExit",
+            "Preview:DISMISS:"
+          ],
+          "handled": true
+        }
+      ]
+    },
+    {
+      "id": "preview-cancel",
+      "initial": {
+        "section": "LIVE",
+        "focus": "CONTENT",
+        "menuIndex": 0,
+        "channelFocus": "LIST",
+        "channelIndex": 0,
+        "filterIndex": 0,
+        "searchOpen": false,
+        "dialogVisible": false,
+        "overlayVisible": false,
+        "navigationVisible": true,
+        "previewId": "ref-2",
+        "previewSequence": 2,
+        "number": "",
+        "settingsSection": null,
+        "exitAt": null
+      },
+      "steps": [
+        {
+          "event": {
+            "preview": "CANCEL"
+          },
+          "expected": {
+            "section": "LIVE",
+            "focus": "CONTENT",
+            "menuIndex": 0,
+            "channelFocus": "LIST",
+            "channelIndex": 0,
+            "filterIndex": 0,
+            "searchOpen": false,
+            "dialogVisible": false,
+            "overlayVisible": false,
+            "navigationVisible": true,
+            "previewId": null,
+            "previewSequence": 3,
+            "number": "",
+            "settingsSection": null,
+            "exitAt": null
+          },
+          "effects": [
+            "ResetExit",
+            "Preview:DISMISS:"
+          ],
+          "handled": true
+        }
+      ]
+    },
+    {
+      "id": "back-hidden-live",
+      "initial": {
+        "section": "LIVE",
+        "focus": "CONTENT",
+        "menuIndex": 0,
+        "channelFocus": "LIST",
+        "channelIndex": 0,
+        "filterIndex": 0,
+        "searchOpen": false,
+        "dialogVisible": false,
+        "overlayVisible": false,
+        "navigationVisible": false,
+        "previewId": null,
+        "previewSequence": 0,
+        "number": "",
+        "settingsSection": null,
+        "exitAt": null
+      },
+      "steps": [
+        {
+          "event": {
+            "back": true
+          },
+          "expected": {
+            "section": "LIVE",
+            "focus": "MAIN_NAVIGATION",
+            "menuIndex": 0,
+            "channelFocus": "LIST",
+            "channelIndex": 0,
+            "filterIndex": 0,
+            "searchOpen": false,
+            "dialogVisible": false,
+            "overlayVisible": false,
+            "navigationVisible": true,
+            "previewId": null,
+            "previewSequence": 0,
+            "number": "",
+            "settingsSection": null,
+            "exitAt": null
+          },
+          "effects": [
+            "RevealNavigation"
+          ],
+          "handled": true
+        }
+      ]
+    },
+    {
+      "id": "back-search",
+      "initial": {
+        "section": "CHANNELS",
+        "focus": "CONTENT",
+        "menuIndex": 2,
+        "channelFocus": "SEARCH",
+        "channelIndex": 0,
+        "filterIndex": 0,
+        "searchOpen": true,
+        "dialogVisible": false,
+        "overlayVisible": false,
+        "navigationVisible": true,
+        "previewId": null,
+        "previewSequence": 0,
+        "number": "",
+        "settingsSection": null,
+        "exitAt": null
+      },
+      "steps": [
+        {
+          "event": {
+            "back": true
+          },
+          "expected": {
+            "section": "CHANNELS",
+            "focus": "MAIN_NAVIGATION",
+            "menuIndex": 2,
+            "channelFocus": "LIST",
+            "channelIndex": 0,
+            "filterIndex": 0,
+            "searchOpen": false,
+            "dialogVisible": false,
+            "overlayVisible": false,
+            "navigationVisible": true,
+            "previewId": null,
+            "previewSequence": 0,
+            "number": "",
+            "settingsSection": null,
+            "exitAt": null
+          },
+          "effects": [
+            "Back:CLOSE_CHANNEL_SEARCH"
+          ],
+          "handled": true
+        },
+        {
+          "event": {
+            "back": true
+          },
+          "expected": {
+            "section": "LIVE",
+            "focus": "CONTENT",
+            "menuIndex": 0,
+            "channelFocus": "LIST",
+            "channelIndex": 0,
+            "filterIndex": 0,
+            "searchOpen": false,
+            "dialogVisible": false,
+            "overlayVisible": false,
+            "navigationVisible": true,
+            "previewId": null,
+            "previewSequence": 0,
+            "number": "",
+            "settingsSection": null,
+            "exitAt": null
+          },
+          "effects": [
+            "ActivateSection:LIVE"
+          ],
+          "handled": true
+        }
+      ]
+    },
+    {
+      "id": "search-caret",
+      "initial": {
+        "section": "CHANNELS",
+        "focus": "CONTENT",
+        "menuIndex": 2,
+        "channelFocus": "SEARCH",
+        "channelIndex": 0,
+        "filterIndex": 0,
+        "searchOpen": true,
+        "dialogVisible": false,
+        "overlayVisible": false,
+        "navigationVisible": true,
+        "previewId": null,
+        "previewSequence": 0,
+        "number": "",
+        "settingsSection": null,
+        "exitAt": null
+      },
+      "steps": [
+        {
+          "event": {
+            "remote": "LEFT"
+          },
+          "expected": {
+            "section": "CHANNELS",
+            "focus": "CONTENT",
+            "menuIndex": 2,
+            "channelFocus": "SEARCH",
+            "channelIndex": 0,
+            "filterIndex": 0,
+            "searchOpen": true,
+            "dialogVisible": false,
+            "overlayVisible": false,
+            "navigationVisible": true,
+            "previewId": null,
+            "previewSequence": 0,
+            "number": "",
+            "settingsSection": null,
+            "exitAt": null
+          },
+          "effects": [
+            "ResetExit",
+            "Channels:None"
+          ],
+          "handled": false
+        },
+        {
+          "event": {
+            "backspace": true
+          },
+          "expected": {
+            "section": "CHANNELS",
+            "focus": "CONTENT",
+            "menuIndex": 2,
+            "channelFocus": "SEARCH",
+            "channelIndex": 0,
+            "filterIndex": 0,
+            "searchOpen": true,
+            "dialogVisible": false,
+            "overlayVisible": false,
+            "navigationVisible": true,
+            "previewId": null,
+            "previewSequence": 0,
+            "number": "",
+            "settingsSection": null,
+            "exitAt": null
+          },
+          "effects": [
+            "ResetExit"
+          ],
+          "handled": false
+        },
+        {
+          "event": {
+            "escape": true
+          },
+          "expected": {
+            "section": "CHANNELS",
+            "focus": "CONTENT",
+            "menuIndex": 2,
+            "channelFocus": "LIST",
+            "channelIndex": 0,
+            "filterIndex": 0,
+            "searchOpen": false,
+            "dialogVisible": false,
+            "overlayVisible": false,
+            "navigationVisible": true,
+            "previewId": null,
+            "previewSequence": 0,
+            "number": "",
+            "settingsSection": null,
+            "exitAt": null
+          },
+          "effects": [
+            "ResetExit",
+            "Back:CLOSE_CHANNEL_SEARCH"
+          ],
+          "handled": true
+        }
+      ]
+    },
+    {
+      "id": "dialog-back",
+      "initial": {
+        "section": "GUIDE",
+        "focus": "CONTENT",
+        "menuIndex": 1,
+        "channelFocus": "LIST",
+        "channelIndex": 0,
+        "filterIndex": 0,
+        "searchOpen": false,
+        "dialogVisible": true,
+        "overlayVisible": false,
+        "navigationVisible": true,
+        "previewId": null,
+        "previewSequence": 0,
+        "number": "",
+        "settingsSection": null,
+        "exitAt": null
+      },
+      "steps": [
+        {
+          "event": {
+            "back": true
+          },
+          "expected": {
+            "section": "GUIDE",
+            "focus": "CONTENT",
+            "menuIndex": 1,
+            "channelFocus": "LIST",
+            "channelIndex": 0,
+            "filterIndex": 0,
+            "searchOpen": false,
+            "dialogVisible": false,
+            "overlayVisible": false,
+            "navigationVisible": true,
+            "previewId": null,
+            "previewSequence": 0,
+            "number": "",
+            "settingsSection": null,
+            "exitAt": null
+          },
+          "effects": [
+            "Dialog:BACK"
+          ],
+          "handled": true
+        }
+      ]
+    },
+    {
+      "id": "settings-back",
+      "initial": {
+        "section": "SETTINGS",
+        "focus": "CONTENT",
+        "menuIndex": 3,
+        "channelFocus": "LIST",
+        "channelIndex": 0,
+        "filterIndex": 0,
+        "searchOpen": false,
+        "dialogVisible": false,
+        "overlayVisible": false,
+        "navigationVisible": true,
+        "previewId": null,
+        "previewSequence": 0,
+        "number": "",
+        "settingsSection": "PLAYBACK",
+        "exitAt": null
+      },
+      "steps": [
+        {
+          "event": {
+            "back": true
+          },
+          "expected": {
+            "section": "SETTINGS",
+            "focus": "MAIN_NAVIGATION",
+            "menuIndex": 3,
+            "channelFocus": "LIST",
+            "channelIndex": 0,
+            "filterIndex": 0,
+            "searchOpen": false,
+            "dialogVisible": false,
+            "overlayVisible": false,
+            "navigationVisible": true,
+            "previewId": null,
+            "previewSequence": 0,
+            "number": "",
+            "settingsSection": null,
+            "exitAt": null
+          },
+          "effects": [
+            "Back:CLOSE_SETTINGS_DETAIL"
+          ],
+          "handled": true
+        }
+      ]
+    },
+    {
+      "id": "channel-keys",
+      "initial": {
+        "section": "LIVE",
+        "focus": "CONTENT",
+        "menuIndex": 0,
+        "channelFocus": "LIST",
+        "channelIndex": 0,
+        "filterIndex": 0,
+        "searchOpen": false,
+        "dialogVisible": false,
+        "overlayVisible": false,
+        "navigationVisible": true,
+        "previewId": null,
+        "previewSequence": 0,
+        "number": "",
+        "settingsSection": null,
+        "exitAt": null
+      },
+      "steps": [
+        {
+          "event": {
+            "channelDelta": 1
+          },
+          "expected": {
+            "section": "LIVE",
+            "focus": "CONTENT",
+            "menuIndex": 0,
+            "channelFocus": "LIST",
+            "channelIndex": 0,
+            "filterIndex": 0,
+            "searchOpen": false,
+            "dialogVisible": false,
+            "overlayVisible": false,
+            "navigationVisible": true,
+            "previewId": null,
+            "previewSequence": 0,
+            "number": "",
+            "settingsSection": null,
+            "exitAt": null
+          },
+          "effects": [
+            "ResetExit",
+            "SwitchChannel:1"
+          ],
+          "handled": true
+        },
+        {
+          "event": {
+            "previousChannel": true
+          },
+          "expected": {
+            "section": "LIVE",
+            "focus": "CONTENT",
+            "menuIndex": 0,
+            "channelFocus": "LIST",
+            "channelIndex": 0,
+            "filterIndex": 0,
+            "searchOpen": false,
+            "dialogVisible": false,
+            "overlayVisible": false,
+            "navigationVisible": true,
+            "previewId": null,
+            "previewSequence": 0,
+            "number": "",
+            "settingsSection": null,
+            "exitAt": null
+          },
+          "effects": [
+            "ResetExit",
+            "PreviousChannel"
+          ],
+          "handled": true
+        },
+        {
+          "event": {
+            "quickSettings": true
+          },
+          "expected": {
+            "section": "LIVE",
+            "focus": "CONTENT",
+            "menuIndex": 0,
+            "channelFocus": "LIST",
+            "channelIndex": 0,
+            "filterIndex": 0,
+            "searchOpen": false,
+            "dialogVisible": false,
+            "overlayVisible": false,
+            "navigationVisible": true,
+            "previewId": null,
+            "previewSequence": 0,
+            "number": "",
+            "settingsSection": null,
+            "exitAt": null
+          },
+          "effects": [
+            "ResetExit",
+            "ShowQuickSettings"
+          ],
+          "handled": true
+        }
+      ]
+    },
+    {
+      "id": "number-confirm",
+      "initial": {
+        "section": "LIVE",
+        "focus": "CONTENT",
+        "menuIndex": 0,
+        "channelFocus": "LIST",
+        "channelIndex": 0,
+        "filterIndex": 0,
+        "searchOpen": false,
+        "dialogVisible": false,
+        "overlayVisible": false,
+        "navigationVisible": true,
+        "previewId": null,
+        "previewSequence": 0,
+        "number": "",
+        "settingsSection": null,
+        "exitAt": null
+      },
+      "steps": [
+        {
+          "event": {
+            "digit": "1"
+          },
+          "expected": {
+            "section": "LIVE",
+            "focus": "CONTENT",
+            "menuIndex": 0,
+            "channelFocus": "LIST",
+            "channelIndex": 0,
+            "filterIndex": 0,
+            "searchOpen": false,
+            "dialogVisible": false,
+            "overlayVisible": false,
+            "navigationVisible": true,
+            "previewId": null,
+            "previewSequence": 0,
+            "number": "1",
+            "settingsSection": null,
+            "exitAt": null
+          },
+          "effects": [
+            "ResetExit"
+          ],
+          "handled": true
+        },
+        {
+          "event": {
+            "digit": "2"
+          },
+          "expected": {
+            "section": "LIVE",
+            "focus": "CONTENT",
+            "menuIndex": 0,
+            "channelFocus": "LIST",
+            "channelIndex": 0,
+            "filterIndex": 0,
+            "searchOpen": false,
+            "dialogVisible": false,
+            "overlayVisible": false,
+            "navigationVisible": true,
+            "previewId": null,
+            "previewSequence": 0,
+            "number": "12",
+            "settingsSection": null,
+            "exitAt": null
+          },
+          "effects": [
+            "ResetExit"
+          ],
+          "handled": true
+        },
+        {
+          "event": {
+            "remote": "CONFIRM"
+          },
+          "expected": {
+            "section": "LIVE",
+            "focus": "CONTENT",
+            "menuIndex": 0,
+            "channelFocus": "LIST",
+            "channelIndex": 0,
+            "filterIndex": 0,
+            "searchOpen": false,
+            "dialogVisible": false,
+            "overlayVisible": false,
+            "navigationVisible": true,
+            "previewId": null,
+            "previewSequence": 0,
+            "number": "",
+            "settingsSection": null,
+            "exitAt": null
+          },
+          "effects": [
+            "ResetExit",
+            "SelectNumber:12"
+          ],
+          "handled": true
+        }
+      ]
+    },
+    {
+      "id": "menu-horizontal",
+      "initial": {
+        "section": "CHANNELS",
+        "focus": "MAIN_NAVIGATION",
+        "menuIndex": 2,
+        "channelFocus": "LIST",
+        "channelIndex": 0,
+        "filterIndex": 0,
+        "searchOpen": false,
+        "dialogVisible": false,
+        "overlayVisible": false,
+        "navigationVisible": true,
+        "previewId": null,
+        "previewSequence": 0,
+        "number": "",
+        "settingsSection": null,
+        "exitAt": null
+      },
+      "steps": [
+        {
+          "event": {
+            "remote": "LEFT"
+          },
+          "expected": {
+            "section": "CHANNELS",
+            "focus": "MAIN_NAVIGATION",
+            "menuIndex": 1,
+            "channelFocus": "LIST",
+            "channelIndex": 0,
+            "filterIndex": 0,
+            "searchOpen": false,
+            "dialogVisible": false,
+            "overlayVisible": false,
+            "navigationVisible": true,
+            "previewId": null,
+            "previewSequence": 0,
+            "number": "",
+            "settingsSection": null,
+            "exitAt": null
+          },
+          "effects": [
+            "ResetExit"
+          ],
+          "handled": true
+        },
+        {
+          "event": {
+            "remote": "CONFIRM"
+          },
+          "expected": {
+            "section": "CHANNELS",
+            "focus": "MAIN_NAVIGATION",
+            "menuIndex": 1,
+            "channelFocus": "LIST",
+            "channelIndex": 0,
+            "filterIndex": 0,
+            "searchOpen": false,
+            "dialogVisible": false,
+            "overlayVisible": false,
+            "navigationVisible": true,
+            "previewId": null,
+            "previewSequence": 0,
+            "number": "",
+            "settingsSection": null,
+            "exitAt": null
+          },
+          "effects": [
+            "ResetExit",
+            "ActivateSection:GUIDE"
+          ],
+          "handled": true
+        },
+        {
+          "event": {
+            "remote": "DOWN"
+          },
+          "expected": {
+            "section": "CHANNELS",
+            "focus": "CONTENT",
+            "menuIndex": 1,
+            "channelFocus": "LIST",
+            "channelIndex": 0,
+            "filterIndex": 0,
+            "searchOpen": false,
+            "dialogVisible": false,
+            "overlayVisible": false,
+            "navigationVisible": true,
+            "previewId": null,
+            "previewSequence": 0,
+            "number": "",
+            "settingsSection": null,
+            "exitAt": null
+          },
+          "effects": [
+            "ResetExit"
+          ],
+          "handled": true
+        }
+      ]
+    },
+    {
+      "id": "list-open-favorite",
+      "initial": {
+        "section": "CHANNELS",
+        "focus": "CONTENT",
+        "menuIndex": 2,
+        "channelFocus": "LIST",
+        "channelIndex": 0,
+        "filterIndex": 0,
+        "searchOpen": false,
+        "dialogVisible": false,
+        "overlayVisible": false,
+        "navigationVisible": true,
+        "previewId": null,
+        "previewSequence": 0,
+        "number": "",
+        "settingsSection": null,
+        "exitAt": null
+      },
+      "steps": [
+        {
+          "event": {
+            "remote": "DOWN"
+          },
+          "expected": {
+            "section": "CHANNELS",
+            "focus": "CONTENT",
+            "menuIndex": 2,
+            "channelFocus": "LIST",
+            "channelIndex": 1,
+            "filterIndex": 0,
+            "searchOpen": false,
+            "dialogVisible": false,
+            "overlayVisible": false,
+            "navigationVisible": true,
+            "previewId": null,
+            "previewSequence": 0,
+            "number": "",
+            "settingsSection": null,
+            "exitAt": null
+          },
+          "effects": [
+            "ResetExit",
+            "Channels:None"
+          ],
+          "handled": true
+        },
+        {
+          "event": {
+            "remote": "RIGHT"
+          },
+          "expected": {
+            "section": "CHANNELS",
+            "focus": "CONTENT",
+            "menuIndex": 2,
+            "channelFocus": "FAVORITE",
+            "channelIndex": 1,
+            "filterIndex": 0,
+            "searchOpen": false,
+            "dialogVisible": false,
+            "overlayVisible": false,
+            "navigationVisible": true,
+            "previewId": null,
+            "previewSequence": 0,
+            "number": "",
+            "settingsSection": null,
+            "exitAt": null
+          },
+          "effects": [
+            "ResetExit",
+            "Channels:None"
+          ],
+          "handled": true
+        },
+        {
+          "event": {
+            "remote": "CONFIRM"
+          },
+          "expected": {
+            "section": "CHANNELS",
+            "focus": "CONTENT",
+            "menuIndex": 2,
+            "channelFocus": "FAVORITE",
+            "channelIndex": 1,
+            "filterIndex": 0,
+            "searchOpen": false,
+            "dialogVisible": false,
+            "overlayVisible": false,
+            "navigationVisible": true,
+            "previewId": null,
+            "previewSequence": 0,
+            "number": "",
+            "settingsSection": null,
+            "exitAt": null
+          },
+          "effects": [
+            "ResetExit",
+            "Channels:ToggleFavorite:1"
+          ],
+          "handled": true
+        },
+        {
+          "event": {
+            "remote": "LEFT"
+          },
+          "expected": {
+            "section": "CHANNELS",
+            "focus": "CONTENT",
+            "menuIndex": 2,
+            "channelFocus": "LIST",
+            "channelIndex": 1,
+            "filterIndex": 0,
+            "searchOpen": false,
+            "dialogVisible": false,
+            "overlayVisible": false,
+            "navigationVisible": true,
+            "previewId": null,
+            "previewSequence": 0,
+            "number": "",
+            "settingsSection": null,
+            "exitAt": null
+          },
+          "effects": [
+            "ResetExit",
+            "Channels:None"
+          ],
+          "handled": true
+        },
+        {
+          "event": {
+            "remote": "CONFIRM"
+          },
+          "expected": {
+            "section": "CHANNELS",
+            "focus": "CONTENT",
+            "menuIndex": 2,
+            "channelFocus": "LIST",
+            "channelIndex": 1,
+            "filterIndex": 0,
+            "searchOpen": false,
+            "dialogVisible": false,
+            "overlayVisible": false,
+            "navigationVisible": true,
+            "previewId": null,
+            "previewSequence": 0,
+            "number": "",
+            "settingsSection": null,
+            "exitAt": null
+          },
+          "effects": [
+            "ResetExit",
+            "Channels:OpenChannel:1"
+          ],
+          "handled": true
+        }
+      ]
+    },
+    {
+      "id": "double-back-exit",
+      "initial": {
+        "section": "LIVE",
+        "focus": "MAIN_NAVIGATION",
+        "menuIndex": 0,
+        "channelFocus": "LIST",
+        "channelIndex": 0,
+        "filterIndex": 0,
+        "searchOpen": false,
+        "dialogVisible": false,
+        "overlayVisible": false,
+        "navigationVisible": true,
+        "previewId": null,
+        "previewSequence": 0,
+        "number": "",
+        "settingsSection": null,
+        "exitAt": null
+      },
+      "steps": [
+        {
+          "event": {
+            "back": true,
+            "nowMillis": 1000
+          },
+          "expected": {
+            "section": "LIVE",
+            "focus": "MAIN_NAVIGATION",
+            "menuIndex": 0,
+            "channelFocus": "LIST",
+            "channelIndex": 0,
+            "filterIndex": 0,
+            "searchOpen": false,
+            "dialogVisible": false,
+            "overlayVisible": false,
+            "navigationVisible": true,
+            "previewId": null,
+            "previewSequence": 0,
+            "number": "",
+            "settingsSection": null,
+            "exitAt": 1000
+          },
+          "effects": [
+            "ShowExitHint"
+          ],
+          "handled": true
+        },
+        {
+          "event": {
+            "back": true,
+            "nowMillis": 1500
+          },
+          "expected": {
+            "section": "LIVE",
+            "focus": "MAIN_NAVIGATION",
+            "menuIndex": 0,
+            "channelFocus": "LIST",
+            "channelIndex": 0,
+            "filterIndex": 0,
+            "searchOpen": false,
+            "dialogVisible": false,
+            "overlayVisible": false,
+            "navigationVisible": true,
+            "previewId": null,
+            "previewSequence": 0,
+            "number": "",
+            "settingsSection": null,
+            "exitAt": null
+          },
+          "effects": [],
+          "handled": false
+        }
+      ]
+    }
+  ]
+}
