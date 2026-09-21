@@ -10,7 +10,6 @@ import kotlinx.browser.window
 import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
-import org.w3c.dom.HTMLVideoElement
 import org.w3c.dom.events.Event
 import org.w3c.dom.events.KeyboardEvent
 import org.w3c.fetch.Response
@@ -23,7 +22,6 @@ private const val DEFAULT_DIAGNOSTIC_STREAM_URL = "http://88.212.15.19/live/m2_h
 private const val WEBOS_PLAYLIST_ID = "webos-playlist"
 private const val MAX_PLAYLIST_BYTES = 2 * 1024 * 1024
 private const val PLAYLIST_TIMEOUT_MS = 15_000
-private const val HUD_HIDE_DELAY_MS = 5_000
 private const val REPEATED_CHANNEL_SWITCH_INTERVAL_MS = 350
 
 fun main() {
@@ -35,8 +33,6 @@ private class WebOsApp {
     val diagnosticInput = element<HTMLInputElement>("diagnostic-url")
     val loadPlaylist = element<HTMLButtonElement>("load-playlist")
     val playDirect = element<HTMLButtonElement>("play-direct")
-    val stop = element<HTMLButtonElement>("stop")
-    val video = element<HTMLVideoElement>("player")
     val channelSearch = element<HTMLInputElement>("channel-search")
     val categoryFilter = element<HTMLButtonElement>("category-filter")
     val clearFilters = element<HTMLButtonElement>("clear-filters")
@@ -44,16 +40,16 @@ private class WebOsApp {
     val channelEmpty = element<HTMLElement>("channel-empty")
     val channelCount = element<HTMLElement>("channel-count")
     val status = element<HTMLElement>("status")
-    val nowPlaying = element<HTMLElement>("now-playing")
     val platform = element<HTMLElement>("platform")
     val channelButtons = mutableListOf<HTMLButtonElement>()
+    private val appShell = WebOsAppShell(::onSectionActivated)
+    private val playback = WebOsPlaybackView(appShell, ::show, ::restoreChannelFocus, ::recordSuccessfulPlayback)
     var channels = emptyList<Channel>()
     private var filteredChannels = emptyList<Channel>()
     private var categories = listOf<String?>(null)
     private var selectedCategory: String? = null
     private var renderedWindow = ChannelRenderWindow(0, 0)
     private var cachedChannels = emptyList<Channel>()
-    private var playingIndex = 0
     private var playlistLoading = false
     private var selectedChannelId: String? = null
     private var lastSuccessfulChannelId: String? = null
@@ -61,8 +57,6 @@ private class WebOsApp {
     private var settings = WebOsSettings()
     private var playlistCachedAt = 0L
     private var storageProblem: String? = null
-    private var hudTimer: Int? = null
-    private var lastChannelSwitchAt = Double.NEGATIVE_INFINITY
 
     private val stateStore =
         WebOsStateStore(
@@ -70,15 +64,14 @@ private class WebOsApp {
             write = { value -> window.localStorage.setItem(WEBOS_STATE_STORAGE_KEY, value) },
         )
 
-    private val hlsSupport = video.canPlayType("application/vnd.apple.mpegurl").toString().ifBlank { "nincs" }
-
     fun start() {
-        platform.textContent = "${window.navigator.userAgent} · HLS: $hlsSupport · Kotlin/JS core betöltve"
+        platform.textContent = "${window.navigator.userAgent} · HLS: ${playback.hlsSupport} · Kotlin/JS core betöltve"
         sourceInput.value = OFFICIAL_PLAYLIST_URL
         diagnosticInput.value = requestedStream() ?: DEFAULT_DIAGNOSTIC_STREAM_URL
         configureControls()
-        configurePlayerEvents()
+        playback.configure()
         configureKeyboard()
+        appShell.configure()
         restoreCachedState()
         fetchPlaylist()
     }
@@ -97,61 +90,18 @@ private class WebOsApp {
 
     private fun startPlayback(index: Int) {
         val channel = channels.getOrNull(index) ?: return
-        playingIndex = index
         selectedChannelId = channel.id
         updateSelectedChannel()
-        val name = displayName(channel)
-        nowPlaying.textContent = name
-        show("Lejátszás indítása: $name · HLS: $hlsSupport")
-        document.body?.classList?.add("playback-active")
-        document.activeElement?.asDynamic()?.blur()
-        showPlaybackHud()
-        video.src = channel.streamUrl
-        video.load()
-        video.play().catch { error ->
-            leavePlaybackView()
-            show("A lejátszás indítása sikertelen: ${error.asDynamic().message ?: error.toString()}")
+        playback.start(channel, index)
+    }
+
+    private fun onSectionActivated(section: WebOsSection) {
+        if (section == WebOsSection.LIVE) {
+            if (playback.isActive()) playback.showHud()
+        } else {
+            playback.hideHud()
         }
-    }
-
-    private fun stopPlayback() {
-        video.pause()
-        video.removeAttribute("src")
-        video.load()
-        leavePlaybackView()
-        show("Lejátszás leállítva.")
-    }
-
-    private fun leavePlaybackView() {
-        cancelHudTimer()
-        document.body?.classList?.remove("playback-active", "hud-visible")
-        restoreChannelFocus()
-    }
-
-    private fun showPlaybackHud() {
-        if (document.body?.classList?.contains("playback-active") != true) return
-        document.body?.classList?.add("hud-visible")
-        cancelHudTimer()
-        hudTimer =
-            window.setTimeout(
-                {
-                    document.body?.classList?.remove("hud-visible")
-                    if (document.activeElement === stop) stop.blur()
-                    hudTimer = null
-                },
-                HUD_HIDE_DELAY_MS,
-            )
-    }
-
-    private fun hidePlaybackHud() {
-        cancelHudTimer()
-        document.body?.classList?.remove("hud-visible")
-        if (document.activeElement === stop) stop.blur()
-    }
-
-    private fun cancelHudTimer() {
-        hudTimer?.let(window::clearTimeout)
-        hudTimer = null
+        if (section == WebOsSection.CHANNELS) renderChannelWindow()
     }
 
     private fun renderChannels() {
@@ -282,9 +232,7 @@ private class WebOsApp {
             diagnosticInput.focus()
             return
         }
-        channels = listOf(probeChannel(url))
-        renderChannels()
-        startPlayback(0)
+        playback.start(probeChannel(url))
     }
 
     private fun fetchPlaylist() {
@@ -307,10 +255,9 @@ private class WebOsApp {
                     lastSuccessfulChannelId = lastSuccessfulChannelId?.takeIf { id -> parsed.any { it.id == id } }
                     recentChannelIds = normalizedChannelHistory(recentChannelIds, parsed)
                     renderChannels()
-                    playingIndex = selectedChannelId?.let { id -> channels.indexOfFirst { it.id == id } }?.takeIf { it >= 0 } ?: 0
                     persistState()
                     show("${channels.size} csatorna betöltve.")
-                    if (!isPlaybackActive()) restoreChannelFocus()
+                    if (!playback.isActive() && appShell.activeSection == WebOsSection.CHANNELS) restoreChannelFocus()
                 }
                 finishPlaylistLoad()
             }.catch { error ->
@@ -330,11 +277,6 @@ private class WebOsApp {
         loadPlaylist.textContent = if (retry) "Újrapróbálás" else "Playlist frissítése"
     }
 
-    private fun switchChannel(step: Int) {
-        if (channels.isEmpty()) return
-        startPlayback(nextChannelIndex(playingIndex, channels.size, step))
-    }
-
     private fun configureControls() {
         loadPlaylist.onclick = {
             fetchPlaylist()
@@ -342,10 +284,6 @@ private class WebOsApp {
         }
         playDirect.onclick = {
             useDirectStream()
-            null
-        }
-        stop.onclick = {
-            stopPlayback()
             null
         }
         channelSearch.oninput = {
@@ -372,38 +310,6 @@ private class WebOsApp {
         }
     }
 
-    private fun configurePlayerEvents() {
-        video.onplaying = {
-            recordSuccessfulPlayback()
-            show("Lejátszás: ${video.videoWidth}×${video.videoHeight} · ready=${video.readyState}")
-            showPlaybackHud()
-            null
-        }
-        video.onwaiting = {
-            show("Pufferelés…")
-            showPlaybackHud()
-            null
-        }
-        video.onclick = {
-            showPlaybackHud()
-            null
-        }
-        video.onmousemove = {
-            showPlaybackHud()
-            null
-        }
-        video.addEventListener(
-            "error",
-            {
-                leavePlaybackView()
-                show(
-                    "Lejátszási hiba: ${mediaErrorName(video.error?.code)} " +
-                        "(ready=${video.readyState}, network=${video.networkState})",
-                )
-            },
-        )
-    }
-
     private fun moveFocus(step: Int) {
         val channelIndex = focusedChannelIndex()
         if (channelIndex != null) {
@@ -427,7 +333,13 @@ private class WebOsApp {
         }
     }
 
-    private fun filterControls(): List<HTMLElement> = listOf(loadPlaylist, diagnosticInput, playDirect, channelSearch, categoryFilter, clearFilters).filter(::isFocusable)
+    private fun filterControls(): List<HTMLElement> =
+        when (appShell.activeSection) {
+            WebOsSection.CHANNELS -> listOf(channelSearch, categoryFilter, clearFilters)
+            WebOsSection.SETTINGS -> listOf(loadPlaylist, diagnosticInput, playDirect)
+            WebOsSection.LIVE -> listOf(playback.stopButton)
+            WebOsSection.GUIDE -> emptyList()
+        }.filter(::isFocusable)
 
     private fun configureKeyboard() {
         document.onkeydown = { rawEvent: Event ->
@@ -437,6 +349,7 @@ private class WebOsApp {
     }
 
     private fun handleKey(event: KeyboardEvent) {
+        if (appShell.handleNavigationKey(event, ::focusSectionContent)) return
         when (event.keyCode) {
             38 -> handleDirectionalKey(event, -1, allowInTextInput = true)
             40 -> handleDirectionalKey(event, 1, allowInTextInput = true)
@@ -447,23 +360,44 @@ private class WebOsApp {
         }
     }
 
+    private fun focusSectionContent() {
+        when (appShell.activeSection) {
+            WebOsSection.CHANNELS -> {
+                focusAndReveal(filterControls().firstOrNull() ?: channelList)
+            }
+
+            WebOsSection.SETTINGS -> {
+                val firstCategory = document.querySelector("#view-settings .settings-categories button") as? HTMLElement
+                focusAndReveal(firstCategory ?: filterControls().firstOrNull() ?: appShell.view(WebOsSection.SETTINGS))
+            }
+
+            WebOsSection.LIVE -> {
+                focusAndReveal(if (playback.isActive()) playback.stopButton else appShell.view(WebOsSection.LIVE))
+            }
+
+            WebOsSection.GUIDE -> {
+                focusAndReveal(appShell.view(WebOsSection.GUIDE))
+            }
+        }
+    }
+
     private fun handleDirectionalKey(
         event: KeyboardEvent,
         step: Int,
         allowInTextInput: Boolean,
     ) {
-        val playbackActive = isPlaybackActive()
+        val playbackActive = playback.isActive() && appShell.activeSection == WebOsSection.LIVE
         val textInputFocused = document.activeElement === diagnosticInput || document.activeElement === channelSearch
         if (!allowInTextInput && textInputFocused && !playbackActive) return
         event.preventDefault()
-        if (playbackActive) handleChannelSwitch(event, step) else moveFocus(step)
+        if (playbackActive) playback.switchChannel(channels, event, step) else moveFocus(step)
     }
 
     private fun handleEnterKey(event: KeyboardEvent) {
         when {
-            isPlaybackActive() -> {
+            playback.isActive() && appShell.activeSection == WebOsSection.LIVE -> {
                 event.preventDefault()
-                showPlaybackHud()
+                playback.showHud()
             }
 
             document.activeElement === diagnosticInput -> {
@@ -476,21 +410,11 @@ private class WebOsApp {
     private fun handleBackKey(event: KeyboardEvent) {
         event.preventDefault()
         when {
-            isPlaybackActive() && document.body?.classList?.contains("hud-visible") == true -> hidePlaybackHud()
-            isPlaybackActive() -> stopPlayback()
+            appShell.activeSection == WebOsSection.LIVE && playback.isActive() && document.body?.classList?.contains("hud-visible") == true -> playback.hideHud()
+            appShell.activeSection == WebOsSection.LIVE && playback.isActive() -> playback.stop()
+            appShell.activeSection != WebOsSection.LIVE -> appShell.activate(WebOsSection.LIVE)
             else -> platformBack()
         }
-    }
-
-    private fun handleChannelSwitch(
-        event: KeyboardEvent,
-        step: Int,
-    ) {
-        val now = window.performance.now()
-        if (!shouldHandleChannelSwitch(event.repeat, now, lastChannelSwitchAt)) return
-        lastChannelSwitchAt = now
-        switchChannel(step)
-        showPlaybackHud()
     }
 
     private fun restoreCachedState() {
@@ -510,14 +434,13 @@ private class WebOsApp {
         recentChannelIds = normalizedChannelHistory(state.recentChannelIds, channels)
         playlistCachedAt = state.playlistUpdatedAt
         selectedChannelId = lastSuccessfulChannelId ?: channels.firstOrNull()?.id
-        playingIndex = selectedChannelId?.let { id -> channels.indexOfFirst { it.id == id } }?.takeIf { it >= 0 } ?: 0
         renderChannels()
         restoreChannelFocus()
         show("${channels.size} mentett csatorna betöltve; hálózati frissítés indul.")
     }
 
-    private fun recordSuccessfulPlayback() {
-        val channel = channels.getOrNull(playingIndex) ?: return
+    private fun recordSuccessfulPlayback(channelId: String) {
+        val channel = channels.firstOrNull { it.id == channelId } ?: return
         if (cachedChannels.none { it.id == channel.id }) return
         if (lastSuccessfulChannelId == channel.id && recentChannelIds.firstOrNull() == channel.id) return
         lastSuccessfulChannelId = channel.id
@@ -538,11 +461,9 @@ private class WebOsApp {
             )
         storageProblem = stateStore.save(state)?.let { "Tárolási hiba: $it" }
     }
-
-    private fun isPlaybackActive(): Boolean = document.body?.classList?.contains("playback-active") == true
 }
 
-private fun displayName(channel: Channel): String = channel.name.takeUnless { it == UNKNOWN_CHANNEL_NAME_ID } ?: "Ismeretlen csatorna"
+internal fun displayName(channel: Channel): String = channel.name.takeUnless { it == UNKNOWN_CHANNEL_NAME_ID } ?: "Ismeretlen csatorna"
 
 private fun displayGroup(channel: Channel): String = displayGroup(channel.group)
 
@@ -654,12 +575,3 @@ private fun platformBack() {
 private inline fun <reified T : HTMLElement> element(id: String): T = requireNotNull(document.getElementById(id)) { "Missing #$id" } as T
 
 private fun decodeURIComponent(value: String): String = js("decodeURIComponent(value)") as String
-
-private fun mediaErrorName(code: Short?): String =
-    when (code?.toInt()) {
-        1 -> "megszakítva"
-        2 -> "hálózati hiba"
-        3 -> "dekódolási hiba"
-        4 -> "nem támogatott médiaforrás"
-        else -> "ismeretlen hibakód: $code"
-    }

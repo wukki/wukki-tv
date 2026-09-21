@@ -7,43 +7,90 @@
     <link rel="stylesheet" href="styles.css">
     <script>if (typeof globalThis === "undefined") window.globalThis = window;</script>
 </head>
-<body>
-<main>
-    <header>
-        <div><h1>Wukki TV</h1><span>webOS csatornalista</span></div>
-        <small id="platform"></small>
+<body data-section="channels">
+<main id="app-shell">
+    <header class="top-navigation" aria-label="Főmenü">
+        <div class="brand" aria-label="Wukki TV"><strong>Wukki</strong><span>TV</span></div>
+        <button id="nav-live" class="nav-item" type="button" data-section="live" aria-controls="view-live" aria-selected="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 6h-7.6l3.3-3.3-1.4-1.4L12 4.6 8.7 1.3 7.3 2.7 10.6 6H3a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h18a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2Zm0 13H3V8h18v11Zm-13-2 7-4.5L8 8v9Z"/></svg>
+            <span>Élő adás</span>
+        </button>
+        <button id="nav-guide" class="nav-item" type="button" data-section="guide" aria-controls="view-guide" aria-selected="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 4h-1V2h-2v2H8V2H6v2H5a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3Zm1 15a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-8h16v8Zm0-10H4V7a1 1 0 0 1 1-1h1v2h2V6h8v2h2V6h1a1 1 0 0 1 1 1v2ZM6 13h3v3H6v-3Zm5 0h3v3h-3v-3Zm5 0h2v3h-2v-3Z"/></svg>
+            <span>Műsorújság</span>
+        </button>
+        <button id="nav-channels" class="nav-item" type="button" data-section="channels" aria-controls="view-channels" aria-selected="true">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A1.5 1.5 0 1 0 4 8a1.5 1.5 0 0 0 0-3Zm4 .5v2h14V6H8Zm-4 5.5A1.5 1.5 0 1 0 4 14a1.5 1.5 0 0 0 0-3Zm4 .5v2h14v-2H8Zm-4 5.5A1.5 1.5 0 1 0 4 20a1.5 1.5 0 0 0 0-3Zm4 .5v2h14v-2H8Z"/></svg>
+            <span>Csatornák</span>
+        </button>
+        <button id="nav-settings" class="nav-item" type="button" data-section="settings" aria-controls="view-settings" aria-selected="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m19.4 13 .1-1-.1-1 2.1-1.7-2-3.5-2.6 1a8 8 0 0 0-1.7-1L14.8 3h-4l-.4 2.8a8 8 0 0 0-1.7 1l-2.6-1-2 3.5L6.2 11l-.1 1 .1 1-2.1 1.7 2 3.5 2.6-1a8 8 0 0 0 1.7 1l.4 2.8h4l.4-2.8a8 8 0 0 0 1.7-1l2.6 1 2-3.5-2.1-1.7ZM12.8 19h-1.6l-.4-2.3-.7-.3a6 6 0 0 1-1.3-.8l-.6-.5-2.1.8-.8-1.4 1.8-1.4L7 12l.1-1.1-1.8-1.4.8-1.4 2.1.8.6-.5a6 6 0 0 1 1.3-.8l.7-.3.4-2.3h1.6l.4 2.3.7.3a6 6 0 0 1 1.3.8l.6.5 2.1-.8.8 1.4-1.8 1.4.1 1.1-.1 1.1 1.8 1.4-.8 1.4-2.1-.8-.6.5a6 6 0 0 1-1.3.8l-.7.3-.4 2.3ZM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6Zm0 4a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"/></svg>
+            <span>Beállítások</span>
+        </button>
     </header>
-    <video id="player" playsinline></video>
-    <section class="browser">
-        <div class="source-panel">
-            <label for="source-url">Hivatalos Wukki playlist</label>
-            <input id="source-url" type="url" readonly tabindex="-1">
-            <div class="buttons">
-                <button id="load-playlist" type="button">Playlist frissítése</button>
-            </div>
-            <div class="diagnostics">
-                <label for="diagnostic-url">Diagnosztikai stream URL</label>
-                <input id="diagnostic-url" type="url" inputmode="url" autocomplete="off" placeholder="http://…/stream.m3u8">
-                <button id="play-direct" type="button">Közvetlen lejátszás</button>
-            </div>
+
+    <section id="view-live" class="app-view live-view" data-route="live" tabindex="-1" hidden>
+        <video id="player" playsinline></video>
+        <p id="live-empty" class="live-empty">Válassz csatornát a lejátszás indításához.</p>
+        <section class="playback-hud">
+            <div><small>Most megy</small><strong id="now-playing"></strong></div>
+            <span>Fel/Le: csatornaváltás · OK: vezérlők · Back: bezárás/vissza</span>
+            <button id="stop" type="button">Leállítás</button>
+        </section>
+    </section>
+
+    <section id="view-guide" class="app-view content-view" data-route="guide" tabindex="-1" hidden>
+        <div class="view-heading"><h1>Műsorújság</h1></div>
+        <div class="placeholder-card">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 4h-1V2h-2v2H8V2H6v2H5a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3Zm1 15a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-8h16v8Zm0-10H4V7a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2Z"/></svg>
+            <h2>A műsorújság előkészítve</h2>
+            <p>A teljes, idővonalas műsorújság ezen a nézeten jelenik meg.</p>
         </div>
-        <div class="channels-panel">
-            <div class="channels-heading"><h2>Csatornák</h2><span id="channel-count"></span></div>
-            <div class="channel-filters">
-                <label class="visually-hidden" for="channel-search">Csatorna keresése</label>
-                <input id="channel-search" type="search" autocomplete="off" placeholder="Keresés csatornanév szerint">
-                <button id="category-filter" type="button">Kategória: Összes</button>
-                <button id="clear-filters" type="button" disabled>Szűrés törlése</button>
-            </div>
+    </section>
+
+    <section id="view-channels" class="app-view content-view" data-route="channels" tabindex="-1">
+        <div class="view-heading"><h1>Csatornák</h1><span id="channel-count"></span></div>
+        <div class="channel-filters">
+            <label class="visually-hidden" for="channel-search">Csatorna keresése</label>
+            <input id="channel-search" type="search" autocomplete="off" placeholder="Keresés csatornanév szerint">
+            <button id="category-filter" type="button">Kategória: Összes</button>
+            <button id="clear-filters" type="button" disabled>Szűrés törlése</button>
+        </div>
+        <div class="channel-surface">
             <p id="channel-empty" class="channel-empty" hidden></p>
             <div id="channel-list" class="channel-list" role="list" aria-label="Szűrt csatornák"></div>
         </div>
     </section>
-    <section class="playback-hud">
-        <div><small>Most megy</small><strong id="now-playing"></strong></div>
-        <span>Fel/Le: csatornaváltás · OK: vezérlők · Back: bezárás/vissza</span>
-        <button id="stop" type="button">Leállítás</button>
+
+    <section id="view-settings" class="app-view content-view" data-route="settings" tabindex="-1" hidden>
+        <div class="view-heading"><h1>Beállítások</h1></div>
+        <div class="settings-layout">
+            <nav class="settings-categories" aria-label="Beállítási kategóriák">
+                <button type="button">Lejátszási beállítások <span>›</span></button>
+                <button type="button">EPG beállítások <span>›</span></button>
+                <button type="button">Megjelenítés <span>›</span></button>
+                <button type="button">Szülői felügyelet <span>›</span></button>
+                <button type="button">Playlist kezelése <span>›</span></button>
+                <button type="button">Nyelv <span>›</span></button>
+                <button class="is-active" type="button">Névjegy <span>›</span></button>
+            </nav>
+            <div class="settings-detail">
+                <h2>Rendszerinformáció és diagnosztika</h2>
+                <p id="platform" class="platform-info"></p>
+                <div class="diagnostic-group">
+                    <label for="source-url">Hivatalos Wukki playlist</label>
+                    <input id="source-url" type="url" readonly tabindex="-1">
+                    <button id="load-playlist" type="button">Playlist frissítése</button>
+                </div>
+                <div class="diagnostic-group">
+                    <label for="diagnostic-url">Diagnosztikai stream URL</label>
+                    <input id="diagnostic-url" type="url" inputmode="url" autocomplete="off" placeholder="http://…/stream.m3u8">
+                    <button id="play-direct" type="button">Közvetlen lejátszás</button>
+                </div>
+            </div>
+        </div>
     </section>
+
     <p id="status" role="status"></p>
 </main>
 <script src="wukki-tv-webos.js" onerror="this.onerror=null;var fallback=document.createElement('script');fallback.src='../../../build/dist/js/productionExecutable/wukki-tv-webos.js';document.body.appendChild(fallback)"></script>
