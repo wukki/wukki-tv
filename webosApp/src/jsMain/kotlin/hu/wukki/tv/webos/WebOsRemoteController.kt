@@ -24,6 +24,8 @@ internal interface WebOsNavigationHost {
     val selectedChannelIdForNavigation: String?
     val channelSearchHasText: Boolean
     val channelSearchFocused: Boolean
+    val channelSearchOpen: Boolean
+    val channelFilterCount: Int
     val liveOverlayVisible: Boolean
     val dialogVisible: Boolean
     val activateSection: (WebOsSection) -> Unit
@@ -34,6 +36,7 @@ internal interface WebOsNavigationHost {
     val focusChannel: (Int, Boolean) -> Unit
     val focusSettings: (Int) -> Unit
     val activateChannelFilter: (Int) -> Unit
+    val activateChannelEmpty: () -> Unit
     val clearChannelSearch: () -> Unit
     val openChannel: (Int) -> Unit
     val toggleFavorite: (Int) -> Unit
@@ -58,7 +61,7 @@ internal class WebOsRemoteController(
             focus = TvFocusZone.CONTENT,
             menuIndex = DashboardSection.CHANNELS.ordinal,
             channels = ChannelNavigationState(ChannelRemoteFocus.LIST, 0, 0),
-            filterCount = 2,
+            filterCount = 1,
             requireDoubleBack = true,
         )
     private var numberTimer: Int? = null
@@ -138,7 +141,8 @@ internal class WebOsRemoteController(
             channelIds = host.visibleChannelIds,
             selectedChannelId = host.selectedChannelIdForNavigation,
             searchHasText = host.channelSearchHasText,
-            searchOpen = host.channelSearchFocused || host.channelSearchHasText,
+            searchOpen = host.channelSearchOpen,
+            filterCount = host.channelFilterCount.coerceAtLeast(1),
             overlayVisible = host.liveOverlayVisible,
             dialogVisible = host.dialogVisible,
             navigationVisible = true,
@@ -271,7 +275,7 @@ internal class WebOsRemoteController(
             }
 
             ChannelNavigationEffect.ActivateEmptyState -> {
-                host.activateChannelFilter(0)
+                host.activateChannelEmpty()
             }
 
             is ChannelNavigationEffect.ActivateFilter -> {

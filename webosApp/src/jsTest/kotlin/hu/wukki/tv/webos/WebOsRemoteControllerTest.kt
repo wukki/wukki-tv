@@ -70,6 +70,8 @@ private class FakeNavigationHost(
     override val selectedChannelIdForNavigation = "one"
     override val channelSearchHasText: Boolean get() = searchHasText
     override val channelSearchFocused: Boolean get() = searchFocused
+    override val channelSearchOpen: Boolean get() = searchFocused || searchHasText
+    override val channelFilterCount = 6
     override val liveOverlayVisible = false
     override val dialogVisible = false
     override val activateSection: (WebOsSection) -> Unit = { section = it }
@@ -80,6 +82,7 @@ private class FakeNavigationHost(
     override val focusChannel: (Int, Boolean) -> Unit = { _, _ -> }
     override val focusSettings: (Int) -> Unit = {}
     override val activateChannelFilter: (Int) -> Unit = {}
+    override val activateChannelEmpty: () -> Unit = {}
     override val clearChannelSearch: () -> Unit = {
         searchFocused = false
         searchHasText = false

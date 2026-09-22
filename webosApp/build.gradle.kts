@@ -50,7 +50,7 @@ val webOsDistribution = layout.buildDirectory.dir("dist/js/productionExecutable"
 val webOsPackageOutput = layout.buildDirectory.dir("outputs/webos")
 val verifyWebOsAppShell by tasks.registering {
     group = "verification"
-    description = "Checks the WOS-15 routes, semantic theme and persistent single-player shell."
+    description = "Checks the WOS-15–17 shell, remote navigation and channel-browser parity contract."
     val markup = layout.projectDirectory.file("src/jsMain/resources/index.html")
     val styles = layout.projectDirectory.file("src/jsMain/resources/styles.css")
     val appInfo = layout.projectDirectory.file("src/jsMain/resources/appinfo.json")
@@ -88,6 +88,14 @@ val verifyWebOsAppShell by tasks.registering {
         check("AppRemoteState" in remoteAdapter.asFile.readText() && sharedReducer.asFile.exists()) {
             "The webOS adapter must use the shared KMP remote reducer."
         }
+        listOf("channel-tabs", "open-channel-search", "channel-preview", "channel-empty-action").forEach { id ->
+            check("id=\"$id\"" in html) { "Missing WOS-17 channel-browser control #$id." }
+        }
+        check("grid-template-columns: minmax(0, 62fr) minmax(300px, 38fr)" in css) {
+            "The Channels screen must keep the shared 62/38 list and preview layout."
+        }
+        check("category-filter" !in html) { "The obsolete cyclic category button must not return." }
+        check("\"version\": \"0.9.0\"" in appInfoJson) { "WOS-17 must package as webOS version 0.9.0." }
     }
 }
 

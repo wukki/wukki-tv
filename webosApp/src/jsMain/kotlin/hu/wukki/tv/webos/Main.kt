@@ -9,6 +9,7 @@ import kotlinx.browser.document
 import kotlinx.browser.window
 import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLElement
+import org.w3c.dom.HTMLImageElement
 import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.events.Event
 import org.w3c.dom.events.KeyboardEvent
@@ -27,21 +28,38 @@ fun main() {
     WebOsApp().start()
 }
 
+@Suppress("LargeClass", "TooManyFunctions")
 private class WebOsApp {
     val sourceInput = element<HTMLInputElement>("source-url")
     val diagnosticInput = element<HTMLInputElement>("diagnostic-url")
     val loadPlaylist = element<HTMLButtonElement>("load-playlist")
     val playDirect = element<HTMLButtonElement>("play-direct")
     val channelSearch = element<HTMLInputElement>("channel-search")
-    val categoryFilter = element<HTMLButtonElement>("category-filter")
-    val clearFilters = element<HTMLButtonElement>("clear-filters")
+    val channelTabs = element<HTMLElement>("channel-tabs")
+    val channelFilterBar = element<HTMLElement>("channel-filter-bar")
+    val channelSearchBar = element<HTMLElement>("channel-search-bar")
+    val openChannelSearch = element<HTMLButtonElement>("open-channel-search")
+    val clearChannelSearch = element<HTMLButtonElement>("clear-channel-search")
+    val closeChannelSearch = element<HTMLButtonElement>("close-channel-search")
     val channelList = element<HTMLElement>("channel-list")
     val channelEmpty = element<HTMLElement>("channel-empty")
+    val channelEmptyTitle = element<HTMLElement>("channel-empty-title")
+    val channelEmptyDescription = element<HTMLElement>("channel-empty-description")
+    val channelEmptyAction = element<HTMLButtonElement>("channel-empty-action")
     val channelCount = element<HTMLElement>("channel-count")
     val status = element<HTMLElement>("status")
     val platform = element<HTMLElement>("platform")
     val channelButtons = mutableListOf<HTMLButtonElement>()
     private val favoriteButtons = mutableListOf<HTMLButtonElement>()
+    private val filterButtons = mutableListOf<HTMLButtonElement>()
+    private val previewLogo = element<HTMLImageElement>("channel-preview-logo")
+    private val previewLogoFallback = element<HTMLElement>("channel-preview-logo-fallback")
+    private val previewMarker = element<HTMLElement>("channel-preview-marker")
+    private val previewName = element<HTMLElement>("channel-preview-name")
+    private val previewMeta = element<HTMLElement>("channel-preview-meta")
+    private val previewProgrammes = element<HTMLElement>("channel-preview-programmes")
+    private val openPreviewChannel = element<HTMLButtonElement>("open-preview-channel")
+    private val favoritePreviewChannel = element<HTMLButtonElement>("favorite-preview-channel")
     private val previousChannel = element<HTMLButtonElement>("previous-channel")
     private val channelDown = element<HTMLButtonElement>("channel-down")
     private val channelUp = element<HTMLButtonElement>("channel-up")
@@ -53,7 +71,8 @@ private class WebOsApp {
     private val playback = WebOsPlaybackView(appShell, ::show, ::restoreChannelFocus, ::recordSuccessfulPlayback)
     var channels = emptyList<Channel>()
     private var filteredChannels = emptyList<Channel>()
-    private var categories = listOf<String?>(null)
+    private var categories = emptyList<String>()
+    private var selectedFilter = WebOsChannelFilter.ALL
     private var selectedCategory: String? = null
     private var renderedWindow = ChannelRenderWindow(0, 0)
     private var cachedChannels = emptyList<Channel>()
@@ -65,6 +84,7 @@ private class WebOsApp {
     private var playlistCachedAt = 0L
     private var storageProblem: String? = null
     private var favoriteFocusRequested = false
+    private var playlistLoadFailed = false
 
     private val navigationHost =
         object : WebOsNavigationHost {
@@ -73,6 +93,8 @@ private class WebOsApp {
             override val selectedChannelIdForNavigation: String? get() = playback.playingChannelId ?: selectedChannelId
             override val channelSearchHasText: Boolean get() = channelSearch.value.isNotBlank()
             override val channelSearchFocused: Boolean get() = document.activeElement === channelSearch
+            override val channelSearchOpen: Boolean get() = !channelSearchBar.hidden
+            override val channelFilterCount: Int get() = filterButtons.size
             override val liveOverlayVisible: Boolean get() = document.body?.classList?.contains("hud-visible") == true
             override val dialogVisible: Boolean get() = !quickSettingsDialog.hidden
             override val activateSection: (WebOsSection) -> Unit = appShell::activate
@@ -86,21 +108,22 @@ private class WebOsApp {
                 }
             }
             override val focusChannelFilter: (Int) -> Unit = { index ->
-                focusAndReveal(listOf(categoryFilter, clearFilters)[index.coerceIn(0, 1)])
+                filterButtons.getOrNull(index.coerceIn(0, (filterButtons.size - 1).coerceAtLeast(0)))?.let(::focusAndReveal)
             }
-            override val focusChannelSearch: () -> Unit = { focusAndReveal(channelSearch) }
+            override val focusChannelSearch: () -> Unit = {
+                openSearch()
+                focusAndReveal(channelSearch)
+            }
             override val focusChannel: (Int, Boolean) -> Unit = { index, favorite ->
                 favoriteFocusRequested = favorite
                 focusChannelAt(index)
             }
             override val focusSettings: (Int) -> Unit = ::focusSettingsCategory
             override val activateChannelFilter: (Int) -> Unit = { index ->
-                if (index == 0) categoryFilter.click() else clearFilters.click()
+                filterButtons.getOrNull(index)?.click()
             }
-            override val clearChannelSearch: () -> Unit = {
-                channelSearch.value = ""
-                renderChannels()
-            }
+            override val activateChannelEmpty: () -> Unit = { channelEmptyAction.click() }
+            override val clearChannelSearch: () -> Unit = ::closeSearch
             override val openChannel: (Int) -> Unit = ::openFilteredChannel
             override val toggleFavorite: (Int) -> Unit = ::toggleFavorite
             override val previewChannel: (String?) -> Unit = { id -> playback.showPreview(channels.firstOrNull { it.id == id }) }
@@ -172,22 +195,121 @@ private class WebOsApp {
 
     private fun renderChannels() {
         val categoryOptions = sortedChannelCategories(channels)
-        categories = listOf(null) + categoryOptions
-        if (selectedCategory !in categoryOptions) selectedCategory = null
-        filteredChannels = filterAndSortChannels(channels, channelSearch.value, selectedCategory)
-        categoryFilter.textContent = "Kategória: ${selectedCategory?.let(::displayGroup) ?: "Összes"}"
-        clearFilters.disabled = channelSearch.value.isBlank() && selectedCategory == null
+        categories = categoryOptions
+        if (selectedCategory !in categoryOptions) {
+            selectedCategory = null
+            if (selectedFilter == WebOsChannelFilter.CATEGORY) selectedFilter = WebOsChannelFilter.ALL
+        }
+        val previousSelectedId = selectedChannelId
+        filteredChannels = filterAndSortChannels(channels, channelSearch.value, selectedFilter, selectedCategory, recentChannelIds)
+        selectedChannelId =
+            previousSelectedId?.takeIf { id -> filteredChannels.any { it.id == id } }
+                ?: filteredChannels.firstOrNull()?.id
         channelCount.textContent = "${filteredChannels.size} / ${channels.size} csatorna"
-        channelEmpty.hidden = filteredChannels.isNotEmpty()
-        channelEmpty.textContent = "Nincs találat. Töröld a keresést vagy válassz másik kategóriát."
-        channelList.scrollTop = 0.0
+        renderFilterTabs()
+        renderEmptyState()
+        applyChannelDisplaySettings()
         renderedWindow = ChannelRenderWindow(-1, -1)
+        keepSelectedChannelVisible()
         renderChannelWindow()
         updateSelectedChannel()
     }
 
+    private fun renderFilterTabs() {
+        channelTabs.innerHTML = ""
+        filterButtons.clear()
+        addFilterTab("Összes", selectedFilter == WebOsChannelFilter.ALL) { selectFilter(WebOsChannelFilter.ALL) }
+        addFilterTab("Kedvencek", selectedFilter == WebOsChannelFilter.FAVORITES) { selectFilter(WebOsChannelFilter.FAVORITES) }
+        addFilterTab("Legutóbbiak", selectedFilter == WebOsChannelFilter.RECENT) { selectFilter(WebOsChannelFilter.RECENT) }
+        addFilterTab("Előző csatorna", false, ::openPreviousChannel)
+        categories.forEach { category ->
+            addFilterTab(displayGroup(category), selectedFilter == WebOsChannelFilter.CATEGORY && selectedCategory == category) {
+                selectedCategory = category
+                selectFilter(WebOsChannelFilter.CATEGORY)
+            }
+        }
+    }
+
+    private fun addFilterTab(
+        label: String,
+        selected: Boolean,
+        action: () -> Unit,
+    ) {
+        val index = filterButtons.size
+        val button = document.createElement("button") as HTMLButtonElement
+        button.type = "button"
+        button.textContent = label
+        button.setAttribute("role", "tab")
+        button.setAttribute("aria-selected", selected.toString())
+        button.onclick = {
+            action()
+            null
+        }
+        button.onfocus = {
+            remoteController.onChannelFilterFocused(index)
+            null
+        }
+        channelTabs.appendChild(button)
+        filterButtons += button
+    }
+
+    private fun selectFilter(filter: WebOsChannelFilter) {
+        selectedFilter = filter
+        if (filter != WebOsChannelFilter.CATEGORY) selectedCategory = null
+        renderChannels()
+        filterButtons.firstOrNull { it.getAttribute("aria-selected") == "true" }?.focus()
+    }
+
+    private fun renderEmptyState() {
+        val emptyState = channelEmptyState(channels.isNotEmpty(), filteredChannels.size, channelSearch.value, selectedFilter, playlistLoadFailed)
+        channelEmpty.hidden = emptyState == null
+        if (emptyState == null) return
+        val copy = emptyStateCopy(emptyState, channelSearch.value, selectedCategory)
+        channelEmptyTitle.textContent = copy.first
+        channelEmptyDescription.textContent = copy.second
+        channelEmptyAction.textContent = copy.third
+        channelEmptyAction.onclick = {
+            when (emptyState.action()) {
+                WebOsChannelEmptyAction.REFRESH -> {
+                    fetchPlaylist()
+                }
+
+                WebOsChannelEmptyAction.CLEAR_SEARCH -> {
+                    channelSearch.value = ""
+                    renderChannels()
+                    channelSearch.focus()
+                }
+
+                WebOsChannelEmptyAction.SHOW_ALL -> {
+                    selectFilter(WebOsChannelFilter.ALL)
+                }
+            }
+            null
+        }
+    }
+
+    private fun applyChannelDisplaySettings() {
+        val rowHeight = channelRowHeight(settings.channelListMode)
+        channelList.style.setProperty("--channel-row-height", "${rowHeight}px")
+        document.body?.classList?.remove("channel-mode-compact", "channel-mode-normal", "channel-mode-detailed")
+        document.body?.classList?.add("channel-mode-${settings.channelListMode.lowercase()}")
+        previewProgrammes.hidden = !settings.showChannelProgramme && !settings.showMiniGuide
+    }
+
+    private fun keepSelectedChannelVisible() {
+        val index = filteredChannels.indexOfFirst { it.id == selectedChannelId }
+        if (index < 0) {
+            channelList.scrollTop = 0.0
+            return
+        }
+        val rowHeight = channelRowHeight(settings.channelListMode)
+        val maximumScroll = (filteredChannels.size * rowHeight - channelList.clientHeight).coerceAtLeast(0)
+        channelList.scrollTop = (index * rowHeight).coerceAtMost(maximumScroll).toDouble()
+    }
+
     private fun renderChannelWindow(focusIndex: Int? = null) {
-        val window = calculateChannelRenderWindow(filteredChannels.size, channelList.scrollTop, channelList.clientHeight)
+        val rowHeight = channelRowHeight(settings.channelListMode)
+        val window = calculateChannelRenderWindow(filteredChannels.size, channelList.scrollTop, channelList.clientHeight, rowHeight)
         if (window == renderedWindow) {
             focusIndex?.let(::focusRenderedChannel)
             return
@@ -198,12 +320,14 @@ private class WebOsApp {
         channelButtons.clear()
         favoriteButtons.clear()
         renderedWindow = window
-        channelList.appendChild(channelSpacer(window.start * VIRTUAL_CHANNEL_ROW_HEIGHT))
+        channelList.appendChild(channelSpacer(window.start * rowHeight))
         filteredChannels.subList(window.start, window.endExclusive).forEachIndexed { offset, channel ->
             val filteredIndex = window.start + offset
             val sourceIndex = channels.indexOfFirst { it.id == channel.id }
             val row = document.createElement("div") as HTMLElement
             row.className = "channel-row"
+            if (channel.id == selectedChannelId) row.classList.add("is-previewed")
+            if (channel.id == playback.playingChannelId) row.classList.add("is-playing")
             val button = document.createElement("button") as HTMLButtonElement
             button.type = "button"
             button.className = "channel"
@@ -213,6 +337,16 @@ private class WebOsApp {
             val number = document.createElement("span") as HTMLElement
             number.className = "channel-number"
             number.textContent = (channel.tvgChno ?: sourceIndex + 1).toString()
+            if (settings.showLogos && !channel.logo.isNullOrBlank()) {
+                val logo = document.createElement("img") as HTMLImageElement
+                logo.className = "channel-logo"
+                logo.alt = ""
+                logo.src = channel.logo.orEmpty()
+                logo.addEventListener("error", {
+                    logo.hidden = true
+                })
+                button.appendChild(logo)
+            }
             val text = document.createElement("span") as HTMLElement
             text.className = "channel-text"
             val name = document.createElement("strong") as HTMLElement
@@ -221,6 +355,12 @@ private class WebOsApp {
             group.textContent = displayGroup(channel)
             text.appendChild(name)
             text.appendChild(group)
+            if (settings.showChannelProgramme) {
+                val programme = document.createElement("span") as HTMLElement
+                programme.className = "channel-programme"
+                programme.textContent = "Nincs műsoradat"
+                text.appendChild(programme)
+            }
             button.appendChild(number)
             button.appendChild(text)
             button.onfocus = {
@@ -239,19 +379,10 @@ private class WebOsApp {
                 show("Előnézet: ${displayName(channel)}. A lejátszáshoz válaszd a Megnyitás gombot.")
                 null
             }
-            val open = document.createElement("button") as HTMLButtonElement
-            open.type = "button"
-            open.className = "channel-open"
-            open.textContent = "Megnyitás"
-            open.setAttribute("aria-label", "${displayName(channel)} megnyitása")
-            open.onclick = {
-                startPlayback(sourceIndex)
-                null
-            }
             val favorite = document.createElement("button") as HTMLButtonElement
             favorite.type = "button"
             favorite.className = "channel-favorite"
-            favorite.textContent = if (channel.favorite) "★" else "☆"
+            favorite.textContent = if (channel.favorite) "♥" else "♡"
             favorite.setAttribute("aria-label", "${displayName(channel)} kedvenc")
             favorite.setAttribute("aria-pressed", channel.favorite.toString())
             favorite.setAttribute("data-filtered-index", filteredIndex.toString())
@@ -266,13 +397,12 @@ private class WebOsApp {
                 null
             }
             row.appendChild(button)
-            row.appendChild(open)
             row.appendChild(favorite)
             channelList.appendChild(row)
             channelButtons += button
             favoriteButtons += favorite
         }
-        channelList.appendChild(channelSpacer((filteredChannels.size - window.endExclusive) * VIRTUAL_CHANNEL_ROW_HEIGHT))
+        channelList.appendChild(channelSpacer((filteredChannels.size - window.endExclusive) * rowHeight))
         updateSelectedChannel()
         (focusIndex ?: previouslyFocusedIndex)?.let(::focusRenderedChannel)
     }
@@ -288,10 +418,38 @@ private class WebOsApp {
         channelButtons.forEach { button ->
             if (button.getAttribute("data-channel-id") == selectedChannelId) {
                 button.setAttribute("aria-current", "true")
+                button.parentElement?.classList?.add("is-previewed")
             } else {
                 button.removeAttribute("aria-current")
+                button.parentElement?.classList?.remove("is-previewed")
             }
         }
+        renderChannelPreview()
+    }
+
+    private fun renderChannelPreview() {
+        val channel = channels.firstOrNull { it.id == selectedChannelId }
+        openPreviewChannel.disabled = channel == null
+        favoritePreviewChannel.disabled = channel == null
+        if (channel == null) {
+            previewName.textContent = "Válassz csatornát"
+            previewMeta.textContent = "A csatorna részletei itt jelennek meg."
+            previewMarker.textContent = "Előnézet"
+            previewLogo.hidden = true
+            previewLogoFallback.hidden = false
+            favoritePreviewChannel.textContent = "♡"
+            return
+        }
+        previewName.textContent = displayName(channel)
+        val sourceIndex = channels.indexOfFirst { it.id == channel.id }
+        previewMeta.textContent = "${channel.tvgChno ?: sourceIndex + 1}. · ${displayGroup(channel)}"
+        previewMarker.textContent = if (channel.id == playback.playingChannelId) "Lejátszás alatt" else "Előnézet"
+        favoritePreviewChannel.textContent = if (channel.favorite) "♥" else "♡"
+        favoritePreviewChannel.setAttribute("aria-pressed", channel.favorite.toString())
+        val logo = channel.logo?.takeIf { settings.showLogos && it.isNotBlank() }
+        previewLogo.hidden = logo == null
+        previewLogoFallback.hidden = logo != null
+        if (logo != null) previewLogo.src = logo
     }
 
     private fun restoreChannelFocus() {
@@ -299,18 +457,19 @@ private class WebOsApp {
         if (filteredChannels.isNotEmpty()) {
             focusChannelAt(selectedIndex.takeIf { it >= 0 } ?: 0)
         } else {
-            focusAndReveal(channelSearch)
+            focusAndReveal(channelEmptyAction)
         }
     }
 
     private fun focusChannelAt(index: Int) {
         if (filteredChannels.isEmpty()) {
-            focusAndReveal(channelSearch)
+            focusAndReveal(channelEmptyAction)
             return
         }
         val target = index.coerceIn(filteredChannels.indices)
-        val rowTop = target * VIRTUAL_CHANNEL_ROW_HEIGHT
-        val rowBottom = rowTop + VIRTUAL_CHANNEL_ROW_HEIGHT
+        val rowHeight = channelRowHeight(settings.channelListMode)
+        val rowTop = target * rowHeight
+        val rowBottom = rowTop + rowHeight
         val viewportBottom = channelList.scrollTop + channelList.clientHeight
         when {
             rowTop < channelList.scrollTop -> channelList.scrollTop = rowTop.toDouble()
@@ -342,13 +501,13 @@ private class WebOsApp {
         if (playlistLoading) return
         val url = OFFICIAL_PLAYLIST_URL
         playlistLoading = true
+        playlistLoadFailed = false
         loadPlaylist.disabled = true
         loadPlaylist.textContent = "Betöltés…"
         show("Hivatalos csatornalista betöltése…")
         fetchPlaylistText(url)
             .then { text ->
-                val parsed =
-                    PlaylistParser.parse(text, WEBOS_PLAYLIST_ID, url)
+                val parsed = mergeFavoriteState(PlaylistParser.parse(text, WEBOS_PLAYLIST_ID, url), cachedChannels)
                 if (parsed.isEmpty()) {
                     throw IllegalArgumentException("A letöltött fájl nem tartalmaz lejátszható csatornát.")
                 } else {
@@ -364,9 +523,11 @@ private class WebOsApp {
                 }
                 finishPlaylistLoad()
             }.catch { error ->
+                playlistLoadFailed = true
                 finishPlaylistLoad(retry = true)
                 val detail = error.asDynamic().message ?: error.toString()
                 if (cachedChannels.isEmpty()) {
+                    renderChannels()
                     show("A playlist nem tölthető be: $detail")
                 } else {
                     show("A hálózati frissítés sikertelen; a mentett lista böngészhető, de a lejátszáshoz hálózat kell: $detail")
@@ -397,26 +558,23 @@ private class WebOsApp {
             remoteController.onSearchFocused()
             null
         }
-        categoryFilter.onclick = {
-            val current = categories.indexOf(selectedCategory).coerceAtLeast(0)
-            selectedCategory = categories[(current + 1) % categories.size]
-            renderChannels()
-            categoryFilter.focus()
+        openChannelSearch.onclick = {
+            openSearch()
+            channelSearch.focus()
             null
         }
-        categoryFilter.onfocus = {
-            remoteController.onChannelFilterFocused(0)
+        openChannelSearch.onfocus = {
+            remoteController.onSearchFocused()
             null
         }
-        clearFilters.onclick = {
+        clearChannelSearch.onclick = {
             channelSearch.value = ""
-            selectedCategory = null
             renderChannels()
             channelSearch.focus()
             null
         }
-        clearFilters.onfocus = {
-            remoteController.onChannelFilterFocused(1)
+        closeChannelSearch.onclick = {
+            closeSearch()
             null
         }
         channelList.onscroll = {
@@ -443,6 +601,20 @@ private class WebOsApp {
             closeDialog()
             null
         }
+        openPreviewChannel.onclick = {
+            val index = channels.indexOfFirst { it.id == selectedChannelId }
+            if (index >= 0) startPlayback(index)
+            null
+        }
+        favoritePreviewChannel.onclick = {
+            val index = filteredChannels.indexOfFirst { it.id == selectedChannelId }
+            if (index >= 0) toggleFavorite(index)
+            null
+        }
+        previewLogo.addEventListener("error", {
+            previewLogo.hidden = true
+            previewLogoFallback.hidden = false
+        })
         val settingsButtons = document.querySelectorAll("#view-settings .settings-categories button")
         for (index in 0 until settingsButtons.length) {
             val button = settingsButtons.item(index) as? HTMLButtonElement ?: continue
@@ -451,6 +623,19 @@ private class WebOsApp {
                 null
             }
         }
+    }
+
+    private fun openSearch() {
+        channelFilterBar.hidden = true
+        channelSearchBar.hidden = false
+    }
+
+    private fun closeSearch() {
+        channelSearch.value = ""
+        channelSearchBar.hidden = true
+        channelFilterBar.hidden = false
+        renderChannels()
+        filterButtons.firstOrNull { it.getAttribute("aria-selected") == "true" }?.focus()
     }
 
     private fun configureKeyboard() {
@@ -542,6 +727,7 @@ private class WebOsApp {
         if (lastSuccessfulChannelId == channel.id && recentChannelIds.firstOrNull() == channel.id) return
         lastSuccessfulChannelId = channel.id
         recentChannelIds = normalizedChannelHistory(listOf(channel.id) + recentChannelIds, cachedChannels)
+        if (selectedFilter == WebOsChannelFilter.RECENT) renderChannels()
         persistState()
     }
 
@@ -561,6 +747,37 @@ private class WebOsApp {
 }
 
 internal fun displayName(channel: Channel): String = channel.name.takeUnless { it == UNKNOWN_CHANNEL_NAME_ID } ?: "Ismeretlen csatorna"
+
+private fun emptyStateCopy(
+    state: WebOsChannelEmptyState,
+    query: String,
+    category: String?,
+): Triple<String, String, String> =
+    when (state) {
+        WebOsChannelEmptyState.NO_DATA -> {
+            Triple("Még nincsenek csatornák", "Frissítsd a hivatalos Wukki csatornalistát a tévézés megkezdéséhez.", "Frissítés")
+        }
+
+        WebOsChannelEmptyState.LOAD_FAILED -> {
+            Triple("Nem sikerült betölteni a csatornákat", "Ellenőrizd az internetkapcsolatot, majd próbáld újra.", "Újrapróbálás")
+        }
+
+        WebOsChannelEmptyState.NO_SEARCH_RESULTS -> {
+            Triple("Nincs találat", "A keresés nem talált csatornát erre: „$query”.", "Keresés törlése")
+        }
+
+        WebOsChannelEmptyState.NO_FAVORITES -> {
+            Triple("Még nincsenek kedvenc csatornáid", "Az összes csatorna listájában a szív ikonnal adhatsz hozzá kedvenceket.", "Összes csatorna")
+        }
+
+        WebOsChannelEmptyState.NO_RECENT -> {
+            Triple("Még nincs megtekintési előzmény", "A sikeresen lejátszott csatornák itt jelennek meg.", "Összes csatorna")
+        }
+
+        WebOsChannelEmptyState.NO_CATEGORY_RESULTS -> {
+            Triple("Ebben a kategóriában nincs csatorna", "A(z) „${category?.let(::displayGroup).orEmpty()}” kategória jelenleg üres.", "Összes csatorna")
+        }
+    }
 
 private fun displayGroup(channel: Channel): String = displayGroup(channel.group)
 

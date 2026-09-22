@@ -53,16 +53,46 @@
     </section>
 
     <section id="view-channels" class="app-view content-view" data-route="channels" tabindex="-1">
-        <div class="view-heading"><h1>Csatornák</h1><span id="channel-count"></span></div>
-        <div class="channel-filters">
+        <div class="view-heading channel-heading">
+            <h1>Csatornák</h1>
+            <span id="channel-count"></span>
+        </div>
+        <div id="channel-filter-bar" class="channel-filter-bar">
+            <div id="channel-tabs" class="channel-tabs" role="tablist" aria-label="Csatornaszűrők"></div>
+            <button id="open-channel-search" class="channel-search-toggle" type="button" aria-label="Keresés megnyitása">⌕</button>
+        </div>
+        <div id="channel-search-bar" class="channel-search-bar" hidden>
             <label class="visually-hidden" for="channel-search">Csatorna keresése</label>
             <input id="channel-search" type="search" autocomplete="off" placeholder="Keresés csatornanév szerint">
-            <button id="category-filter" type="button">Kategória: Összes</button>
-            <button id="clear-filters" type="button" disabled>Szűrés törlése</button>
+            <button id="clear-channel-search" type="button">Keresés törlése</button>
+            <button id="close-channel-search" type="button" aria-label="Keresés bezárása">✕</button>
         </div>
-        <div class="channel-surface">
-            <p id="channel-empty" class="channel-empty" hidden></p>
-            <div id="channel-list" class="channel-list" role="list" aria-label="Szűrt csatornák"></div>
+        <div class="channel-browser-layout">
+            <div class="channel-surface">
+                <div id="channel-empty" class="channel-empty" hidden>
+                    <h2 id="channel-empty-title"></h2>
+                    <p id="channel-empty-description"></p>
+                    <button id="channel-empty-action" type="button"></button>
+                </div>
+                <div id="channel-list" class="channel-list" role="list" aria-label="Szűrt csatornák"></div>
+            </div>
+            <aside id="channel-preview" class="channel-preview" aria-live="polite">
+                <div class="channel-preview-logo-wrap">
+                    <img id="channel-preview-logo" alt="" hidden>
+                    <span id="channel-preview-logo-fallback">TV</span>
+                </div>
+                <p id="channel-preview-marker" class="channel-preview-marker">Előnézet</p>
+                <h2 id="channel-preview-name">Válassz csatornát</h2>
+                <p id="channel-preview-meta">A csatorna részletei itt jelennek meg.</p>
+                <div id="channel-preview-programmes" class="channel-preview-programmes">
+                    <p><span>Most</span><strong>Nincs műsoradat</strong></p>
+                    <p><span>Következő</span><strong>Nincs műsoradat</strong></p>
+                </div>
+                <div class="channel-preview-actions">
+                    <button id="open-preview-channel" type="button">Megnyitás</button>
+                    <button id="favorite-preview-channel" type="button" aria-label="Kedvenc módosítása">♡</button>
+                </div>
+            </aside>
         </div>
     </section>
 
