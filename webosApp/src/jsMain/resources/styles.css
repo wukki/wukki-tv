@@ -192,7 +192,9 @@ body[data-section="live"].hud-visible .playback-hud {
     right: 28px;
     bottom: 28px;
     left: 28px;
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(220px, 1fr) minmax(250px, 1.4fr) repeat(5, auto);
+    gap: 10px;
     align-items: center;
     justify-content: space-between;
     min-height: 110px;
@@ -204,7 +206,7 @@ body[data-section="live"].hud-visible .playback-hud {
 .playback-hud div { display: grid; gap: 5px; }
 .playback-hud small, .playback-hud span { color: var(--text-secondary); font-size: 16px; }
 .playback-hud strong { font-size: 24px; }
-.playback-hud button { min-height: 48px; padding: 0 24px; background: var(--primary); }
+.playback-hud button { min-height: 48px; padding: 0 14px; background: var(--primary); }
 
 .channel-filters {
     display: grid;
@@ -241,6 +243,13 @@ body[data-section="live"].hud-visible .playback-hud {
 
 .channel-empty:not([hidden]) + .channel-list { display: none; }
 
+.channel-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 130px 64px;
+    gap: 6px;
+    height: 76px;
+}
+
 button.channel {
     display: flex;
     align-items: center;
@@ -253,6 +262,22 @@ button.channel {
     border-color: transparent;
     border-radius: 8px;
     border-bottom-color: var(--border);
+}
+
+.channel-open, .channel-favorite {
+    margin: 6px 0;
+    background: var(--surface);
+    border-color: var(--border);
+}
+
+.channel-favorite {
+    margin-right: 6px;
+    color: var(--primary-strong);
+    font-size: 28px;
+}
+
+.channel-open:focus, .channel-favorite:focus {
+    background: var(--primary-container);
 }
 
 button.channel[aria-current="true"] { background: var(--surface-selected); }
@@ -366,6 +391,28 @@ button.channel:focus { background: var(--primary-container); border-color: var(-
 #status:empty { display: none; }
 body[data-section="live"].hud-visible #status { bottom: 156px; }
 
+.modal-backdrop {
+    position: absolute;
+    z-index: 50;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(4, 12, 22, .88);
+}
+
+.modal-card {
+    width: min(620px, 80vw);
+    padding: 28px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+}
+
+.modal-card h2 { margin: 0 0 20px; font-size: 28px; }
+.modal-card p { color: var(--text-secondary); font-size: 18px; }
+.modal-card button { min-height: 52px; margin-top: 14px; padding: 0 24px; background: var(--primary); }
+
 .visually-hidden {
     position: absolute;
     width: 1px;
@@ -389,4 +436,8 @@ body[data-section="live"].hud-visible #status { bottom: 156px; }
     .settings-categories button { min-height: 56px; font-size: 15px; }
     .settings-detail { padding: 16px; }
     .diagnostic-group { margin-top: 12px; padding: 14px; }
+    body[data-section="live"].hud-visible .playback-hud {
+        grid-template-columns: minmax(180px, 1fr) repeat(5, auto);
+    }
+    .playback-hud > span { display: none; }
 }

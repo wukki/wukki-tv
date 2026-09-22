@@ -3,7 +3,6 @@ package hu.wukki.tv.webos
 import kotlinx.browser.document
 import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLElement
-import org.w3c.dom.events.KeyboardEvent
 
 internal enum class WebOsSection(
     val route: String,
@@ -26,6 +25,7 @@ internal fun webOsSection(route: String): WebOsSection? = webOsSectionOrder.firs
 
 internal class WebOsAppShell(
     private val onSectionActivated: (WebOsSection) -> Unit,
+    private val onNavigationFocused: (WebOsSection) -> Unit,
 ) {
     private val navigationButtons =
         mapOf(
@@ -51,6 +51,10 @@ internal class WebOsAppShell(
                 activate(section)
                 null
             }
+            button.onfocus = {
+                onNavigationFocused(section)
+                null
+            }
         }
         activate(activeSection)
     }
@@ -69,36 +73,11 @@ internal class WebOsAppShell(
         onSectionActivated(section)
     }
 
-    fun handleNavigationKey(
-        event: KeyboardEvent,
-        onEnterContent: () -> Unit,
-    ): Boolean {
-        val index = webOsSectionOrder.indexOfFirst { navigationButtons[it] === document.activeElement }
-        if (index < 0) return false
-        when (event.keyCode) {
-            37, 39 -> {
-                event.preventDefault()
-                val delta = if (event.keyCode == 37) -1 else 1
-                val target = (index + delta).coerceIn(webOsSectionOrder.indices)
-                navigationButtons.getValue(webOsSectionOrder[target]).focus()
-            }
-
-            40 -> {
-                event.preventDefault()
-                onEnterContent()
-            }
-
-            13 -> {
-                event.preventDefault()
-                navigationButtons.getValue(webOsSectionOrder[index]).click()
-            }
-
-            else -> {
-                return false
-            }
-        }
-        return true
+    fun focusNavigation(section: WebOsSection = activeSection) {
+        navigationButtons.getValue(section).focus()
     }
+
+    fun focusedNavigationSection(): WebOsSection? = navigationButtons.entries.firstOrNull { it.value === document.activeElement }?.key
 
     fun view(section: WebOsSection): HTMLElement = sectionViews.getValue(section)
 }

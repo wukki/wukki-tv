@@ -1,0 +1,358 @@
+package hu.wukki.tv.webos
+
+import hu.wukki.tv.ui.guide.GuideProgrammeDialogEvent
+import hu.wukki.tv.ui.navigation.AppBackNavigationEffect
+import hu.wukki.tv.ui.navigation.AppRemoteEffect
+import hu.wukki.tv.ui.navigation.AppRemoteKey
+import hu.wukki.tv.ui.navigation.AppRemoteState
+import hu.wukki.tv.ui.navigation.ChannelNavigationEffect
+import hu.wukki.tv.ui.navigation.ChannelNavigationState
+import hu.wukki.tv.ui.navigation.ChannelRemoteFocus
+import hu.wukki.tv.ui.navigation.DashboardSection
+import hu.wukki.tv.ui.navigation.LiveChannelPreviewEffect
+import hu.wukki.tv.ui.navigation.LiveChannelPreviewEvent
+import hu.wukki.tv.ui.navigation.SettingsNavigationEffect
+import hu.wukki.tv.ui.navigation.TvFocusZone
+import hu.wukki.tv.ui.navigation.reduce
+import kotlinx.browser.window
+import org.w3c.dom.events.KeyboardEvent
+import kotlin.js.Date
+
+internal interface WebOsNavigationHost {
+    val activeSection: WebOsSection
+    val visibleChannelIds: List<String>
+    val selectedChannelIdForNavigation: String?
+    val channelSearchHasText: Boolean
+    val channelSearchFocused: Boolean
+    val liveOverlayVisible: Boolean
+    val dialogVisible: Boolean
+    val activateSection: (WebOsSection) -> Unit
+    val focusNavigation: (WebOsSection) -> Unit
+    val focusSectionContent: (WebOsSection) -> Unit
+    val focusChannelFilter: (Int) -> Unit
+    val focusChannelSearch: () -> Unit
+    val focusChannel: (Int, Boolean) -> Unit
+    val focusSettings: (Int) -> Unit
+    val activateChannelFilter: (Int) -> Unit
+    val clearChannelSearch: () -> Unit
+    val openChannel: (Int) -> Unit
+    val toggleFavorite: (Int) -> Unit
+    val previewChannel: (String?) -> Unit
+    val switchChannel: (Int) -> Unit
+    val openPreviousChannel: () -> Unit
+    val selectChannelNumber: (String) -> Unit
+    val showLiveOverlay: () -> Unit
+    val hideLiveOverlay: () -> Unit
+    val showQuickSettings: () -> Unit
+    val closeDialog: () -> Unit
+    val showStatus: (String) -> Unit
+    val exitApplication: () -> Unit
+}
+
+internal class WebOsRemoteController(
+    private val host: WebOsNavigationHost,
+) {
+    private var state =
+        AppRemoteState(
+            section = DashboardSection.CHANNELS,
+            focus = TvFocusZone.CONTENT,
+            menuIndex = DashboardSection.CHANNELS.ordinal,
+            channels = ChannelNavigationState(ChannelRemoteFocus.LIST, 0, 0),
+            filterCount = 2,
+            requireDoubleBack = true,
+        )
+    private var numberTimer: Int? = null
+    private var previewTimer: Int? = null
+
+    fun onSectionActivated(section: WebOsSection) {
+        state = state.copy(section = section.dashboardSection())
+    }
+
+    fun onNavigationFocused(section: WebOsSection) {
+        state =
+            state.copy(
+                focus = TvFocusZone.MAIN_NAVIGATION,
+                menuIndex = section.dashboardSection().ordinal,
+            )
+    }
+
+    fun onChannelFocused(
+        index: Int,
+        favorite: Boolean,
+    ) {
+        state =
+            state.copy(
+                focus = TvFocusZone.CONTENT,
+                channels = state.channels.copy(focus = if (favorite) ChannelRemoteFocus.FAVORITE else ChannelRemoteFocus.LIST, channelIndex = index),
+            )
+    }
+
+    fun onSearchFocused() {
+        state = state.copy(focus = TvFocusZone.CONTENT, channels = state.channels.copy(focus = ChannelRemoteFocus.SEARCH))
+    }
+
+    fun onChannelFilterFocused(index: Int) {
+        state = state.copy(focus = TvFocusZone.CONTENT, channels = state.channels.copy(focus = ChannelRemoteFocus.FILTERS, filterIndex = index))
+    }
+
+    fun onSettingsFocused(index: Int) {
+        state = state.copy(focus = TvFocusZone.CONTENT, settings = state.settings.copy(categoryIndex = index))
+    }
+
+    fun handle(event: KeyboardEvent): Boolean {
+        val key =
+            webOsRemoteKey(
+                keyCode = event.keyCode,
+                liveContent = host.activeSection == WebOsSection.LIVE && state.focus == TvFocusZone.CONTENT,
+                repeated = event.repeat,
+            ) ?: return false
+        val handled = dispatch(key)
+        if (handled) event.preventDefault()
+        return handled
+    }
+
+    internal fun dispatch(
+        key: AppRemoteKey,
+        nowMillis: Long = Date.now().toLong(),
+    ): Boolean {
+        state = synchronizedState(nowMillis)
+        val result = state.reduce(key)
+        state = result.state
+        if (!result.handled) {
+            if (key.back && !key.backspace) {
+                host.exitApplication()
+                return true
+            }
+            return false
+        }
+        result.effects.forEach(::applyEffect)
+        if (key.digit != null) scheduleNumberSelection()
+        if (host.dialogVisible) return true
+        restoreFocus()
+        return true
+    }
+
+    private fun synchronizedState(nowMillis: Long): AppRemoteState =
+        state.copy(
+            section = host.activeSection.dashboardSection(),
+            channelIds = host.visibleChannelIds,
+            selectedChannelId = host.selectedChannelIdForNavigation,
+            searchHasText = host.channelSearchHasText,
+            searchOpen = host.channelSearchFocused || host.channelSearchHasText,
+            overlayVisible = host.liveOverlayVisible,
+            dialogVisible = host.dialogVisible,
+            navigationVisible = true,
+            nowMillis = nowMillis,
+        )
+
+    private fun applyEffect(effect: AppRemoteEffect) {
+        when (effect) {
+            AppRemoteEffect.ResetExit,
+            AppRemoteEffect.InteractNavigation,
+            AppRemoteEffect.ConfirmGuide,
+            is AppRemoteEffect.GuideKey,
+            -> {
+                return
+            }
+
+            is AppRemoteEffect.Dialog -> {
+                if (effect.event == GuideProgrammeDialogEvent.BACK || effect.event == GuideProgrammeDialogEvent.CONFIRM) {
+                    state = state.copy(dialogVisible = false)
+                    host.closeDialog()
+                } else {
+                    host.showQuickSettings()
+                }
+            }
+
+            AppRemoteEffect.RevealNavigation -> {
+                host.focusNavigation(host.activeSection)
+            }
+
+            AppRemoteEffect.ShowOverlay -> {
+                host.showLiveOverlay()
+            }
+
+            AppRemoteEffect.ShowQuickSettings -> {
+                host.showQuickSettings()
+            }
+
+            AppRemoteEffect.PreviousChannel -> {
+                host.openPreviousChannel()
+            }
+
+            AppRemoteEffect.ShowExitHint -> {
+                host.showStatus("A kilépéshez nyomd meg újra a Vissza gombot.")
+            }
+
+            is AppRemoteEffect.SwitchChannel -> {
+                host.switchChannel(effect.delta)
+            }
+
+            is AppRemoteEffect.SelectNumber -> {
+                cancelNumberTimer()
+                host.selectChannelNumber(effect.number)
+            }
+
+            is AppRemoteEffect.ActivateSection -> {
+                activateSection(effect.section)
+            }
+
+            is AppRemoteEffect.Preview -> {
+                applyPreview(effect)
+            }
+
+            is AppRemoteEffect.Back -> {
+                applyBack(effect.effect)
+            }
+
+            is AppRemoteEffect.Channels -> {
+                applyChannels(effect.effect)
+            }
+
+            is AppRemoteEffect.Settings -> {
+                applySettings(effect.effect)
+            }
+        }
+    }
+
+    private fun activateSection(section: DashboardSection) {
+        val target = section.webOsSection()
+        state = state.copy(section = section)
+        host.activateSection(target)
+    }
+
+    private fun applyPreview(effect: AppRemoteEffect.Preview) {
+        val preview = effect.result
+        when (preview.effect) {
+            LiveChannelPreviewEffect.OPEN_CHANNEL -> {
+                cancelPreviewTimer()
+                preview.channelIdToOpen?.let { id ->
+                    val index = host.visibleChannelIds.indexOf(id)
+                    if (index >= 0) host.openChannel(index)
+                }
+            }
+
+            LiveChannelPreviewEffect.DISMISS -> {
+                cancelPreviewTimer()
+                host.previewChannel(null)
+            }
+
+            LiveChannelPreviewEffect.NONE -> {
+                host.previewChannel(preview.state.channelId)
+                schedulePreviewTimeout()
+            }
+        }
+    }
+
+    private fun applyBack(effect: AppBackNavigationEffect) {
+        when (effect) {
+            AppBackNavigationEffect.CLOSE_CHANNEL_SEARCH -> host.clearChannelSearch()
+
+            AppBackNavigationEffect.DISMISS_LIVE_OVERLAY -> host.hideLiveOverlay()
+
+            AppBackNavigationEffect.FOCUS_MAIN_NAVIGATION,
+            AppBackNavigationEffect.CLOSE_SETTINGS_DETAIL,
+            -> host.focusNavigation(host.activeSection)
+
+            AppBackNavigationEffect.DISMISS_GUIDE_DIALOG,
+            AppBackNavigationEffect.EXIT_APPLICATION,
+            -> Unit
+        }
+    }
+
+    private fun applyChannels(effect: ChannelNavigationEffect) {
+        when (effect) {
+            ChannelNavigationEffect.None -> {
+                return
+            }
+
+            ChannelNavigationEffect.ExitToMainMenu -> {
+                state = state.copy(focus = TvFocusZone.MAIN_NAVIGATION, menuIndex = DashboardSection.CHANNELS.ordinal)
+            }
+
+            ChannelNavigationEffect.ActivateEmptyState -> {
+                host.activateChannelFilter(0)
+            }
+
+            is ChannelNavigationEffect.ActivateFilter -> {
+                host.activateChannelFilter(effect.index)
+            }
+
+            is ChannelNavigationEffect.OpenChannel -> {
+                host.openChannel(effect.index)
+            }
+
+            is ChannelNavigationEffect.ToggleFavorite -> {
+                host.toggleFavorite(effect.index)
+            }
+        }
+    }
+
+    private fun applySettings(effect: SettingsNavigationEffect) {
+        if (effect == SettingsNavigationEffect.ExitToMainMenu) host.focusNavigation(WebOsSection.SETTINGS)
+    }
+
+    private fun restoreFocus() {
+        if (state.focus == TvFocusZone.MAIN_NAVIGATION) {
+            host.focusNavigation(webOsSectionOrder[state.menuIndex.coerceIn(webOsSectionOrder.indices)])
+            return
+        }
+        when (host.activeSection) {
+            WebOsSection.CHANNELS -> restoreChannelFocus()
+            WebOsSection.SETTINGS -> host.focusSettings(state.settings.categoryIndex)
+            else -> host.focusSectionContent(host.activeSection)
+        }
+    }
+
+    private fun restoreChannelFocus() {
+        when (state.channels.focus) {
+            ChannelRemoteFocus.FILTERS -> host.focusChannelFilter(state.channels.filterIndex)
+            ChannelRemoteFocus.SEARCH -> host.focusChannelSearch()
+            ChannelRemoteFocus.LIST -> host.focusChannel(state.channels.channelIndex, false)
+            ChannelRemoteFocus.FAVORITE -> host.focusChannel(state.channels.channelIndex, true)
+        }
+    }
+
+    private fun scheduleNumberSelection() {
+        cancelNumberTimer()
+        host.showStatus("Csatornaszám: ${state.number}")
+        numberTimer =
+            window.setTimeout(
+                {
+                    val number = state.number
+                    state = state.copy(number = "")
+                    if (number.isNotEmpty()) host.selectChannelNumber(number)
+                    numberTimer = null
+                },
+                3_000,
+            )
+    }
+
+    private fun cancelNumberTimer() {
+        numberTimer?.let(window::clearTimeout)
+        numberTimer = null
+    }
+
+    private fun schedulePreviewTimeout() {
+        cancelPreviewTimer()
+        previewTimer =
+            window.setTimeout(
+                {
+                    val result = state.reduce(AppRemoteKey(preview = LiveChannelPreviewEvent.TIMEOUT))
+                    state = result.state
+                    result.effects.forEach(::applyEffect)
+                    previewTimer = null
+                },
+                5_000,
+            )
+    }
+
+    private fun cancelPreviewTimer() {
+        previewTimer?.let(window::clearTimeout)
+        previewTimer = null
+    }
+}
+
+private fun WebOsSection.dashboardSection(): DashboardSection = DashboardSection.valueOf(name)
+
+private fun DashboardSection.webOsSection(): WebOsSection = WebOsSection.valueOf(name)

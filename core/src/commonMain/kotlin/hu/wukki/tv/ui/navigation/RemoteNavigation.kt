@@ -98,6 +98,7 @@ data class ChannelNavigationResult(
     val handled: Boolean = true,
 )
 
+@Suppress("CyclomaticComplexMethod", "CognitiveComplexMethod")
 fun ChannelNavigationState.reduce(
     key: RemoteKey,
     filterCount: Int,

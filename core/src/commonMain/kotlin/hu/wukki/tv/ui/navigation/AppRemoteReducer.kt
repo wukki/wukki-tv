@@ -96,6 +96,7 @@ data class AppRemoteResult(
     val handled: Boolean = true,
 )
 
+@Suppress("CyclomaticComplexMethod", "CognitiveComplexMethod")
 fun AppRemoteState.reduce(key: AppRemoteKey): AppRemoteResult {
     val prefix = if (key.back) emptyList() else listOf(AppRemoteEffect.ResetExit)
     val activeMenuIndex = DashboardSection.entries.indexOf(section).coerceAtLeast(0)

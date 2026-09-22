@@ -22,7 +22,9 @@ internal class WebOsPlaybackView(
     val stopButton = playbackElement<HTMLButtonElement>("stop")
 
     val hlsSupport = video.canPlayType("application/vnd.apple.mpegurl").toString().ifBlank { "nincs" }
-    private var playingChannelId: String? = null
+    var playingChannelId: String? = null
+        private set
+    private var playingChannelName = ""
     private var playingIndex = 0
     private var hudTimer: Int? = null
     private var lastChannelSwitchAt = Double.NEGATIVE_INFINITY
@@ -70,6 +72,7 @@ internal class WebOsPlaybackView(
         if (sourceIndex != null) playingIndex = sourceIndex
         playingChannelId = channel.id
         val name = displayName(channel)
+        playingChannelName = name
         nowPlaying.textContent = name
         showStatus("Lejátszás indítása: $name · HLS: $hlsSupport")
         document.body?.classList?.add("playback-active")
@@ -138,6 +141,12 @@ internal class WebOsPlaybackView(
 
     fun isActive(): Boolean = document.body?.classList?.contains("playback-active") == true
 
+    fun showPreview(channel: Channel?) {
+        if (!isActive()) return
+        nowPlaying.textContent = channel?.let { "${displayName(it)} · előnézet" } ?: currentChannelName()
+        showHud()
+    }
+
     private fun playVideo() {
         video.play().catch { error ->
             leave()
@@ -149,10 +158,13 @@ internal class WebOsPlaybackView(
         cancelHudTimer()
         document.body?.classList?.remove("playback-active", "hud-visible")
         playingChannelId = null
+        playingChannelName = ""
         liveEmpty.removeAttribute("hidden")
         appShell.activate(WebOsSection.CHANNELS)
         restoreChannelFocus()
     }
+
+    private fun currentChannelName(): String = playingChannelName
 
     private fun cancelHudTimer() {
         hudTimer?.let(window::clearTimeout)

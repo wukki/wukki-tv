@@ -38,8 +38,6 @@ import androidx.compose.ui.unit.sp
 import hu.wukki.tv.AppLanguage
 import hu.wukki.tv.ui.components.tr
 
-enum class SettingsSection { PLAYBACK, EPG, DISPLAY, PARENTAL, PLAYLISTS, LANGUAGE, ABOUT }
-
 private const val SETTINGS_REFERENCE_WIDTH = 1116f
 private const val SETTINGS_REFERENCE_HEIGHT = 892f
 

@@ -34,7 +34,11 @@
         <p id="live-empty" class="live-empty">Válassz csatornát a lejátszás indításához.</p>
         <section class="playback-hud">
             <div><small>Most megy</small><strong id="now-playing"></strong></div>
-            <span>Fel/Le: csatornaváltás · OK: vezérlők · Back: bezárás/vissza</span>
+            <span>Fel/Le: előnézet · OK: megerősítés · Back: bezárás/vissza</span>
+            <button id="previous-channel" type="button">Előző csatorna</button>
+            <button id="channel-down" type="button">Csatorna −</button>
+            <button id="channel-up" type="button">Csatorna +</button>
+            <button id="quick-settings" type="button">Gyorsbeállítások</button>
             <button id="stop" type="button">Leállítás</button>
         </section>
     </section>
@@ -92,6 +96,15 @@
     </section>
 
     <p id="status" role="status"></p>
+
+    <section id="quick-settings-dialog" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="quick-settings-title" hidden>
+        <div class="modal-card">
+            <h2 id="quick-settings-title">Gyorsbeállítások</h2>
+            <p>Képarány: <strong id="quick-aspect-ratio">Automatikus</strong></p>
+            <p>A részletes lejátszási opciók a Beállításokban érhetők el.</p>
+            <button id="close-quick-settings" type="button">Bezárás</button>
+        </div>
+    </section>
 </main>
 <script src="wukki-tv-webos.js" onerror="this.onerror=null;var fallback=document.createElement('script');fallback.src='../../../build/dist/js/productionExecutable/wukki-tv-webos.js';document.body.appendChild(fallback)"></script>
 </body>

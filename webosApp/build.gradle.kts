@@ -53,11 +53,15 @@ val verifyWebOsAppShell by tasks.registering {
     description = "Checks the WOS-15 routes, semantic theme and persistent single-player shell."
     val markup = layout.projectDirectory.file("src/jsMain/resources/index.html")
     val styles = layout.projectDirectory.file("src/jsMain/resources/styles.css")
-    inputs.files(markup, styles)
+    val appInfo = layout.projectDirectory.file("src/jsMain/resources/appinfo.json")
+    val remoteAdapter = layout.projectDirectory.file("src/jsMain/kotlin/hu/wukki/tv/webos/WebOsRemoteController.kt")
+    val sharedReducer = rootProject.layout.projectDirectory.file("core/src/commonMain/kotlin/hu/wukki/tv/ui/navigation/AppRemoteReducer.kt")
+    inputs.files(markup, styles, appInfo, remoteAdapter, sharedReducer)
 
     doLast {
         val html = markup.asFile.readText()
         val css = styles.asFile.readText()
+        val appInfoJson = appInfo.asFile.readText()
         val routes = Regex("""data-route="([^"]+)"""").findAll(html).map { it.groupValues[1] }.toList()
         val navigation = Regex("""class="nav-item"[^>]*data-section="([^"]+)"""").findAll(html).map { it.groupValues[1] }.toList()
         val expected = listOf("live", "guide", "channels", "settings")
@@ -76,6 +80,13 @@ val verifyWebOsAppShell by tasks.registering {
         }
         check("width: 1920px" !in css && "height: 1080px" !in css) {
             "The app shell must fit the viewport instead of clipping to one fixed resolution."
+        }
+        check("\"disableBackHistoryAPI\": true" in appInfoJson) { "The shared Back state machine must receive the LG Back key." }
+        listOf("previous-channel", "channel-down", "channel-up", "quick-settings", "close-quick-settings").forEach { id ->
+            check("id=\"$id\"" in html) { "Missing visible remote-control fallback #$id." }
+        }
+        check("AppRemoteState" in remoteAdapter.asFile.readText() && sharedReducer.asFile.exists()) {
+            "The webOS adapter must use the shared KMP remote reducer."
         }
     }
 }

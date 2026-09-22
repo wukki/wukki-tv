@@ -16,7 +16,6 @@ import org.w3c.fetch.Response
 import kotlin.js.Date
 import kotlin.js.Promise
 
-private const val BACK_KEY = 461
 private const val OFFICIAL_PLAYLIST_URL = "https://raw.githubusercontent.com/wukki/wukki-tv/refs/heads/main/wukki-tv.m3u"
 private const val DEFAULT_DIAGNOSTIC_STREAM_URL = "http://88.212.15.19/live/m2_hun/index.m3u8"
 private const val WEBOS_PLAYLIST_ID = "webos-playlist"
@@ -42,7 +41,15 @@ private class WebOsApp {
     val status = element<HTMLElement>("status")
     val platform = element<HTMLElement>("platform")
     val channelButtons = mutableListOf<HTMLButtonElement>()
-    private val appShell = WebOsAppShell(::onSectionActivated)
+    private val favoriteButtons = mutableListOf<HTMLButtonElement>()
+    private val previousChannel = element<HTMLButtonElement>("previous-channel")
+    private val channelDown = element<HTMLButtonElement>("channel-down")
+    private val channelUp = element<HTMLButtonElement>("channel-up")
+    private val quickSettings = element<HTMLButtonElement>("quick-settings")
+    private val quickSettingsDialog = element<HTMLElement>("quick-settings-dialog")
+    private val closeQuickSettings = element<HTMLButtonElement>("close-quick-settings")
+    private val quickAspectRatio = element<HTMLElement>("quick-aspect-ratio")
+    private val appShell = WebOsAppShell(::onSectionActivated, ::onNavigationFocused)
     private val playback = WebOsPlaybackView(appShell, ::show, ::restoreChannelFocus, ::recordSuccessfulPlayback)
     var channels = emptyList<Channel>()
     private var filteredChannels = emptyList<Channel>()
@@ -57,6 +64,60 @@ private class WebOsApp {
     private var settings = WebOsSettings()
     private var playlistCachedAt = 0L
     private var storageProblem: String? = null
+    private var favoriteFocusRequested = false
+
+    private val navigationHost =
+        object : WebOsNavigationHost {
+            override val activeSection: WebOsSection get() = appShell.activeSection
+            override val visibleChannelIds: List<String> get() = filteredChannels.map(Channel::id)
+            override val selectedChannelIdForNavigation: String? get() = playback.playingChannelId ?: selectedChannelId
+            override val channelSearchHasText: Boolean get() = channelSearch.value.isNotBlank()
+            override val channelSearchFocused: Boolean get() = document.activeElement === channelSearch
+            override val liveOverlayVisible: Boolean get() = document.body?.classList?.contains("hud-visible") == true
+            override val dialogVisible: Boolean get() = !quickSettingsDialog.hidden
+            override val activateSection: (WebOsSection) -> Unit = appShell::activate
+            override val focusNavigation: (WebOsSection) -> Unit = appShell::focusNavigation
+            override val focusSectionContent: (WebOsSection) -> Unit = { section ->
+                when (section) {
+                    WebOsSection.CHANNELS -> restoreChannelFocus()
+                    WebOsSection.SETTINGS -> focusSettingsCategory(0)
+                    WebOsSection.LIVE -> focusAndReveal(if (playback.isActive()) playback.stopButton else appShell.view(section))
+                    WebOsSection.GUIDE -> focusAndReveal(appShell.view(section))
+                }
+            }
+            override val focusChannelFilter: (Int) -> Unit = { index ->
+                focusAndReveal(listOf(categoryFilter, clearFilters)[index.coerceIn(0, 1)])
+            }
+            override val focusChannelSearch: () -> Unit = { focusAndReveal(channelSearch) }
+            override val focusChannel: (Int, Boolean) -> Unit = { index, favorite ->
+                favoriteFocusRequested = favorite
+                focusChannelAt(index)
+            }
+            override val focusSettings: (Int) -> Unit = ::focusSettingsCategory
+            override val activateChannelFilter: (Int) -> Unit = { index ->
+                if (index == 0) categoryFilter.click() else clearFilters.click()
+            }
+            override val clearChannelSearch: () -> Unit = {
+                channelSearch.value = ""
+                renderChannels()
+            }
+            override val openChannel: (Int) -> Unit = ::openFilteredChannel
+            override val toggleFavorite: (Int) -> Unit = ::toggleFavorite
+            override val previewChannel: (String?) -> Unit = { id -> playback.showPreview(channels.firstOrNull { it.id == id }) }
+            override val switchChannel: (Int) -> Unit = ::switchChannel
+            override val openPreviousChannel: () -> Unit = ::openPreviousChannel
+            override val selectChannelNumber: (String) -> Unit = ::selectChannelNumber
+            override val showLiveOverlay: () -> Unit = playback::showHud
+            override val hideLiveOverlay: () -> Unit = {
+                playback.hideHud()
+                playback.showPreview(null)
+            }
+            override val showQuickSettings: () -> Unit = ::showQuickSettings
+            override val closeDialog: () -> Unit = ::closeDialog
+            override val showStatus: (String) -> Unit = ::show
+            override val exitApplication: () -> Unit = ::platformBack
+        }
+    private val remoteController = WebOsRemoteController(navigationHost)
 
     private val stateStore =
         WebOsStateStore(
@@ -96,12 +157,17 @@ private class WebOsApp {
     }
 
     private fun onSectionActivated(section: WebOsSection) {
+        remoteController.onSectionActivated(section)
         if (section == WebOsSection.LIVE) {
             if (playback.isActive()) playback.showHud()
         } else {
             playback.hideHud()
         }
         if (section == WebOsSection.CHANNELS) renderChannelWindow()
+    }
+
+    private fun onNavigationFocused(section: WebOsSection) {
+        remoteController.onNavigationFocused(section)
     }
 
     private fun renderChannels() {
@@ -130,11 +196,14 @@ private class WebOsApp {
         val previouslyFocusedIndex = focusedChannelIndex()
         channelList.innerHTML = ""
         channelButtons.clear()
+        favoriteButtons.clear()
         renderedWindow = window
         channelList.appendChild(channelSpacer(window.start * VIRTUAL_CHANNEL_ROW_HEIGHT))
         filteredChannels.subList(window.start, window.endExclusive).forEachIndexed { offset, channel ->
             val filteredIndex = window.start + offset
             val sourceIndex = channels.indexOfFirst { it.id == channel.id }
+            val row = document.createElement("div") as HTMLElement
+            row.className = "channel-row"
             val button = document.createElement("button") as HTMLButtonElement
             button.type = "button"
             button.className = "channel"
@@ -156,6 +225,7 @@ private class WebOsApp {
             button.appendChild(text)
             button.onfocus = {
                 selectedChannelId = channel.id
+                remoteController.onChannelFocused(filteredIndex, favorite = false)
                 updateSelectedChannel()
                 null
             }
@@ -165,11 +235,42 @@ private class WebOsApp {
             }
             button.onclick = {
                 selectedChannelId = channel.id
+                updateSelectedChannel()
+                show("Előnézet: ${displayName(channel)}. A lejátszáshoz válaszd a Megnyitás gombot.")
+                null
+            }
+            val open = document.createElement("button") as HTMLButtonElement
+            open.type = "button"
+            open.className = "channel-open"
+            open.textContent = "Megnyitás"
+            open.setAttribute("aria-label", "${displayName(channel)} megnyitása")
+            open.onclick = {
                 startPlayback(sourceIndex)
                 null
             }
-            channelList.appendChild(button)
+            val favorite = document.createElement("button") as HTMLButtonElement
+            favorite.type = "button"
+            favorite.className = "channel-favorite"
+            favorite.textContent = if (channel.favorite) "★" else "☆"
+            favorite.setAttribute("aria-label", "${displayName(channel)} kedvenc")
+            favorite.setAttribute("aria-pressed", channel.favorite.toString())
+            favorite.setAttribute("data-filtered-index", filteredIndex.toString())
+            favorite.onfocus = {
+                selectedChannelId = channel.id
+                remoteController.onChannelFocused(filteredIndex, favorite = true)
+                updateSelectedChannel()
+                null
+            }
+            favorite.onclick = {
+                toggleFavorite(filteredIndex)
+                null
+            }
+            row.appendChild(button)
+            row.appendChild(open)
+            row.appendChild(favorite)
+            channelList.appendChild(row)
             channelButtons += button
+            favoriteButtons += favorite
         }
         channelList.appendChild(channelSpacer((filteredChannels.size - window.endExclusive) * VIRTUAL_CHANNEL_ROW_HEIGHT))
         updateSelectedChannel()
@@ -219,7 +320,9 @@ private class WebOsApp {
     }
 
     private fun focusRenderedChannel(index: Int) {
-        val button = channelButtons.firstOrNull { it.getAttribute("data-filtered-index")?.toIntOrNull() == index } ?: return
+        val candidates = if (favoriteFocusRequested) favoriteButtons else channelButtons
+        val button = candidates.firstOrNull { it.getAttribute("data-filtered-index")?.toIntOrNull() == index } ?: return
+        favoriteFocusRequested = false
         button.focus()
     }
 
@@ -290,11 +393,19 @@ private class WebOsApp {
             renderChannels()
             null
         }
+        channelSearch.onfocus = {
+            remoteController.onSearchFocused()
+            null
+        }
         categoryFilter.onclick = {
             val current = categories.indexOf(selectedCategory).coerceAtLeast(0)
             selectedCategory = categories[(current + 1) % categories.size]
             renderChannels()
             categoryFilter.focus()
+            null
+        }
+        categoryFilter.onfocus = {
+            remoteController.onChannelFilterFocused(0)
             null
         }
         clearFilters.onclick = {
@@ -304,117 +415,103 @@ private class WebOsApp {
             channelSearch.focus()
             null
         }
+        clearFilters.onfocus = {
+            remoteController.onChannelFilterFocused(1)
+            null
+        }
         channelList.onscroll = {
             renderChannelWindow()
             null
         }
-    }
-
-    private fun moveFocus(step: Int) {
-        val channelIndex = focusedChannelIndex()
-        if (channelIndex != null) {
-            val target = channelIndex + step
-            when {
-                target in filteredChannels.indices -> focusChannelAt(target)
-                target < 0 -> focusAndReveal(filterControls().lastOrNull() ?: loadPlaylist)
-                else -> focusAndReveal(filterControls().firstOrNull() ?: loadPlaylist)
+        previousChannel.onclick = {
+            openPreviousChannel()
+            null
+        }
+        channelDown.onclick = {
+            switchChannel(-1)
+            null
+        }
+        channelUp.onclick = {
+            switchChannel(1)
+            null
+        }
+        quickSettings.onclick = {
+            showQuickSettings()
+            null
+        }
+        closeQuickSettings.onclick = {
+            closeDialog()
+            null
+        }
+        val settingsButtons = document.querySelectorAll("#view-settings .settings-categories button")
+        for (index in 0 until settingsButtons.length) {
+            val button = settingsButtons.item(index) as? HTMLButtonElement ?: continue
+            button.onfocus = {
+                remoteController.onSettingsFocused(index)
+                null
             }
-            return
-        }
-
-        val controls = filterControls()
-        if (controls.isEmpty()) return
-        val current = controls.indexOfFirst { it === document.activeElement }.coerceAtLeast(0)
-        val target = current + step
-        when {
-            target >= controls.size && filteredChannels.isNotEmpty() -> focusChannelAt(0)
-            target < 0 && filteredChannels.isNotEmpty() -> focusChannelAt(filteredChannels.lastIndex)
-            else -> focusAndReveal(controls[(target + controls.size) % controls.size])
         }
     }
-
-    private fun filterControls(): List<HTMLElement> =
-        when (appShell.activeSection) {
-            WebOsSection.CHANNELS -> listOf(channelSearch, categoryFilter, clearFilters)
-            WebOsSection.SETTINGS -> listOf(loadPlaylist, diagnosticInput, playDirect)
-            WebOsSection.LIVE -> listOf(playback.stopButton)
-            WebOsSection.GUIDE -> emptyList()
-        }.filter(::isFocusable)
 
     private fun configureKeyboard() {
         document.onkeydown = { rawEvent: Event ->
-            handleKey(rawEvent as KeyboardEvent)
+            val event = rawEvent as KeyboardEvent
+            val editingDiagnostic = document.activeElement === diagnosticInput
+            if (!editingDiagnostic || event.keyCode == WEBOS_BACK_KEY || event.keyCode == 27) remoteController.handle(event)
             null
         }
     }
 
-    private fun handleKey(event: KeyboardEvent) {
-        if (appShell.handleNavigationKey(event, ::focusSectionContent)) return
-        when (event.keyCode) {
-            38 -> handleDirectionalKey(event, -1, allowInTextInput = true)
-            40 -> handleDirectionalKey(event, 1, allowInTextInput = true)
-            37 -> handleDirectionalKey(event, -1, allowInTextInput = false)
-            39 -> handleDirectionalKey(event, 1, allowInTextInput = false)
-            13 -> handleEnterKey(event)
-            BACK_KEY -> handleBackKey(event)
-        }
+    private fun focusSettingsCategory(categoryIndex: Int) {
+        val buttons = document.querySelectorAll("#view-settings .settings-categories button")
+        val button = buttons.item(categoryIndex.coerceIn(0, buttons.length - 1)) as? HTMLElement
+        focusAndReveal(button ?: appShell.view(WebOsSection.SETTINGS))
     }
 
-    private fun focusSectionContent() {
-        when (appShell.activeSection) {
-            WebOsSection.CHANNELS -> {
-                focusAndReveal(filterControls().firstOrNull() ?: channelList)
-            }
-
-            WebOsSection.SETTINGS -> {
-                val firstCategory = document.querySelector("#view-settings .settings-categories button") as? HTMLElement
-                focusAndReveal(firstCategory ?: filterControls().firstOrNull() ?: appShell.view(WebOsSection.SETTINGS))
-            }
-
-            WebOsSection.LIVE -> {
-                focusAndReveal(if (playback.isActive()) playback.stopButton else appShell.view(WebOsSection.LIVE))
-            }
-
-            WebOsSection.GUIDE -> {
-                focusAndReveal(appShell.view(WebOsSection.GUIDE))
-            }
-        }
+    private fun openFilteredChannel(index: Int) {
+        val channel = filteredChannels.getOrNull(index) ?: return
+        val sourceIndex = channels.indexOfFirst { it.id == channel.id }
+        if (sourceIndex >= 0) startPlayback(sourceIndex)
     }
 
-    private fun handleDirectionalKey(
-        event: KeyboardEvent,
-        step: Int,
-        allowInTextInput: Boolean,
-    ) {
-        val playbackActive = playback.isActive() && appShell.activeSection == WebOsSection.LIVE
-        val textInputFocused = document.activeElement === diagnosticInput || document.activeElement === channelSearch
-        if (!allowInTextInput && textInputFocused && !playbackActive) return
-        event.preventDefault()
-        if (playbackActive) playback.switchChannel(channels, event, step) else moveFocus(step)
+    private fun toggleFavorite(index: Int) {
+        val channel = filteredChannels.getOrNull(index) ?: return
+        val favorite = !channel.favorite
+        channels = channels.map { if (it.id == channel.id) it.copy(favorite = favorite) else it }
+        cachedChannels = cachedChannels.map { if (it.id == channel.id) it.copy(favorite = favorite) else it }
+        selectedChannelId = channel.id
+        renderChannels()
+        persistState()
+        show("${displayName(channel)} ${if (favorite) "a kedvencekhez adva" else "eltávolítva a kedvencek közül"}.")
     }
 
-    private fun handleEnterKey(event: KeyboardEvent) {
-        when {
-            playback.isActive() && appShell.activeSection == WebOsSection.LIVE -> {
-                event.preventDefault()
-                playback.showHud()
-            }
-
-            document.activeElement === diagnosticInput -> {
-                event.preventDefault()
-                useDirectStream()
-            }
-        }
+    private fun switchChannel(delta: Int) {
+        if (channels.isEmpty()) return
+        val current = channels.indexOfFirst { it.id == playback.playingChannelId }.coerceAtLeast(0)
+        startPlayback(nextChannelIndex(current, channels.size, delta))
     }
 
-    private fun handleBackKey(event: KeyboardEvent) {
-        event.preventDefault()
-        when {
-            appShell.activeSection == WebOsSection.LIVE && playback.isActive() && document.body?.classList?.contains("hud-visible") == true -> playback.hideHud()
-            appShell.activeSection == WebOsSection.LIVE && playback.isActive() -> playback.stop()
-            appShell.activeSection != WebOsSection.LIVE -> appShell.activate(WebOsSection.LIVE)
-            else -> platformBack()
-        }
+    private fun openPreviousChannel() {
+        val previousId = recentChannelIds.firstOrNull { it != playback.playingChannelId }
+        val index = channels.indexOfFirst { it.id == previousId }
+        if (index >= 0) startPlayback(index) else show("Még nincs előző sikeresen lejátszott csatorna.")
+    }
+
+    private fun selectChannelNumber(number: String) {
+        val requested = number.toIntOrNull() ?: return
+        val index = channels.indexOfFirst { it.tvgChno == requested }.takeIf { it >= 0 } ?: (requested - 1).takeIf { it in channels.indices }
+        if (index != null) startPlayback(index) else show("Nincs $number számú csatorna.")
+    }
+
+    private fun showQuickSettings() {
+        quickAspectRatio.textContent = settings.aspectRatio
+        quickSettingsDialog.hidden = false
+        closeQuickSettings.focus()
+    }
+
+    private fun closeDialog() {
+        quickSettingsDialog.hidden = true
+        if (playback.isActive()) playback.stopButton.focus()
     }
 
     private fun restoreCachedState() {
