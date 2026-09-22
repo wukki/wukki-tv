@@ -96,6 +96,7 @@ private class WebOsApp {
             override val channelSearchOpen: Boolean get() = !channelSearchBar.hidden
             override val channelFilterCount: Int get() = filterButtons.size
             override val liveOverlayVisible: Boolean get() = document.body?.classList?.contains("hud-visible") == true
+            override val liveNavigationVisible: Boolean get() = playback.navigationVisible
             override val dialogVisible: Boolean get() = !quickSettingsDialog.hidden
             override val activateSection: (WebOsSection) -> Unit = appShell::activate
             override val focusNavigation: (WebOsSection) -> Unit = appShell::focusNavigation
@@ -103,7 +104,7 @@ private class WebOsApp {
                 when (section) {
                     WebOsSection.CHANNELS -> restoreChannelFocus()
                     WebOsSection.SETTINGS -> focusSettingsCategory(0)
-                    WebOsSection.LIVE -> focusAndReveal(if (playback.isActive()) playback.stopButton else appShell.view(section))
+                    WebOsSection.LIVE -> focusAndReveal(appShell.view(section))
                     WebOsSection.GUIDE -> focusAndReveal(appShell.view(section))
                 }
             }
@@ -126,7 +127,7 @@ private class WebOsApp {
             override val clearChannelSearch: () -> Unit = ::closeSearch
             override val openChannel: (Int) -> Unit = ::openFilteredChannel
             override val toggleFavorite: (Int) -> Unit = ::toggleFavorite
-            override val previewChannel: (String?) -> Unit = { id -> playback.showPreview(channels.firstOrNull { it.id == id }) }
+            override val previewChannel: (String?) -> Unit = { id -> playback.showPreview(channels.firstOrNull { it.id == id }?.let(::playbackChannel)) }
             override val switchChannel: (Int) -> Unit = ::switchChannel
             override val openPreviousChannel: () -> Unit = ::openPreviousChannel
             override val selectChannelNumber: (String) -> Unit = ::selectChannelNumber
@@ -135,6 +136,8 @@ private class WebOsApp {
                 playback.hideHud()
                 playback.showPreview(null)
             }
+            override val showLiveNavigation: () -> Unit = playback::showNavigation
+            override val showChannelNumberInput: (String?) -> Unit = playback::showChannelNumberInput
             override val showQuickSettings: () -> Unit = ::showQuickSettings
             override val closeDialog: () -> Unit = ::closeDialog
             override val showStatus: (String) -> Unit = ::show
@@ -176,21 +179,28 @@ private class WebOsApp {
         val channel = channels.getOrNull(index) ?: return
         selectedChannelId = channel.id
         updateSelectedChannel()
-        playback.start(channel, index)
+        playback.start(playbackChannel(channel), index)
     }
+
+    private fun playbackChannel(channel: Channel): Channel = if (settings.showLogos) channel else channel.copy(logo = null)
 
     private fun onSectionActivated(section: WebOsSection) {
         remoteController.onSectionActivated(section)
         if (section == WebOsSection.LIVE) {
-            if (playback.isActive()) playback.showHud()
+            if (playback.isActive()) {
+                playback.showHud()
+                playback.showNavigation()
+            }
         } else {
             playback.hideHud()
+            playback.leaveLiveNavigation()
         }
         if (section == WebOsSection.CHANNELS) renderChannelWindow()
     }
 
     private fun onNavigationFocused(section: WebOsSection) {
         remoteController.onNavigationFocused(section)
+        if (appShell.activeSection == WebOsSection.LIVE) playback.showNavigation()
     }
 
     private fun renderChannels() {
@@ -689,6 +699,7 @@ private class WebOsApp {
     }
 
     private fun showQuickSettings() {
+        playback.hideHud()
         quickAspectRatio.textContent = settings.aspectRatio
         quickSettingsDialog.hidden = false
         closeQuickSettings.focus()
@@ -696,7 +707,10 @@ private class WebOsApp {
 
     private fun closeDialog() {
         quickSettingsDialog.hidden = true
-        if (playback.isActive()) playback.stopButton.focus()
+        if (playback.isActive()) {
+            playback.showHud()
+            appShell.view(WebOsSection.LIVE).focus()
+        }
     }
 
     private fun restoreCachedState() {

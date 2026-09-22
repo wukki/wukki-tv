@@ -5,10 +5,9 @@ import kotlinx.browser.document
 import kotlinx.browser.window
 import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLElement
+import org.w3c.dom.HTMLImageElement
 import org.w3c.dom.HTMLVideoElement
 import org.w3c.dom.events.KeyboardEvent
-
-private const val HUD_HIDE_DELAY_MS = 5_000
 
 internal class WebOsPlaybackView(
     private val appShell: WebOsAppShell,
@@ -19,14 +18,20 @@ internal class WebOsPlaybackView(
     private val video = playbackElement<HTMLVideoElement>("player")
     private val liveEmpty = playbackElement<HTMLElement>("live-empty")
     private val nowPlaying = playbackElement<HTMLElement>("now-playing")
+    private val channelNumber = playbackElement<HTMLElement>("live-channel-number")
+    private val channelLogo = playbackElement<HTMLImageElement>("live-channel-logo")
+    private val channelLogoFallback = playbackElement<HTMLElement>("live-channel-logo-fallback")
+    private val previewLabel = playbackElement<HTMLElement>("live-preview-label")
+    private val channelNumberInput = playbackElement<HTMLElement>("channel-number-input")
     val stopButton = playbackElement<HTMLButtonElement>("stop")
 
     val hlsSupport = video.canPlayType("application/vnd.apple.mpegurl").toString().ifBlank { "nincs" }
     var playingChannelId: String? = null
         private set
-    private var playingChannelName = ""
+    private var playingChannel: Channel? = null
     private var playingIndex = 0
     private var hudTimer: Int? = null
+    private var navigationTimer: Int? = null
     private var lastChannelSwitchAt = Double.NEGATIVE_INFINITY
 
     fun configure() {
@@ -53,6 +58,10 @@ internal class WebOsPlaybackView(
             showHud()
             null
         }
+        channelLogo.addEventListener("error", {
+            channelLogo.hidden = true
+            channelLogoFallback.hidden = false
+        })
         video.addEventListener(
             "error",
             {
@@ -72,14 +81,15 @@ internal class WebOsPlaybackView(
         if (sourceIndex != null) playingIndex = sourceIndex
         playingChannelId = channel.id
         val name = displayName(channel)
-        playingChannelName = name
-        nowPlaying.textContent = name
+        playingChannel = channel
+        renderInformationPanel(channel, preview = false)
         showStatus("Lejátszás indítása: $name · HLS: $hlsSupport")
         document.body?.classList?.add("playback-active")
         liveEmpty.setAttribute("hidden", "")
         appShell.activate(WebOsSection.LIVE)
         document.activeElement?.asDynamic()?.blur()
         showHud()
+        showNavigation()
         when (playbackSourceAction(video.getAttribute("src"), channel.streamUrl, video.paused)) {
             PlaybackSourceAction.KEEP_PLAYING -> {
                 return
@@ -125,26 +135,60 @@ internal class WebOsPlaybackView(
         hudTimer =
             window.setTimeout(
                 {
-                    document.body?.classList?.remove("hud-visible")
-                    if (document.activeElement === stopButton) stopButton.blur()
+                    hideHud()
                     hudTimer = null
                 },
-                HUD_HIDE_DELAY_MS,
+                liveLayerTimeoutMillis(LiveLayer.INFORMATION_PANEL) ?: 5_000,
             )
     }
 
     fun hideHud() {
         cancelHudTimer()
         document.body?.classList?.remove("hud-visible")
-        if (document.activeElement === stopButton) stopButton.blur()
+        if ((document.activeElement as? HTMLElement)?.classList?.contains("playback-action") == true) {
+            (document.activeElement as? HTMLElement)?.blur()
+            appShell.view(WebOsSection.LIVE).focus()
+        }
+    }
+
+    val navigationVisible: Boolean
+        get() = document.body?.classList?.contains("live-navigation-hidden") != true
+
+    fun showNavigation() {
+        if (!isActive() || appShell.activeSection != WebOsSection.LIVE) return
+        document.body?.classList?.remove("live-navigation-hidden")
+        cancelNavigationTimer()
+        navigationTimer =
+            window.setTimeout(
+                {
+                    hideNavigation()
+                    navigationTimer = null
+                },
+                liveLayerTimeoutMillis(LiveLayer.NAVIGATION) ?: 5_000,
+            )
+    }
+
+    fun leaveLiveNavigation() {
+        cancelNavigationTimer()
+        document.body?.classList?.remove("live-navigation-hidden")
     }
 
     fun isActive(): Boolean = document.body?.classList?.contains("playback-active") == true
 
     fun showPreview(channel: Channel?) {
         if (!isActive()) return
-        nowPlaying.textContent = channel?.let { "${displayName(it)} · előnézet" } ?: currentChannelName()
-        showHud()
+        if (channel == null) {
+            playingChannel?.let { renderInformationPanel(it, preview = false) }
+            hideHud()
+        } else {
+            renderInformationPanel(channel, preview = channel.id != playingChannelId)
+            showHud()
+        }
+    }
+
+    fun showChannelNumberInput(number: String?) {
+        channelNumberInput.textContent = number.orEmpty()
+        channelNumberInput.hidden = number.isNullOrEmpty()
     }
 
     private fun playVideo() {
@@ -156,19 +200,48 @@ internal class WebOsPlaybackView(
 
     private fun leave() {
         cancelHudTimer()
-        document.body?.classList?.remove("playback-active", "hud-visible")
+        cancelNavigationTimer()
+        document.body?.classList?.remove("playback-active", "hud-visible", "live-navigation-hidden")
         playingChannelId = null
-        playingChannelName = ""
+        playingChannel = null
+        showChannelNumberInput(null)
         liveEmpty.removeAttribute("hidden")
         appShell.activate(WebOsSection.CHANNELS)
         restoreChannelFocus()
     }
 
-    private fun currentChannelName(): String = playingChannelName
+    private fun renderInformationPanel(
+        channel: Channel,
+        preview: Boolean,
+    ) {
+        channelNumber.textContent = channel.tvgChno?.toString() ?: "–"
+        nowPlaying.textContent = "Nincs műsoradat"
+        previewLabel.hidden = !preview
+        channelLogoFallback.textContent = displayName(channel)
+        val logo = channel.logo?.takeIf(String::isNotBlank)
+        channelLogo.hidden = logo == null
+        channelLogoFallback.hidden = logo != null
+        if (logo != null) channelLogo.src = logo
+    }
+
+    private fun hideNavigation() {
+        if (!isActive() || appShell.activeSection != WebOsSection.LIVE) return
+        document.body?.classList?.add("live-navigation-hidden")
+        val active = document.activeElement as? HTMLElement
+        if (active?.classList?.contains("nav-item") == true) {
+            active.blur()
+            appShell.view(WebOsSection.LIVE).focus()
+        }
+    }
 
     private fun cancelHudTimer() {
         hudTimer?.let(window::clearTimeout)
         hudTimer = null
+    }
+
+    private fun cancelNavigationTimer() {
+        navigationTimer?.let(window::clearTimeout)
+        navigationTimer = null
     }
 }
 

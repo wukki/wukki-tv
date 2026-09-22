@@ -27,6 +27,7 @@ internal interface WebOsNavigationHost {
     val channelSearchOpen: Boolean
     val channelFilterCount: Int
     val liveOverlayVisible: Boolean
+    val liveNavigationVisible: Boolean
     val dialogVisible: Boolean
     val activateSection: (WebOsSection) -> Unit
     val focusNavigation: (WebOsSection) -> Unit
@@ -46,6 +47,8 @@ internal interface WebOsNavigationHost {
     val selectChannelNumber: (String) -> Unit
     val showLiveOverlay: () -> Unit
     val hideLiveOverlay: () -> Unit
+    val showLiveNavigation: () -> Unit
+    val showChannelNumberInput: (String?) -> Unit
     val showQuickSettings: () -> Unit
     val closeDialog: () -> Unit
     val showStatus: (String) -> Unit
@@ -68,7 +71,22 @@ internal class WebOsRemoteController(
     private var previewTimer: Int? = null
 
     fun onSectionActivated(section: WebOsSection) {
-        state = state.copy(section = section.dashboardSection())
+        if (section == WebOsSection.LIVE) {
+            state = state.copy(section = section.dashboardSection(), navigationVisible = true)
+        } else {
+            cancelNumberTimer()
+            cancelPreviewTimer()
+            host.showChannelNumberInput(null)
+            host.previewChannel(null)
+            state =
+                state.copy(
+                    section = section.dashboardSection(),
+                    number = "",
+                    overlayVisible = false,
+                    preview = state.preview.copy(channelId = null),
+                    navigationVisible = true,
+                )
+        }
     }
 
     fun onNavigationFocused(section: WebOsSection) {
@@ -145,14 +163,13 @@ internal class WebOsRemoteController(
             filterCount = host.channelFilterCount.coerceAtLeast(1),
             overlayVisible = host.liveOverlayVisible,
             dialogVisible = host.dialogVisible,
-            navigationVisible = true,
+            navigationVisible = host.liveNavigationVisible,
             nowMillis = nowMillis,
         )
 
     private fun applyEffect(effect: AppRemoteEffect) {
         when (effect) {
             AppRemoteEffect.ResetExit,
-            AppRemoteEffect.InteractNavigation,
             AppRemoteEffect.ConfirmGuide,
             is AppRemoteEffect.GuideKey,
             -> {
@@ -169,7 +186,12 @@ internal class WebOsRemoteController(
             }
 
             AppRemoteEffect.RevealNavigation -> {
+                host.showLiveNavigation()
                 host.focusNavigation(host.activeSection)
+            }
+
+            AppRemoteEffect.InteractNavigation -> {
+                host.showLiveNavigation()
             }
 
             AppRemoteEffect.ShowOverlay -> {
@@ -194,6 +216,7 @@ internal class WebOsRemoteController(
 
             is AppRemoteEffect.SelectNumber -> {
                 cancelNumberTimer()
+                host.showChannelNumberInput(null)
                 host.selectChannelNumber(effect.number)
             }
 
@@ -319,12 +342,13 @@ internal class WebOsRemoteController(
 
     private fun scheduleNumberSelection() {
         cancelNumberTimer()
-        host.showStatus("Csatornaszám: ${state.number}")
+        host.showChannelNumberInput(state.number)
         numberTimer =
             window.setTimeout(
                 {
                     val number = state.number
                     state = state.copy(number = "")
+                    host.showChannelNumberInput(null)
                     if (number.isNotEmpty()) host.selectChannelNumber(number)
                     numberTimer = null
                 },
@@ -347,7 +371,7 @@ internal class WebOsRemoteController(
                     result.effects.forEach(::applyEffect)
                     previewTimer = null
                 },
-                5_000,
+                liveLayerTimeoutMillis(LiveLayer.INFORMATION_PANEL) ?: 5_000,
             )
     }
 

@@ -50,13 +50,14 @@ val webOsDistribution = layout.buildDirectory.dir("dist/js/productionExecutable"
 val webOsPackageOutput = layout.buildDirectory.dir("outputs/webos")
 val verifyWebOsAppShell by tasks.registering {
     group = "verification"
-    description = "Checks the WOS-15–17 shell, remote navigation and channel-browser parity contract."
+    description = "Checks the WOS-15–18 shell, remote navigation, channel browser and live overlay contracts."
     val markup = layout.projectDirectory.file("src/jsMain/resources/index.html")
     val styles = layout.projectDirectory.file("src/jsMain/resources/styles.css")
     val appInfo = layout.projectDirectory.file("src/jsMain/resources/appinfo.json")
     val remoteAdapter = layout.projectDirectory.file("src/jsMain/kotlin/hu/wukki/tv/webos/WebOsRemoteController.kt")
+    val liveTiming = layout.projectDirectory.file("src/jsMain/kotlin/hu/wukki/tv/webos/LiveLayerTiming.kt")
     val sharedReducer = rootProject.layout.projectDirectory.file("core/src/commonMain/kotlin/hu/wukki/tv/ui/navigation/AppRemoteReducer.kt")
-    inputs.files(markup, styles, appInfo, remoteAdapter, sharedReducer)
+    inputs.files(markup, styles, appInfo, remoteAdapter, liveTiming, sharedReducer)
 
     doLast {
         val html = markup.asFile.readText()
@@ -95,7 +96,17 @@ val verifyWebOsAppShell by tasks.registering {
             "The Channels screen must keep the shared 62/38 list and preview layout."
         }
         check("category-filter" !in html) { "The obsolete cyclic category button must not return." }
-        check("\"version\": \"0.9.0\"" in appInfoJson) { "WOS-17 must package as webOS version 0.9.0." }
+        check("\"version\": \"0.10.0\"" in appInfoJson) { "WOS-18 must package as webOS version 0.10.0." }
+        listOf("playback-hud", "live-channel-number", "live-channel-logo", "live-programme-progress", "channel-number-input").forEach { id ->
+            check("id=\"$id\"" in html) { "Missing WOS-18 live information element #$id." }
+        }
+        check("live-navigation-hidden" in css && "pointer-events: none" in css) {
+            "Hidden live navigation must not retain pointer interaction."
+        }
+        val timingSource = liveTiming.asFile.readText()
+        check("LiveLayer.NAVIGATION" in timingSource && "LiveLayer.INFORMATION_PANEL" in timingSource && "LiveLayer.DIALOG" in timingSource) {
+            "Live navigation, information panel and dialog timing must remain independent."
+        }
     }
 }
 

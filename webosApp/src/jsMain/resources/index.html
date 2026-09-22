@@ -30,16 +30,33 @@
     </header>
 
     <section id="view-live" class="app-view live-view" data-route="live" tabindex="-1" hidden>
-        <video id="player" playsinline></video>
-        <p id="live-empty" class="live-empty">Válassz csatornát a lejátszás indításához.</p>
-        <section class="playback-hud">
-            <div><small>Most megy</small><strong id="now-playing"></strong></div>
-            <span>Fel/Le: előnézet · OK: megerősítés · Back: bezárás/vissza</span>
-            <button id="previous-channel" type="button">Előző csatorna</button>
-            <button id="channel-down" type="button">Csatorna −</button>
-            <button id="channel-up" type="button">Csatorna +</button>
-            <button id="quick-settings" type="button">Gyorsbeállítások</button>
-            <button id="stop" type="button">Leállítás</button>
+        <video id="player" playsinline tabindex="-1"></video>
+        <p id="live-empty" class="live-empty">A Wukki TV csatornalista még nem érhető el.</p>
+        <output id="channel-number-input" class="channel-number-input" aria-live="polite" hidden></output>
+        <section id="playback-hud" class="playback-hud" aria-live="polite">
+            <div class="live-channel-column">
+                <span class="live-channel-arrow" aria-hidden="true">⌃</span>
+                <strong id="live-channel-number">–</strong>
+                <img id="live-channel-logo" alt="" hidden>
+                <small id="live-channel-logo-fallback"></small>
+                <span class="live-channel-arrow" aria-hidden="true">⌄</span>
+            </div>
+            <div class="live-programme-column">
+                <small id="live-preview-label" class="live-preview-label" hidden>Előnézet</small>
+                <strong id="now-playing">Nincs műsoradat</strong>
+                <span id="live-programme-time" class="live-programme-time" hidden></span>
+                <div id="live-programme-progress" class="live-programme-progress" role="progressbar" aria-label="Műsor előrehaladása" hidden>
+                    <span id="live-programme-progress-value"></span>
+                </div>
+                <span id="live-next-programme" class="live-next-programme" hidden></span>
+            </div>
+            <div class="playback-actions" aria-label="Élő adás vezérlői">
+                <button id="previous-channel" class="playback-action" type="button">Előző</button>
+                <button id="channel-down" class="playback-action" type="button">Csatorna −</button>
+                <button id="channel-up" class="playback-action" type="button">Csatorna +</button>
+                <button id="quick-settings" class="playback-action" type="button">Gyorsbeállítások</button>
+                <button id="stop" class="playback-action" type="button">Leállítás</button>
+            </div>
         </section>
     </section>
 
