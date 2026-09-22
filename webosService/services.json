@@ -1,0 +1,15 @@
+{
+  "id": "hu.wukki.tv.webos.epg",
+  "description": "Wukki TV XMLTV transfer service",
+  "services": [
+    {
+      "name": "hu.wukki.tv.webos.epg",
+      "description": "Downloads CORS-restricted XMLTV data in bounded chunks",
+      "commands": [
+        { "name": "fetchEpg", "public": false },
+        { "name": "readChunk", "public": false },
+        { "name": "release", "public": false }
+      ]
+    }
+  ]
+}

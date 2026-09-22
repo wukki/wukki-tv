@@ -2,6 +2,8 @@ package hu.wukki.tv.webos
 
 import hu.wukki.tv.Channel
 import hu.wukki.tv.PlaybackState
+import hu.wukki.tv.ProgrammePair
+import hu.wukki.tv.programmeProgress
 import hu.wukki.tv.ui.guide.GuideProgrammeDialogEvent
 import kotlinx.browser.document
 import kotlinx.browser.window
@@ -9,6 +11,7 @@ import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLImageElement
 import org.w3c.dom.HTMLVideoElement
+import kotlin.js.Date
 
 internal class WebOsPlaybackView(
     private val appShell: WebOsAppShell,
@@ -19,6 +22,10 @@ internal class WebOsPlaybackView(
     private val video = playbackElement<HTMLVideoElement>("player")
     private val liveEmpty = playbackElement<HTMLElement>("live-empty")
     private val nowPlaying = playbackElement<HTMLElement>("now-playing")
+    private val programmeTime = playbackElement<HTMLElement>("live-programme-time")
+    private val programmeProgressBar = playbackElement<HTMLElement>("live-programme-progress")
+    private val programmeProgressValue = playbackElement<HTMLElement>("live-programme-progress-value")
+    private val nextProgramme = playbackElement<HTMLElement>("live-next-programme")
     private val channelNumber = playbackElement<HTMLElement>("live-channel-number")
     private val channelLogo = playbackElement<HTMLImageElement>("live-channel-logo")
     private val channelLogoFallback = playbackElement<HTMLElement>("live-channel-logo-fallback")
@@ -53,6 +60,7 @@ internal class WebOsPlaybackView(
     val navigationVisible: Boolean get() = document.body?.classList?.contains("live-navigation-hidden") != true
     val recoveryVisible: Boolean get() = !recoveryDialog.hidden
     private var playingChannel: Channel? = null
+    private var playingProgrammes = ProgrammePair(null, null)
     private var hudTimer: Int? = null
     private var navigationTimer: Int? = null
     private var recoveryActionIndex = 0
@@ -96,9 +104,12 @@ internal class WebOsPlaybackView(
     fun start(
         channel: Channel,
         settings: WebOsSettings,
+        programmes: ProgrammePair = ProgrammePair(null, null),
+        now: Long = Date.now().toLong(),
     ) {
         playingChannel = channel
-        renderInformationPanel(channel, preview = false)
+        playingProgrammes = programmes
+        renderInformationPanel(channel, programmes, now, preview = false)
         document.body?.classList?.add("playback-active")
         liveEmpty.hidden = true
         appShell.activate(WebOsSection.LIVE)
@@ -164,15 +175,29 @@ internal class WebOsPlaybackView(
 
     fun isActive(): Boolean = session.snapshot.state != PlaybackState.IDLE
 
-    fun showPreview(channel: Channel?) {
+    fun showPreview(
+        channel: Channel?,
+        programmes: ProgrammePair = ProgrammePair(null, null),
+        now: Long = Date.now().toLong(),
+    ) {
         if (!isActive()) return
         if (channel == null) {
-            playingChannel?.let { renderInformationPanel(it, preview = false) }
+            playingChannel?.let { renderInformationPanel(it, playingProgrammes, now, preview = false) }
             hideHud()
         } else {
-            renderInformationPanel(channel, preview = channel.id != playingChannelId)
+            renderInformationPanel(channel, programmes, now, preview = channel.id != playingChannelId)
             showHud()
         }
+    }
+
+    fun updateProgramme(
+        channel: Channel,
+        programmes: ProgrammePair,
+        now: Long,
+    ) {
+        if (channel.id != playingChannelId) return
+        playingProgrammes = programmes
+        renderInformationPanel(channel, programmes, now, preview = false)
     }
 
     fun showChannelNumberInput(number: String?) {
@@ -317,10 +342,21 @@ internal class WebOsPlaybackView(
 
     private fun renderInformationPanel(
         channel: Channel,
+        programmes: ProgrammePair,
+        now: Long,
         preview: Boolean,
     ) {
         channelNumber.textContent = channel.tvgChno?.toString() ?: "–"
-        nowPlaying.textContent = "Nincs műsoradat"
+        val current = programmes.current
+        nowPlaying.textContent = current?.title?.ifBlank { "Névtelen műsor" } ?: "EPG nincs"
+        programmeTime.textContent = current?.let { "${formatProgrammeTime(it.start)} – ${formatProgrammeTime(it.end)}" }.orEmpty()
+        programmeTime.hidden = current == null
+        val progress = programmeProgress(current, now)
+        programmeProgressBar.hidden = progress == null
+        programmeProgressBar.setAttribute("aria-valuenow", ((progress ?: 0.0) * 100).toInt().toString())
+        programmeProgressValue.style.width = "${(progress ?: 0.0) * 100}%"
+        nextProgramme.textContent = programmes.next?.let { "Következő: ${it.title.ifBlank { "Névtelen műsor" }} · ${formatProgrammeTime(it.start)}" }.orEmpty()
+        nextProgramme.hidden = programmes.next == null
         previewLabel.hidden = !preview
         channelLogoFallback.textContent = displayName(channel)
         val logo = channel.logo?.takeIf(String::isNotBlank)
@@ -360,3 +396,8 @@ private fun mediaErrorName(code: Short?): String =
         4 -> "nem támogatott médiaforrás"
         else -> "ismeretlen hibakód: $code"
     }
+
+private fun formatProgrammeTime(timestamp: Long): String {
+    val date = Date(timestamp.toDouble())
+    return "${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}"
+}

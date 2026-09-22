@@ -49,7 +49,7 @@
             </div>
             <div class="live-programme-column">
                 <small id="live-preview-label" class="live-preview-label" hidden>Előnézet</small>
-                <strong id="now-playing">Nincs műsoradat</strong>
+                <strong id="now-playing">EPG nincs</strong>
                 <span id="live-programme-time" class="live-programme-time" hidden></span>
                 <div id="live-programme-progress" class="live-programme-progress" role="progressbar" aria-label="Műsor előrehaladása" hidden>
                     <span id="live-programme-progress-value"></span>
@@ -118,8 +118,12 @@
                 <h2 id="channel-preview-name">Válassz csatornát</h2>
                 <p id="channel-preview-meta">A csatorna részletei itt jelennek meg.</p>
                 <div id="channel-preview-programmes" class="channel-preview-programmes">
-                    <p><span>Most</span><strong>Nincs műsoradat</strong></p>
-                    <p><span>Következő</span><strong>Nincs műsoradat</strong></p>
+                    <img id="channel-preview-programme-image" class="channel-preview-programme-image" alt="" hidden>
+                    <p><span>Most</span><strong id="channel-preview-current">EPG nincs</strong></p>
+                    <p id="channel-preview-time" class="channel-preview-time" hidden></p>
+                    <div id="channel-preview-progress" class="channel-preview-progress" role="progressbar" aria-label="Műsor előrehaladása" hidden><span id="channel-preview-progress-value"></span></div>
+                    <p id="channel-preview-description" class="channel-preview-description" hidden></p>
+                    <p><span>Következő</span><strong id="channel-preview-next">EPG nincs</strong></p>
                 </div>
                 <div class="channel-preview-actions">
                     <button id="open-preview-channel" type="button">Megnyitás</button>
@@ -169,6 +173,7 @@
         </div>
     </section>
 </main>
+<script src="webOSTV.js"></script>
 <script src="wukki-tv-webos.js" onerror="this.onerror=null;var fallback=document.createElement('script');fallback.src='../../../build/dist/js/productionExecutable/wukki-tv-webos.js';document.body.appendChild(fallback)"></script>
 </body>
 </html>

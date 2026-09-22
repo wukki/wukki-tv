@@ -48,17 +48,22 @@ kotlin {
 
 val webOsDistribution = layout.buildDirectory.dir("dist/js/productionExecutable")
 val webOsPackageOutput = layout.buildDirectory.dir("outputs/webos")
+val webOsServiceDirectory = rootProject.layout.projectDirectory.dir("webosService")
 val verifyWebOsAppShell by tasks.registering {
     group = "verification"
-    description = "Checks the WOS-15–19 shell, navigation, channel browser, live overlay and playback recovery contracts."
+    description = "Checks the WOS-15–20 shell, navigation, playback and programme-data contracts."
     val markup = layout.projectDirectory.file("src/jsMain/resources/index.html")
     val styles = layout.projectDirectory.file("src/jsMain/resources/styles.css")
     val appInfo = layout.projectDirectory.file("src/jsMain/resources/appinfo.json")
     val remoteAdapter = layout.projectDirectory.file("src/jsMain/kotlin/hu/wukki/tv/webos/WebOsRemoteController.kt")
     val liveTiming = layout.projectDirectory.file("src/jsMain/kotlin/hu/wukki/tv/webos/LiveLayerTiming.kt")
     val playbackSession = layout.projectDirectory.file("src/jsMain/kotlin/hu/wukki/tv/webos/WebOsPlaybackSession.kt")
+    val epgData = layout.projectDirectory.file("src/jsMain/kotlin/hu/wukki/tv/webos/WebOsEpgData.kt")
+    val xmlTvParser = rootProject.layout.projectDirectory.file("core/src/commonMain/kotlin/hu/wukki/tv/XmlTvProgrammeParser.kt")
+    val serviceSource = webOsServiceDirectory.file("epg-service.js")
+    val serviceInfo = webOsServiceDirectory.file("services.json")
     val sharedReducer = rootProject.layout.projectDirectory.file("core/src/commonMain/kotlin/hu/wukki/tv/ui/navigation/AppRemoteReducer.kt")
-    inputs.files(markup, styles, appInfo, remoteAdapter, liveTiming, playbackSession, sharedReducer)
+    inputs.files(markup, styles, appInfo, remoteAdapter, liveTiming, playbackSession, epgData, xmlTvParser, serviceSource, serviceInfo, sharedReducer)
 
     doLast {
         val html = markup.asFile.readText()
@@ -97,7 +102,7 @@ val verifyWebOsAppShell by tasks.registering {
             "The Channels screen must keep the shared 62/38 list and preview layout."
         }
         check("category-filter" !in html) { "The obsolete cyclic category button must not return." }
-        check("\"version\": \"0.11.0\"" in appInfoJson) { "WOS-19 must package as webOS version 0.11.0." }
+        check("\"version\": \"0.12.0\"" in appInfoJson) { "WOS-20 must package as webOS version 0.12.0." }
         listOf("playback-hud", "live-channel-number", "live-channel-logo", "live-programme-progress", "channel-number-input").forEach { id ->
             check("id=\"$id\"" in html) { "Missing WOS-18 live information element #$id." }
         }
@@ -115,7 +120,28 @@ val verifyWebOsAppShell by tasks.registering {
         check("generation" in sessionSource && "reconnectAttempts" in sessionSource && "accepts(token" in sessionSource) {
             "WOS-19 requires generation-safe, settings-driven playback recovery."
         }
+        listOf("channel-preview-current", "channel-preview-next", "channel-preview-progress", "channel-preview-programme-image").forEach { id ->
+            check("id=\"$id\"" in html) { "Missing WOS-20 programme-data element #$id." }
+        }
+        val epgSource = epgData.asFile.readText()
+        val parserSource = xmlTvParser.asFile.readText()
+        check("parseBatch" in epgSource && "WEBOS_EPG_STORAGE_KEY" in epgSource && "batchSize" in epgSource) {
+            "WOS-20 requires bounded asynchronous EPG parsing and a separate cache."
+        }
+        check("MAX_DOCUMENT_BYTES" in parserSource && "unsafeDeclaration" in parserSource && "parseTimestamp" in parserSource) {
+            "WOS-20 requires a bounded parser with disabled declarations and deterministic timezone handling."
+        }
+        check("webOSTV.js" in html && "fetchEpg" in serviceSource.asFile.readText() && "readChunk" in serviceInfo.asFile.readText()) {
+            "WOS-20 must use the packaged JS service for CORS-restricted XMLTV sources."
+        }
     }
+}
+
+val verifyWebOsService by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Checks the syntax of the packaged WOS-20 XMLTV service."
+    inputs.dir(webOsServiceDirectory)
+    commandLine("node", "--check", webOsServiceDirectory.file("epg-service.js").asFile.absolutePath)
 }
 
 val verifyWebOs5Bundle by tasks.registering {
@@ -140,13 +166,14 @@ val verifyWebOs5Bundle by tasks.registering {
     }
 }
 
-tasks.matching { it.name == "check" }.configureEach { dependsOn(verifyWebOsAppShell) }
+tasks.matching { it.name == "check" }.configureEach { dependsOn(verifyWebOsAppShell, verifyWebOsService) }
 
 tasks.register<Exec>("packageWebOs") {
     group = "distribution"
     description = "Builds and packages the webOS application as an IPK with the LG webOS CLI."
-    dependsOn(verifyWebOs5Bundle)
+    dependsOn(verifyWebOs5Bundle, verifyWebOsService)
     inputs.dir(webOsDistribution)
+    inputs.dir(webOsServiceDirectory)
     outputs.dir(webOsPackageOutput)
 
     doFirst {
@@ -158,5 +185,6 @@ tasks.register<Exec>("packageWebOs") {
         "--outdir",
         webOsPackageOutput.get().asFile.absolutePath,
         webOsDistribution.get().asFile.absolutePath,
+        webOsServiceDirectory.asFile.absolutePath,
     )
 }

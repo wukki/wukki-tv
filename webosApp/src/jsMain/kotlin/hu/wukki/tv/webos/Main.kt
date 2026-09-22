@@ -1,10 +1,15 @@
 package hu.wukki.tv.webos
 
 import hu.wukki.tv.Channel
+import hu.wukki.tv.EpgMatcher
+import hu.wukki.tv.EpgProgrammeIndex
 import hu.wukki.tv.OTHER_CATEGORY_ID
 import hu.wukki.tv.PlaylistParser
+import hu.wukki.tv.Programme
+import hu.wukki.tv.ProgrammePair
 import hu.wukki.tv.UNKNOWN_CHANNEL_NAME_ID
 import hu.wukki.tv.normalizedChannelHistory
+import hu.wukki.tv.programmeProgress
 import hu.wukki.tv.ui.guide.GuideProgrammeDialogEvent
 import kotlinx.browser.document
 import kotlinx.browser.window
@@ -22,7 +27,9 @@ private const val OFFICIAL_PLAYLIST_URL = "https://raw.githubusercontent.com/wuk
 private const val DEFAULT_DIAGNOSTIC_STREAM_URL = "http://88.212.15.19/live/m2_hun/index.m3u8"
 private const val WEBOS_PLAYLIST_ID = "webos-playlist"
 private const val MAX_PLAYLIST_BYTES = 2 * 1024 * 1024
+private const val MAX_EPG_BYTES = 32 * 1024 * 1024
 private const val PLAYLIST_TIMEOUT_MS = 15_000
+private const val EPG_TIMEOUT_MS = 30_000
 private const val REPEATED_CHANNEL_SWITCH_INTERVAL_MS = 350
 
 fun main() {
@@ -59,6 +66,13 @@ private class WebOsApp {
     private val previewName = element<HTMLElement>("channel-preview-name")
     private val previewMeta = element<HTMLElement>("channel-preview-meta")
     private val previewProgrammes = element<HTMLElement>("channel-preview-programmes")
+    private val previewCurrentProgramme = element<HTMLElement>("channel-preview-current")
+    private val previewNextProgramme = element<HTMLElement>("channel-preview-next")
+    private val previewProgrammeTime = element<HTMLElement>("channel-preview-time")
+    private val previewProgrammeProgress = element<HTMLElement>("channel-preview-progress")
+    private val previewProgrammeProgressValue = element<HTMLElement>("channel-preview-progress-value")
+    private val previewProgrammeDescription = element<HTMLElement>("channel-preview-description")
+    private val previewProgrammeImage = element<HTMLImageElement>("channel-preview-programme-image")
     private val openPreviewChannel = element<HTMLButtonElement>("open-preview-channel")
     private val favoritePreviewChannel = element<HTMLButtonElement>("favorite-preview-channel")
     private val previousChannel = element<HTMLButtonElement>("previous-channel")
@@ -86,6 +100,11 @@ private class WebOsApp {
     private var storageProblem: String? = null
     private var favoriteFocusRequested = false
     private var playlistLoadFailed = false
+    private var programmes = emptyList<Programme>()
+    private var programmeIndex = EpgProgrammeIndex(emptyList())
+    private var epgLoadGeneration = 0L
+    private var programmeRefreshTimer: Int? = null
+    private val epgParser = WebOsEpgParser(schedule = { action -> window.setTimeout(action, 0) })
 
     private val navigationHost =
         object : WebOsNavigationHost {
@@ -128,7 +147,10 @@ private class WebOsApp {
             override val clearChannelSearch: () -> Unit = ::closeSearch
             override val openChannel: (Int) -> Unit = ::openFilteredChannel
             override val toggleFavorite: (Int) -> Unit = ::toggleFavorite
-            override val previewChannel: (String?) -> Unit = { id -> playback.showPreview(channels.firstOrNull { it.id == id }?.let(::playbackChannel)) }
+            override val previewChannel: (String?) -> Unit = { id ->
+                val channel = channels.firstOrNull { it.id == id }
+                playback.showPreview(channel?.let(::playbackChannel), channel?.let(::currentProgrammes) ?: ProgrammePair(null, null))
+            }
             override val switchChannel: (Int) -> Unit = ::switchChannel
             override val openPreviousChannel: () -> Unit = ::openPreviousChannel
             override val selectChannelNumber: (String) -> Unit = ::selectChannelNumber
@@ -152,6 +174,12 @@ private class WebOsApp {
             read = { window.localStorage.getItem(WEBOS_STATE_STORAGE_KEY) },
             write = { value -> window.localStorage.setItem(WEBOS_STATE_STORAGE_KEY, value) },
         )
+    private val epgCacheStore =
+        WebOsEpgCacheStore(
+            read = { window.localStorage.getItem(WEBOS_EPG_STORAGE_KEY) },
+            write = { value -> window.localStorage.setItem(WEBOS_EPG_STORAGE_KEY, value) },
+            remove = { window.localStorage.removeItem(WEBOS_EPG_STORAGE_KEY) },
+        )
 
     fun start() {
         platform.textContent = "${window.navigator.userAgent} · HLS: ${playback.hlsSupport} · Kotlin/JS core betöltve"
@@ -162,6 +190,7 @@ private class WebOsApp {
         configureKeyboard()
         appShell.configure()
         restoreCachedState()
+        restoreEpgCache()
         fetchPlaylist()
     }
 
@@ -181,7 +210,7 @@ private class WebOsApp {
         val channel = channels.getOrNull(index) ?: return
         selectedChannelId = channel.id
         updateSelectedChannel()
-        playback.start(playbackChannel(channel), settings)
+        playback.start(playbackChannel(channel), settings, currentProgrammes(channel))
     }
 
     private fun playbackChannel(channel: Channel): Channel = if (settings.showLogos) channel else channel.copy(logo = null)
@@ -370,7 +399,7 @@ private class WebOsApp {
             if (settings.showChannelProgramme) {
                 val programme = document.createElement("span") as HTMLElement
                 programme.className = "channel-programme"
-                programme.textContent = "Nincs műsoradat"
+                programme.textContent = currentProgrammes(channel).current?.title?.ifBlank { "Névtelen műsor" } ?: "EPG nincs"
                 text.appendChild(programme)
             }
             button.appendChild(number)
@@ -450,6 +479,7 @@ private class WebOsApp {
             previewLogo.hidden = true
             previewLogoFallback.hidden = false
             favoritePreviewChannel.textContent = "♡"
+            renderPreviewProgrammes(ProgrammePair(null, null), Date.now().toLong())
             return
         }
         previewName.textContent = displayName(channel)
@@ -462,6 +492,7 @@ private class WebOsApp {
         previewLogo.hidden = logo == null
         previewLogoFallback.hidden = logo != null
         if (logo != null) previewLogo.src = logo
+        renderPreviewProgrammes(currentProgrammes(channel), Date.now().toLong())
     }
 
     private fun restoreChannelFocus() {
@@ -520,11 +551,12 @@ private class WebOsApp {
         fetchPlaylistText(url)
             .then { text ->
                 val parsed = mergeFavoriteState(PlaylistParser.parse(text, WEBOS_PLAYLIST_ID, url), cachedChannels)
+                val discoveredEpgUrl = PlaylistParser.epgUrl(text, url)
                 if (parsed.isEmpty()) {
                     throw IllegalArgumentException("A letöltött fájl nem tartalmaz lejátszható csatornát.")
                 } else {
-                    cachedChannels = parsed
-                    channels = parsed
+                    channels = matchEpg(parsed)
+                    cachedChannels = channels
                     playlistCachedAt = Date.now().toLong()
                     lastSuccessfulChannelId = lastSuccessfulChannelId?.takeIf { id -> parsed.any { it.id == id } }
                     recentChannelIds = normalizedChannelHistory(recentChannelIds, parsed)
@@ -532,6 +564,7 @@ private class WebOsApp {
                     persistState()
                     show("${channels.size} csatorna betöltve.")
                     if (!playback.isActive() && appShell.activeSection == WebOsSection.CHANNELS) restoreChannelFocus()
+                    if (discoveredEpgUrl != null) fetchEpg(discoveredEpgUrl)
                 }
                 finishPlaylistLoad()
             }.catch { error ->
@@ -551,6 +584,97 @@ private class WebOsApp {
         playlistLoading = false
         loadPlaylist.disabled = false
         loadPlaylist.textContent = if (retry) "Újrapróbálás" else "Playlist frissítése"
+    }
+
+    private fun fetchEpg(url: String) {
+        val generation = ++epgLoadGeneration
+        epgParser.cancel()
+        show("Műsoradatok betöltése…")
+        fetchBoundedText(url, MAX_EPG_BYTES, EPG_TIMEOUT_MS, "Az EPG")
+            .then { xml ->
+                if (generation != epgLoadGeneration) return@then
+                epgParser.parse(
+                    xml,
+                    onComplete = { parsed ->
+                        if (generation != epgLoadGeneration) return@parse
+                        applyEpg(parsed)
+                        val cacheError = epgCacheStore.save(WebOsEpgCache(url, Date.now().toLong(), parsed))
+                        show("${parsed.size} műsor betöltve.${cacheError?.let { " $it" }.orEmpty()}")
+                    },
+                    onFailure = { error ->
+                        if (generation == epgLoadGeneration) show("Az EPG nem dolgozható fel; a videó tovább működik: ${error.message ?: error}")
+                    },
+                )
+            }.catch { error ->
+                if (generation == epgLoadGeneration) {
+                    val detail = error.asDynamic().message ?: error.toString()
+                    show("Az EPG nem tölthető be; a videó tovább működik: $detail")
+                }
+            }
+    }
+
+    private fun applyEpg(parsed: List<Programme>) {
+        programmes = parsed
+        programmeIndex = EpgProgrammeIndex(parsed)
+        channels = matchEpg(channels)
+        cachedChannels = matchEpg(cachedChannels)
+        filteredChannels = filteredChannels.map { filtered -> channels.firstOrNull { it.id == filtered.id } ?: filtered }
+        val focusedIndex = focusedChannelIndex()
+        renderedWindow = ChannelRenderWindow(-1, -1)
+        renderChannelWindow(focusedIndex)
+        refreshProgrammeViews()
+        persistState()
+    }
+
+    private fun matchEpg(source: List<Channel>): List<Channel> = if (programmes.isEmpty()) source else EpgMatcher.match(source, programmes)
+
+    private fun currentProgrammes(channel: Channel): ProgrammePair = programmeIndex.nowAndNext(channel, Date.now().toLong())
+
+    private fun refreshProgrammeViews() {
+        val now = Date.now().toLong()
+        renderChannelPreview()
+        channels.firstOrNull { it.id == playback.playingChannelId }?.let { channel ->
+            playback.updateProgramme(playbackChannel(channel), programmeIndex.nowAndNext(channel, now), now)
+        }
+        scheduleProgrammeRefresh(now)
+    }
+
+    private fun scheduleProgrammeRefresh(now: Long) {
+        programmeRefreshTimer?.let(window::clearTimeout)
+        programmeRefreshTimer = null
+        if (programmes.isEmpty()) return
+        val boundary = programmeIndex.nextBoundary(channels, now) ?: return
+        val delay = minOf((boundary - now + 50L).coerceAtLeast(1_000L), 60_000L).toInt()
+        programmeRefreshTimer =
+            window.setTimeout(
+                {
+                    val focus = focusedChannelIndex()
+                    renderedWindow = ChannelRenderWindow(-1, -1)
+                    renderChannelWindow(focus)
+                    refreshProgrammeViews()
+                },
+                delay,
+            )
+    }
+
+    private fun renderPreviewProgrammes(
+        pair: ProgrammePair,
+        now: Long,
+    ) {
+        val current = pair.current
+        previewCurrentProgramme.textContent = current?.title?.ifBlank { "Névtelen műsor" } ?: "EPG nincs"
+        previewNextProgramme.textContent = pair.next?.let { "${formatEpgTime(it.start)} · ${it.title.ifBlank { "Névtelen műsor" }}" } ?: "EPG nincs"
+        previewProgrammeTime.textContent = current?.let { "${formatEpgTime(it.start)} – ${formatEpgTime(it.end)}" }.orEmpty()
+        previewProgrammeTime.hidden = current == null
+        previewProgrammeDescription.textContent = current?.description.orEmpty()
+        previewProgrammeDescription.hidden = current?.description.isNullOrBlank()
+        val progress = programmeProgress(current, now)
+        previewProgrammeProgress.hidden = progress == null
+        previewProgrammeProgress.setAttribute("aria-valuenow", ((progress ?: 0.0) * 100).toInt().toString())
+        previewProgrammeProgressValue.style.width = "${(progress ?: 0.0) * 100}%"
+        val image = current?.imageUrl?.takeIf { settings.showProgrammeImages }
+        previewProgrammeImage.hidden = image == null
+        if (image != null) previewProgrammeImage.src = image
     }
 
     private fun configureControls() {
@@ -626,6 +750,9 @@ private class WebOsApp {
         previewLogo.addEventListener("error", {
             previewLogo.hidden = true
             previewLogoFallback.hidden = false
+        })
+        previewProgrammeImage.addEventListener("error", {
+            previewProgrammeImage.hidden = true
         })
         val settingsButtons = document.querySelectorAll("#view-settings .settings-categories button")
         for (index in 0 until settingsButtons.length) {
@@ -747,6 +874,12 @@ private class WebOsApp {
         renderChannels()
         restoreChannelFocus()
         show("${channels.size} mentett csatorna betöltve; hálózati frissítés indul.")
+    }
+
+    private fun restoreEpgCache() {
+        val cache = epgCacheStore.load() ?: return
+        applyEpg(cache.programmes)
+        show("${cache.programmes.size} mentett műsor betöltve; hálózati frissítés indul.")
     }
 
     private fun recordSuccessfulPlayback(channelId: String) {
@@ -890,8 +1023,6 @@ internal fun validatePlaylistBody(text: String): String {
     }
     return text
 }
-
-private fun newAbortController(): dynamic = js("typeof AbortController === 'undefined' ? null : new AbortController()")
 
 private fun probeChannel(url: String): Channel =
     Channel(

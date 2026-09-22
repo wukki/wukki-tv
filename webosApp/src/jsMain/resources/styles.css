@@ -497,6 +497,11 @@ button.channel:focus { background: var(--primary-container); border-color: var(-
 .channel-preview-programmes p { display: grid; gap: 4px; margin: 0; }
 .channel-preview-programmes span { color: var(--text-muted); font-size: 14px; text-transform: uppercase; }
 .channel-preview-programmes strong { font-size: 18px; }
+.channel-preview-programme-image { width: 100%; max-height: 190px; object-fit: cover; border-radius: 10px; }
+.channel-preview-time, .channel-preview-description { color: var(--text-secondary); font-size: 14px; }
+.channel-preview-description { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+.channel-preview-progress { height: 5px; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,.18); }
+.channel-preview-progress span { display: block; width: 0; height: 100%; background: var(--primary-strong); }
 .channel-preview-actions { display: grid; grid-template-columns: minmax(0, 1fr) 58px; gap: 10px; margin-top: auto; }
 .channel-preview-actions button { min-height: 54px; background: var(--primary); }
 #favorite-preview-channel { color: #fff; font-size: 29px; }
