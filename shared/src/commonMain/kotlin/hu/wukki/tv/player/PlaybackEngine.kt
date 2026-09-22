@@ -75,15 +75,6 @@ fun classifyLiveTouch(
         }
     }
 
-enum class PlaybackState {
-    IDLE,
-    OPENING,
-    BUFFERING,
-    PLAYING,
-    RECONNECTING,
-    ERROR,
-}
-
 /** Data rendered above the platform video surface. */
 data class PlaybackOverlayData(
     val channelId: String,

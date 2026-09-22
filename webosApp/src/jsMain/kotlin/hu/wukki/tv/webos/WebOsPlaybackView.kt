@@ -1,13 +1,14 @@
 package hu.wukki.tv.webos
 
 import hu.wukki.tv.Channel
+import hu.wukki.tv.PlaybackState
+import hu.wukki.tv.ui.guide.GuideProgrammeDialogEvent
 import kotlinx.browser.document
 import kotlinx.browser.window
 import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLImageElement
 import org.w3c.dom.HTMLVideoElement
-import org.w3c.dom.events.KeyboardEvent
 
 internal class WebOsPlaybackView(
     private val appShell: WebOsAppShell,
@@ -23,31 +24,59 @@ internal class WebOsPlaybackView(
     private val channelLogoFallback = playbackElement<HTMLElement>("live-channel-logo-fallback")
     private val previewLabel = playbackElement<HTMLElement>("live-preview-label")
     private val channelNumberInput = playbackElement<HTMLElement>("channel-number-input")
-    val stopButton = playbackElement<HTMLButtonElement>("stop")
+    private val stateOverlay = playbackElement<HTMLElement>("playback-state-overlay")
+    private val stateTitle = playbackElement<HTMLElement>("playback-state-title")
+    private val stateDetail = playbackElement<HTMLElement>("playback-state-detail")
+    private val cancelReconnect = playbackElement<HTMLButtonElement>("cancel-reconnect")
+    private val recoveryDialog = playbackElement<HTMLElement>("playback-recovery")
+    private val technicalDetail = playbackElement<HTMLElement>("playback-technical-detail")
+    private val retryPlayback = playbackElement<HTMLButtonElement>("retry-playback")
+    private val openChannels = playbackElement<HTMLButtonElement>("open-channels-after-error")
+    private val toggleDetails = playbackElement<HTMLButtonElement>("toggle-playback-details")
+    private val stopButton = playbackElement<HTMLButtonElement>("stop")
+
+    private val session =
+        WebOsPlaybackSession(
+            scheduler =
+                WebOsPlaybackScheduler { delay, action ->
+                    val timer = window.setTimeout(action, delay)
+                    WebOsPlaybackCancellation { window.clearTimeout(timer) }
+                },
+            startMedia = ::startMedia,
+            stopMedia = ::stopMedia,
+            onSnapshot = ::renderPlaybackState,
+            onPlaying = recordSuccessfulPlayback,
+        )
 
     val hlsSupport = video.canPlayType("application/vnd.apple.mpegurl").toString().ifBlank { "nincs" }
-    var playingChannelId: String? = null
-        private set
+    val playingChannelId: String? get() = session.snapshot.channel?.id
+    val navigationVisible: Boolean get() = document.body?.classList?.contains("live-navigation-hidden") != true
+    val recoveryVisible: Boolean get() = !recoveryDialog.hidden
     private var playingChannel: Channel? = null
-    private var playingIndex = 0
     private var hudTimer: Int? = null
     private var navigationTimer: Int? = null
-    private var lastChannelSwitchAt = Double.NEGATIVE_INFINITY
+    private var recoveryActionIndex = 0
 
     fun configure() {
         stopButton.onclick = {
             stop()
             null
         }
-        video.onplaying = {
-            playingChannelId?.let(recordSuccessfulPlayback)
-            showStatus("Lejátszás: ${video.videoWidth}×${video.videoHeight} · ready=${video.readyState}")
-            showHud()
+        retryPlayback.onclick = {
+            technicalDetail.hidden = true
+            session.retry()
             null
         }
-        video.onwaiting = {
-            showStatus("Pufferelés…")
-            showHud()
+        openChannels.onclick = {
+            stop()
+            null
+        }
+        toggleDetails.onclick = {
+            technicalDetail.hidden = !technicalDetail.hidden
+            null
+        }
+        cancelReconnect.onclick = {
+            session.cancelReconnect()
             null
         }
         video.onclick = {
@@ -62,74 +91,37 @@ internal class WebOsPlaybackView(
             channelLogo.hidden = true
             channelLogoFallback.hidden = false
         })
-        video.addEventListener(
-            "error",
-            {
-                leave()
-                showStatus(
-                    "Lejátszási hiba: ${mediaErrorName(video.error?.code)} " +
-                        "(ready=${video.readyState}, network=${video.networkState})",
-                )
-            },
-        )
     }
 
     fun start(
         channel: Channel,
-        sourceIndex: Int? = null,
+        settings: WebOsSettings,
     ) {
-        if (sourceIndex != null) playingIndex = sourceIndex
-        playingChannelId = channel.id
-        val name = displayName(channel)
         playingChannel = channel
         renderInformationPanel(channel, preview = false)
-        showStatus("Lejátszás indítása: $name · HLS: $hlsSupport")
         document.body?.classList?.add("playback-active")
-        liveEmpty.setAttribute("hidden", "")
+        liveEmpty.hidden = true
         appShell.activate(WebOsSection.LIVE)
         document.activeElement?.asDynamic()?.blur()
         showHud()
         showNavigation()
-        when (playbackSourceAction(video.getAttribute("src"), channel.streamUrl, video.paused)) {
-            PlaybackSourceAction.KEEP_PLAYING -> {
-                return
-            }
-
-            PlaybackSourceAction.RESUME -> {
-                playVideo()
-            }
-
-            PlaybackSourceAction.REPLACE -> {
-                video.src = channel.streamUrl
-                video.load()
-                playVideo()
-            }
-        }
+        session.play(
+            channel,
+            WebOsPlaybackPolicy(
+                autoReconnect = settings.autoReconnect,
+                reconnectAttempts = settings.reconnectAttempts,
+            ),
+        )
     }
 
     fun stop() {
-        video.pause()
-        video.removeAttribute("src")
-        video.load()
+        session.stop()
         leave()
         showStatus("Lejátszás leállítva.")
     }
 
-    fun switchChannel(
-        channels: List<Channel>,
-        event: KeyboardEvent,
-        step: Int,
-    ) {
-        if (channels.isEmpty()) return
-        val now = window.performance.now()
-        if (!shouldHandleChannelSwitch(event.repeat, now, lastChannelSwitchAt)) return
-        lastChannelSwitchAt = now
-        val target = nextChannelIndex(playingIndex, channels.size, step)
-        start(channels[target], target)
-    }
-
     fun showHud() {
-        if (!isActive() || appShell.activeSection != WebOsSection.LIVE) return
+        if (!isActive() || appShell.activeSection != WebOsSection.LIVE || recoveryVisible) return
         document.body?.classList?.add("hud-visible")
         cancelHudTimer()
         hudTimer =
@@ -151,9 +143,6 @@ internal class WebOsPlaybackView(
         }
     }
 
-    val navigationVisible: Boolean
-        get() = document.body?.classList?.contains("live-navigation-hidden") != true
-
     fun showNavigation() {
         if (!isActive() || appShell.activeSection != WebOsSection.LIVE) return
         document.body?.classList?.remove("live-navigation-hidden")
@@ -173,7 +162,7 @@ internal class WebOsPlaybackView(
         document.body?.classList?.remove("live-navigation-hidden")
     }
 
-    fun isActive(): Boolean = document.body?.classList?.contains("playback-active") == true
+    fun isActive(): Boolean = session.snapshot.state != PlaybackState.IDLE
 
     fun showPreview(channel: Channel?) {
         if (!isActive()) return
@@ -191,21 +180,137 @@ internal class WebOsPlaybackView(
         channelNumberInput.hidden = number.isNullOrEmpty()
     }
 
-    private fun playVideo() {
-        video.play().catch { error ->
-            leave()
-            showStatus("A lejátszás indítása sikertelen: ${error.asDynamic().message ?: error.toString()}")
+    fun handleRecoveryDialog(event: GuideProgrammeDialogEvent) {
+        if (!recoveryVisible) return
+        val actions = listOf(retryPlayback, openChannels, toggleDetails)
+        when (event) {
+            GuideProgrammeDialogEvent.LEFT -> recoveryActionIndex = (recoveryActionIndex - 1).coerceAtLeast(0)
+            GuideProgrammeDialogEvent.RIGHT -> recoveryActionIndex = (recoveryActionIndex + 1).coerceAtMost(actions.lastIndex)
+            GuideProgrammeDialogEvent.CONFIRM -> actions[recoveryActionIndex].click()
+            GuideProgrammeDialogEvent.BACK -> openChannels.click()
         }
+        if (recoveryVisible) actions[recoveryActionIndex].focus()
+    }
+
+    private fun startMedia(
+        channel: Channel,
+        generation: Long,
+    ) {
+        val source = channel.streamUrl
+        video.onplaying = {
+            if (isPlayableCurrentSource(source)) {
+                session.bufferingEnded(generation)
+                session.playing(generation)
+                showStatus("Lejátszás: ${video.videoWidth}×${video.videoHeight} · ready=${video.readyState}")
+                showHud()
+            }
+            null
+        }
+        video.onwaiting = {
+            if (isCurrentSource(source)) session.bufferingStarted(generation)
+            null
+        }
+        video.oncanplay = {
+            if (isCurrentSource(source)) session.bufferingEnded(generation)
+            null
+        }
+        video.onended = {
+            if (isCurrentSource(source)) session.failed(generation, "A stream véget ért.")
+            null
+        }
+        video.onerror = { _, _, _, _, _ ->
+            if (isCurrentSource(source)) {
+                session.failed(
+                    generation,
+                    "${mediaErrorName(video.error?.code)} (ready=${video.readyState}, network=${video.networkState})",
+                )
+            }
+            null
+        }
+        video.src = source
+        video.load()
+        video.play().catch { error ->
+            session.failed(generation, error.asDynamic().message ?: error.toString())
+        }
+    }
+
+    private fun stopMedia() {
+        video.onplaying = null
+        video.onwaiting = null
+        video.oncanplay = null
+        video.onended = null
+        video.onerror = null
+        video.pause()
+        video.removeAttribute("src")
+        video.load()
+    }
+
+    private fun isCurrentSource(source: String): Boolean = session.snapshot.channel?.streamUrl == source && video.getAttribute("src") == source
+
+    private fun isPlayableCurrentSource(source: String): Boolean = isCurrentSource(source) && !video.paused && video.readyState >= 3
+
+    private fun renderPlaybackState(snapshot: WebOsPlaybackSnapshot) {
+        when (snapshot.state) {
+            PlaybackState.IDLE -> {
+                stateOverlay.hidden = true
+                recoveryDialog.hidden = true
+            }
+
+            PlaybackState.OPENING -> {
+                showTransientState("Betöltés", snapshot.detail, reconnecting = false)
+            }
+
+            PlaybackState.BUFFERING -> {
+                showTransientState("Pufferelés", null, reconnecting = false)
+            }
+
+            PlaybackState.RECONNECTING -> {
+                showTransientState("Újracsatlakozás", snapshot.detail, reconnecting = true)
+            }
+
+            PlaybackState.PLAYING -> {
+                stateOverlay.hidden = true
+                recoveryDialog.hidden = true
+            }
+
+            PlaybackState.ERROR -> {
+                showRecovery(snapshot)
+            }
+        }
+    }
+
+    private fun showTransientState(
+        title: String,
+        detail: String?,
+        reconnecting: Boolean,
+    ) {
+        recoveryDialog.hidden = true
+        stateOverlay.hidden = false
+        stateTitle.textContent = title
+        stateDetail.textContent = detail.orEmpty()
+        stateDetail.hidden = detail.isNullOrBlank()
+        cancelReconnect.hidden = !reconnecting
+    }
+
+    private fun showRecovery(snapshot: WebOsPlaybackSnapshot) {
+        hideHud()
+        stateOverlay.hidden = true
+        recoveryDialog.hidden = false
+        technicalDetail.textContent = snapshot.technicalDetail ?: "Nem érkezett technikai hibakód."
+        technicalDetail.hidden = true
+        recoveryActionIndex = 0
+        retryPlayback.focus()
     }
 
     private fun leave() {
         cancelHudTimer()
         cancelNavigationTimer()
         document.body?.classList?.remove("playback-active", "hud-visible", "live-navigation-hidden")
-        playingChannelId = null
         playingChannel = null
         showChannelNumberInput(null)
-        liveEmpty.removeAttribute("hidden")
+        stateOverlay.hidden = true
+        recoveryDialog.hidden = true
+        liveEmpty.hidden = false
         appShell.activate(WebOsSection.CHANNELS)
         restoreChannelFocus()
     }
@@ -225,7 +330,7 @@ internal class WebOsPlaybackView(
     }
 
     private fun hideNavigation() {
-        if (!isActive() || appShell.activeSection != WebOsSection.LIVE) return
+        if (!isActive() || appShell.activeSection != WebOsSection.LIVE || recoveryVisible) return
         document.body?.classList?.add("live-navigation-hidden")
         val active = document.activeElement as? HTMLElement
         if (active?.classList?.contains("nav-item") == true) {

@@ -51,6 +51,7 @@ internal interface WebOsNavigationHost {
     val showChannelNumberInput: (String?) -> Unit
     val showQuickSettings: () -> Unit
     val closeDialog: () -> Unit
+    val handleDialogEvent: (GuideProgrammeDialogEvent) -> Unit
     val showStatus: (String) -> Unit
     val exitApplication: () -> Unit
 }
@@ -177,12 +178,8 @@ internal class WebOsRemoteController(
             }
 
             is AppRemoteEffect.Dialog -> {
-                if (effect.event == GuideProgrammeDialogEvent.BACK || effect.event == GuideProgrammeDialogEvent.CONFIRM) {
-                    state = state.copy(dialogVisible = false)
-                    host.closeDialog()
-                } else {
-                    host.showQuickSettings()
-                }
+                host.handleDialogEvent(effect.event)
+                state = state.copy(dialogVisible = host.dialogVisible)
             }
 
             AppRemoteEffect.RevealNavigation -> {

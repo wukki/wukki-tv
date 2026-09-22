@@ -5,6 +5,7 @@ import hu.wukki.tv.OTHER_CATEGORY_ID
 import hu.wukki.tv.PlaylistParser
 import hu.wukki.tv.UNKNOWN_CHANNEL_NAME_ID
 import hu.wukki.tv.normalizedChannelHistory
+import hu.wukki.tv.ui.guide.GuideProgrammeDialogEvent
 import kotlinx.browser.document
 import kotlinx.browser.window
 import org.w3c.dom.HTMLButtonElement
@@ -97,7 +98,7 @@ private class WebOsApp {
             override val channelFilterCount: Int get() = filterButtons.size
             override val liveOverlayVisible: Boolean get() = document.body?.classList?.contains("hud-visible") == true
             override val liveNavigationVisible: Boolean get() = playback.navigationVisible
-            override val dialogVisible: Boolean get() = !quickSettingsDialog.hidden
+            override val dialogVisible: Boolean get() = !quickSettingsDialog.hidden || playback.recoveryVisible
             override val activateSection: (WebOsSection) -> Unit = appShell::activate
             override val focusNavigation: (WebOsSection) -> Unit = appShell::focusNavigation
             override val focusSectionContent: (WebOsSection) -> Unit = { section ->
@@ -140,6 +141,7 @@ private class WebOsApp {
             override val showChannelNumberInput: (String?) -> Unit = playback::showChannelNumberInput
             override val showQuickSettings: () -> Unit = ::showQuickSettings
             override val closeDialog: () -> Unit = ::closeDialog
+            override val handleDialogEvent: (GuideProgrammeDialogEvent) -> Unit = ::handleDialogEvent
             override val showStatus: (String) -> Unit = ::show
             override val exitApplication: () -> Unit = ::platformBack
         }
@@ -179,7 +181,7 @@ private class WebOsApp {
         val channel = channels.getOrNull(index) ?: return
         selectedChannelId = channel.id
         updateSelectedChannel()
-        playback.start(playbackChannel(channel), index)
+        playback.start(playbackChannel(channel), settings)
     }
 
     private fun playbackChannel(channel: Channel): Channel = if (settings.showLogos) channel else channel.copy(logo = null)
@@ -504,7 +506,7 @@ private class WebOsApp {
             diagnosticInput.focus()
             return
         }
-        playback.start(probeChannel(url))
+        playback.start(probeChannel(url), settings)
     }
 
     private fun fetchPlaylist() {
@@ -706,10 +708,22 @@ private class WebOsApp {
     }
 
     private fun closeDialog() {
+        if (playback.recoveryVisible) {
+            playback.handleRecoveryDialog(GuideProgrammeDialogEvent.BACK)
+            return
+        }
         quickSettingsDialog.hidden = true
         if (playback.isActive()) {
             playback.showHud()
             appShell.view(WebOsSection.LIVE).focus()
+        }
+    }
+
+    private fun handleDialogEvent(event: GuideProgrammeDialogEvent) {
+        if (playback.recoveryVisible) {
+            playback.handleRecoveryDialog(event)
+        } else if (event == GuideProgrammeDialogEvent.BACK || event == GuideProgrammeDialogEvent.CONFIRM) {
+            closeDialog()
         }
     }
 

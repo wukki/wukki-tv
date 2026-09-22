@@ -33,6 +33,12 @@
         <video id="player" playsinline tabindex="-1"></video>
         <p id="live-empty" class="live-empty">A Wukki TV csatornalista még nem érhető el.</p>
         <output id="channel-number-input" class="channel-number-input" aria-live="polite" hidden></output>
+        <div id="playback-state-overlay" class="playback-state-overlay" role="status" hidden>
+            <span class="playback-spinner" aria-hidden="true"></span>
+            <strong id="playback-state-title"></strong>
+            <small id="playback-state-detail"></small>
+            <button id="cancel-reconnect" type="button" hidden>Mégse</button>
+        </div>
         <section id="playback-hud" class="playback-hud" aria-live="polite">
             <div class="live-channel-column">
                 <span class="live-channel-arrow" aria-hidden="true">⌃</span>
@@ -56,6 +62,16 @@
                 <button id="channel-up" class="playback-action" type="button">Csatorna +</button>
                 <button id="quick-settings" class="playback-action" type="button">Gyorsbeállítások</button>
                 <button id="stop" class="playback-action" type="button">Leállítás</button>
+            </div>
+        </section>
+        <section id="playback-recovery" class="playback-recovery" role="dialog" aria-modal="true" aria-labelledby="playback-recovery-title" hidden>
+            <h2 id="playback-recovery-title">Lejátszási hiba</h2>
+            <p>Az adás nem érhető el. Próbáld újra, vagy válassz másik csatornát.</p>
+            <p id="playback-technical-detail" class="playback-technical-detail" hidden></p>
+            <div class="playback-recovery-actions">
+                <button id="retry-playback" type="button">Újrapróbálás</button>
+                <button id="open-channels-after-error" type="button">Csatornák</button>
+                <button id="toggle-playback-details" type="button">Technikai részletek</button>
             </div>
         </section>
     </section>

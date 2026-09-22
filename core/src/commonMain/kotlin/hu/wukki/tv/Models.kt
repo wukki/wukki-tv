@@ -21,6 +21,9 @@ import kotlinx.serialization.Serializable as KotlinSerializable
 
 @KotlinSerializable enum class ChannelListDisplayMode { COMPACT, NORMAL, DETAILED }
 
+/** Shared playback lifecycle used by every platform adapter and its UI. */
+enum class PlaybackState { IDLE, OPENING, BUFFERING, PLAYING, RECONNECTING, ERROR }
+
 @KotlinSerializable
 data class PlaybackSettings(
     val volume: Int = 100,

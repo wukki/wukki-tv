@@ -1,5 +1,6 @@
 package hu.wukki.tv.webos
 
+import hu.wukki.tv.ui.guide.GuideProgrammeDialogEvent
 import hu.wukki.tv.ui.navigation.AppRemoteKey
 import hu.wukki.tv.ui.navigation.LiveChannelPreviewEvent
 import hu.wukki.tv.ui.navigation.RemoteKey
@@ -114,6 +115,20 @@ class WebOsRemoteControllerTest {
         assertFalse(host.exited)
         assertEquals(null, host.openedChannelIndex)
     }
+
+    @Test
+    fun `dialog input is routed without activating live controls behind it`() {
+        val host = FakeNavigationHost(section = WebOsSection.LIVE, dialogOpen = true)
+        val controller = WebOsRemoteController(host)
+        controller.onSectionActivated(WebOsSection.LIVE)
+
+        assertTrue(controller.dispatch(AppRemoteKey(remote = RemoteKey.RIGHT)))
+        assertTrue(controller.dispatch(AppRemoteKey(remote = RemoteKey.CONFIRM)))
+
+        assertEquals(listOf(GuideProgrammeDialogEvent.RIGHT, GuideProgrammeDialogEvent.CONFIRM), host.dialogEvents)
+        assertFalse(host.overlayVisible)
+        assertEquals(null, host.openedChannelIndex)
+    }
 }
 
 private class FakeNavigationHost(
@@ -121,6 +136,7 @@ private class FakeNavigationHost(
     var searchFocused: Boolean = false,
     var searchHasText: Boolean = false,
     var navigationVisible: Boolean = true,
+    var dialogOpen: Boolean = false,
 ) : WebOsNavigationHost {
     var focusedNavigation: WebOsSection? = null
     var searchCleared = false
@@ -132,6 +148,7 @@ private class FakeNavigationHost(
     var openedChannelIndex: Int? = null
     var channelDelta: Int? = null
     var previousOpened = false
+    val dialogEvents = mutableListOf<GuideProgrammeDialogEvent>()
 
     override val activeSection: WebOsSection get() = section
     override val visibleChannelIds = listOf("one", "two", "three")
@@ -142,7 +159,7 @@ private class FakeNavigationHost(
     override val channelFilterCount = 6
     override val liveOverlayVisible: Boolean get() = overlayVisible
     override val liveNavigationVisible: Boolean get() = navigationVisible
-    override val dialogVisible = false
+    override val dialogVisible: Boolean get() = dialogOpen
     override val activateSection: (WebOsSection) -> Unit = { section = it }
     override val focusNavigation: (WebOsSection) -> Unit = { focusedNavigation = it }
     override val focusSectionContent: (WebOsSection) -> Unit = {}
@@ -172,6 +189,7 @@ private class FakeNavigationHost(
     override val showChannelNumberInput: (String?) -> Unit = {}
     override val showQuickSettings: () -> Unit = {}
     override val closeDialog: () -> Unit = {}
+    override val handleDialogEvent: (GuideProgrammeDialogEvent) -> Unit = { dialogEvents += it }
     override val showStatus: (String) -> Unit = { status = it }
     override val exitApplication: () -> Unit = { exited = true }
 }
