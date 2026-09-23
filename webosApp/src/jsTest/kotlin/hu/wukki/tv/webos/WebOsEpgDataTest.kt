@@ -49,6 +49,32 @@ class WebOsEpgDataTest {
         assertNull(store.load())
     }
 
+    @Test
+    fun `local preview routes EPG through its same-origin proxy`() {
+        val proxied =
+            directEpgRequestUrl(
+                url = "https://example.test/guide.xml",
+                maxBytes = 1024,
+                protocol = "http:",
+                hostname = "localhost",
+                origin = "http://localhost:4173",
+                webOsRuntime = false,
+                encodedUrl = "encoded-url",
+            )
+
+        assertEquals("http://localhost:4173/__wukki_proxy?url=encoded-url&maxBytes=1024", proxied)
+    }
+
+    @Test
+    fun `packaged webOS fallback never targets the development proxy`() {
+        val source = "https://example.test/guide.xml"
+
+        assertEquals(
+            source,
+            directEpgRequestUrl(source, 1024, "file:", "", "null", webOsRuntime = true, encodedUrl = "encoded-url"),
+        )
+    }
+
     private companion object {
         val XML =
             """<tv>

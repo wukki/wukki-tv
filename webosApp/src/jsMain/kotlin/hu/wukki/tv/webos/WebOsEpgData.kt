@@ -133,6 +133,7 @@ private fun fetchDirect(
     label: String,
 ): Promise<String> =
     Promise { resolve, reject ->
+        val requestUrl = localPreviewEpgUrl(url, maxBytes)
         val controller = newAbortController()
         val options = js("({})")
         if (controller != null) options.signal = controller.signal
@@ -145,7 +146,7 @@ private fun fetchDirect(
                 timeoutMillis,
             )
         window
-            .fetch(url, options)
+            .fetch(requestUrl, options)
             .then { response ->
                 validateBoundedResponse(response, maxBytes, label)
                 response.text()
@@ -159,6 +160,41 @@ private fun fetchDirect(
                 reject(error)
             }
     }
+
+private fun localPreviewEpgUrl(
+    url: String,
+    maxBytes: Int,
+): String {
+    val location = window.location
+    val encodedUrl = js("encodeURIComponent(url)") as String
+    return directEpgRequestUrl(
+        url = url,
+        maxBytes = maxBytes,
+        protocol = location.protocol,
+        hostname = location.hostname,
+        origin = location.origin,
+        webOsRuntime = window.asDynamic().PalmSystem != null,
+        encodedUrl = encodedUrl,
+    )
+}
+
+internal fun directEpgRequestUrl(
+    url: String,
+    maxBytes: Int,
+    protocol: String,
+    hostname: String,
+    origin: String,
+    webOsRuntime: Boolean,
+    encodedUrl: String,
+): String {
+    val localOrigin =
+        when {
+            protocol == "file:" && !webOsRuntime -> WEBOS_PREVIEW_ORIGIN
+            hostname == "127.0.0.1" || hostname == "localhost" -> origin
+            else -> return url
+        }
+    return "$localOrigin/__wukki_proxy?url=$encodedUrl&maxBytes=$maxBytes"
+}
 
 private fun fetchThroughEpgService(
     url: String,
@@ -281,6 +317,7 @@ internal fun formatEpgTime(timestamp: Long): String {
 
 private const val EPG_SERVICE_URI = "luna://hu.wukki.tv.webos.epg/"
 private const val EPG_SERVICE_CHUNK_CHARACTERS = 128 * 1024
+private const val WEBOS_PREVIEW_ORIGIN = "http://127.0.0.1:4173"
 
 private data class WebOsEpgServiceResponse(
     val token: String?,

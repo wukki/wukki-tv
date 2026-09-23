@@ -163,9 +163,16 @@ npm install -g @webos-tools/cli
 Az IPK a `webosApp/build/outputs/webos` könyvtárba kerül. A diagnosztikai mező előre kitölti az M2
 tesztstream URL-jét; másik tesztstream a mezőben vagy a `?stream=` paraméterrel adható meg.
 
-A forrásbeli `webosApp/src/jsMain/resources/index.html` közvetlen helyi megnyitásához előbb le kell
-futtatni a `jsBrowserDistribution` feladatot. Az oldal ilyenkor a `build` könyvtárból tölti be a
-lefordított Kotlin/JS bundle-t; az IPK-ban továbbra is a csomag gyökerében lévő bundle használatos.
+A böngészős előnézetet a helyi szerveren kell indítani, így az EPG-proxy azonos originről érhető el,
+és a távoli XMLTV-forrás CORS-beállítása nem akadályozza a fejlesztői tesztet:
+
+```sh
+./gradlew :webosApp:previewWebOs
+```
+
+Ezután a `http://127.0.0.1:4173/` címet nyisd meg. A fordítások és jogi szövegek a bundle mellett
+beágyazva érkeznek, ezért `file://` megnyitásnál sem indul értük XHR. A telepített IPK továbbra is a
+csomagolt webOS service-en keresztül tölti le az EPG-t; a helyi proxy csak a böngészős előnézet része.
 
 ## Android APK
 

@@ -50,12 +50,14 @@ kotlin {
 val webOsDistribution = layout.buildDirectory.dir("dist/js/productionExecutable")
 val webOsPackageOutput = layout.buildDirectory.dir("outputs/webos")
 val webOsServiceDirectory = rootProject.layout.projectDirectory.dir("webosService")
+val webOsPreviewServer = layout.projectDirectory.file("preview-server.js")
 val verifyWebOsAppShell by tasks.registering {
     group = "verification"
     description = "Checks the WOS-15–22 shell, navigation, playback, settings, persistence and lifecycle contracts."
     val markup = layout.projectDirectory.file("src/jsMain/resources/index.html")
     val styles = layout.projectDirectory.file("src/jsMain/resources/styles.css")
     val appInfo = layout.projectDirectory.file("src/jsMain/resources/appinfo.json")
+    val embeddedResources = layout.projectDirectory.file("src/jsMain/resources/embedded-resources.js")
     val remoteAdapter = layout.projectDirectory.file("src/jsMain/kotlin/hu/wukki/tv/webos/WebOsRemoteController.kt")
     val liveTiming = layout.projectDirectory.file("src/jsMain/kotlin/hu/wukki/tv/webos/LiveLayerTiming.kt")
     val playbackSession = layout.projectDirectory.file("src/jsMain/kotlin/hu/wukki/tv/webos/WebOsPlaybackSession.kt")
@@ -67,7 +69,7 @@ val verifyWebOsAppShell by tasks.registering {
     val serviceInfo = webOsServiceDirectory.file("services.json")
     val serviceCertificateAuthority = webOsServiceDirectory.file("certificates/isrg-root-x1.pem")
     val sharedReducer = rootProject.layout.projectDirectory.file("core/src/commonMain/kotlin/hu/wukki/tv/ui/navigation/AppRemoteReducer.kt")
-    inputs.files(markup, styles, appInfo, remoteAdapter, liveTiming, playbackSession, mainSource, stateStore, epgData, xmlTvParser, serviceSource, serviceInfo, serviceCertificateAuthority, sharedReducer)
+    inputs.files(markup, styles, appInfo, embeddedResources, remoteAdapter, liveTiming, playbackSession, mainSource, stateStore, epgData, xmlTvParser, serviceSource, serviceInfo, serviceCertificateAuthority, sharedReducer)
 
     doLast {
         val html = markup.asFile.readText()
@@ -93,6 +95,13 @@ val verifyWebOsAppShell by tasks.registering {
             "The app shell must fit the viewport instead of clipping to one fixed resolution."
         }
         check("\"disableBackHistoryAPI\": true" in appInfoJson) { "The shared Back state machine must receive the LG Back key." }
+        val embeddedSource = embeddedResources.asFile.readText()
+        check("embedded-resources.js" in html && "WUKKI_EMBEDDED_RESOURCES" in embeddedSource) {
+            "Local resources must be embedded instead of loaded through file-origin XHR."
+        }
+        listOf("i18n/messages_hu.properties", "i18n/messages_en.properties", "legal/privacy_hu.txt", "legal/privacy_en.txt").forEach { path ->
+            check("\"$path\"" in embeddedSource) { "Missing embedded webOS resource $path." }
+        }
         listOf("previous-channel", "channel-down", "channel-up", "quick-settings", "close-quick-settings").forEach { id ->
             check("id=\"$id\"" in html) { "Missing visible remote-control fallback #$id." }
         }
@@ -106,7 +115,7 @@ val verifyWebOsAppShell by tasks.registering {
             "The Channels screen must keep the shared 62/38 list and preview layout with legacy-compatible flexbox."
         }
         check("category-filter" !in html) { "The obsolete cyclic category button must not return." }
-        check("\"version\": \"0.14.0\"" in appInfoJson) { "WOS-22 must package as webOS version 0.14.0." }
+        check("\"version\": \"0.14.1\"" in appInfoJson) { "The local WebView CORS fix must package as webOS version 0.14.1." }
         listOf("playback-hud", "live-channel-number", "live-channel-logo", "live-programme-progress", "channel-number-input").forEach { id ->
             check("id=\"$id\"" in html) { "Missing WOS-18 live information element #$id." }
         }
@@ -190,6 +199,13 @@ val verifyWebOsService by tasks.registering(Exec::class) {
     commandLine("node", "--check", webOsServiceDirectory.file("epg-service.js").asFile.absolutePath)
 }
 
+val verifyWebOsPreviewServer by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Checks the syntax of the local webOS preview and CORS proxy server."
+    inputs.file(webOsPreviewServer)
+    commandLine("node", "--check", webOsPreviewServer.asFile.absolutePath)
+}
+
 val verifyWebOs5Bundle by tasks.registering {
     group = "verification"
     description = "Rejects JavaScript syntax unsupported by the Chromium 68 engine in webOS 5."
@@ -212,7 +228,14 @@ val verifyWebOs5Bundle by tasks.registering {
     }
 }
 
-tasks.matching { it.name == "check" }.configureEach { dependsOn(verifyWebOsAppShell, verifyWebOsService) }
+tasks.matching { it.name == "check" }.configureEach { dependsOn(verifyWebOsAppShell, verifyWebOsService, verifyWebOsPreviewServer) }
+
+tasks.register<Exec>("previewWebOs") {
+    group = "application"
+    description = "Serves the webOS browser preview with a bounded EPG proxy on http://127.0.0.1:4173/."
+    dependsOn("jsBrowserDistribution", verifyWebOsPreviewServer)
+    commandLine("node", webOsPreviewServer.asFile.absolutePath)
+}
 
 tasks.register<Exec>("packageWebOs") {
     group = "distribution"

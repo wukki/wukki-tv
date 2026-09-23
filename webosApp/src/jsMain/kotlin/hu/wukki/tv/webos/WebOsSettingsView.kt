@@ -215,8 +215,8 @@ internal class WebOsSettingsView(
 
     private fun renderAbout() {
         row(AboutSettingsOption.APPLICATION, "settings.about", null, "Wukki TV")
-        row(AboutSettingsOption.VERSION, "settings.about.version", null, "0.14.0")
-        row(AboutSettingsOption.BUILD, "settings.about.build", null, "WOS-22")
+        row(AboutSettingsOption.VERSION, "settings.about.version", null, "0.14.1")
+        row(AboutSettingsOption.BUILD, "settings.about.build", null, "WOS-22.1")
         row(AboutSettingsOption.ENGINE, "settings.about.engine", null, "HTML5 video / webOS")
         row(AboutSettingsOption.PLATFORM, "settings.about.platform", null, platformLabel())
         row(AboutSettingsOption.OS, "settings.about.os", null, window.navigator.userAgent)
@@ -307,15 +307,7 @@ internal class WebOsSettingsView(
         }
     }
 
-    private fun loadText(path: String): String? =
-        try {
-            val request = js("new XMLHttpRequest()")
-            request.open("GET", path, false)
-            request.send()
-            if ((request.status as Number).toInt() in listOf(0, 200)) request.responseText as String else null
-        } catch (_: Throwable) {
-            null
-        }
+    private fun loadText(path: String): String? = embeddedWebOsResource(path)
 
     private fun toggleLabel(enabled: Boolean) =
         if (localizer.language == "ENGLISH") {

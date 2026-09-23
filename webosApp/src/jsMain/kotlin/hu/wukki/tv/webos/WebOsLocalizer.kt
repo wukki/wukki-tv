@@ -1,6 +1,7 @@
 package hu.wukki.tv.webos
 
 import kotlinx.browser.document
+import kotlinx.browser.window
 import org.w3c.dom.HTMLElement
 
 /** Loads the same property bundles that back the Compose clients. */
@@ -93,15 +94,7 @@ internal class WebOsLocalizer(
         (document.getElementById(id) as? HTMLElement)?.textContent = if (language == "ENGLISH") english else hungarian
     }
 
-    private fun loadBundle(path: String): Map<String, String> =
-        try {
-            val request = js("new XMLHttpRequest()")
-            request.open("GET", path, false)
-            request.send()
-            if ((request.status as Number).toInt() in listOf(0, 200)) parseProperties(request.responseText as String) else emptyMap()
-        } catch (_: Throwable) {
-            emptyMap()
-        }
+    private fun loadBundle(path: String): Map<String, String> = embeddedWebOsResource(path)?.let(::parseProperties).orEmpty()
 
     private fun parseProperties(source: String): Map<String, String> =
         source.lineSequence().map(String::trim).filter { it.isNotEmpty() && !it.startsWith('#') && '=' in it }.associate { line ->
@@ -137,3 +130,11 @@ internal class WebOsLocalizer(
             )
     }
 }
+
+internal fun embeddedWebOsResource(path: String): String? =
+    try {
+        val resources = window.asDynamic().WUKKI_EMBEDDED_RESOURCES
+        if (resources == null) null else resources[path] as? String
+    } catch (_: Throwable) {
+        null
+    }
