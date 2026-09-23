@@ -40,13 +40,73 @@ class WebOsEpgDataTest {
     @Test
     fun `EPG cache is versioned and independent`() {
         var stored: String? = null
-        val store = WebOsEpgCacheStore({ stored }, { stored = it }, { stored = null })
+        val store = WebOsEpgCacheStore({ stored }, { stored = it }, { stored = null }, now = { 0L })
         val cache = WebOsEpgCache("https://example.test/guide.xml", 42L, listOf(Programme("one", "News", 10L, 20L, "Description")))
 
         assertNull(store.save(cache))
         assertEquals(cache, store.load())
         assertNull(store.clear())
         assertNull(store.load())
+    }
+
+    @Test
+    fun `large EPG cache keeps a bounded relevant snapshot`() {
+        var stored: String? = null
+        val programmes =
+            (0 until 200).map { index ->
+                Programme(
+                    channelId = "channel-${index % 20}",
+                    title = "Programme $index",
+                    start = index * 1_000L,
+                    end = (index + 1) * 1_000L,
+                    description = "Description".repeat(20),
+                )
+            }
+        val store =
+            WebOsEpgCacheStore(
+                read = { stored },
+                write = { stored = it },
+                remove = { stored = null },
+                now = { 100_000L },
+                targetCharacters = 8_000,
+            )
+
+        assertNull(store.save(WebOsEpgCache("https://example.test/guide.xml", 42L, programmes)))
+
+        val loaded = store.load()
+        assertTrue(stored.orEmpty().length <= 8_000)
+        assertTrue(loaded != null && loaded.programmes.isNotEmpty())
+        assertTrue(loaded.programmes.size < programmes.size)
+    }
+
+    @Test
+    fun `quota failure retries with a smaller snapshot without losing previous data`() {
+        var stored: String? = null
+        var writes = 0
+        val programmes =
+            (0 until 80).map { index ->
+                Programme("channel", "Programme $index", index * 1_000L, (index + 1) * 1_000L, "Long description".repeat(10))
+            }
+        val store =
+            WebOsEpgCacheStore(
+                read = { stored },
+                write = { value ->
+                    writes++
+                    if (value.length > 2_000) throw IllegalStateException("quota")
+                    stored = value
+                },
+                remove = { stored = null },
+                now = { 0L },
+            )
+
+        assertNull(store.save(WebOsEpgCache("https://example.test/guide.xml", 42L, programmes)))
+        assertTrue(writes > 1)
+        assertTrue(store.load()?.programmes?.isNotEmpty() == true)
+
+        val goodSnapshot = stored
+        val failingStore = WebOsEpgCacheStore({ stored }, { throw IllegalStateException("quota") }, {}, now = { 0L })
+        assertTrue(failingStore.save(WebOsEpgCache("https://example.test/guide.xml", 43L, programmes)).orEmpty().contains("quota"))
+        assertEquals(goodSnapshot, stored)
     }
 
     @Test

@@ -11,6 +11,8 @@ import kotlin.js.jsTypeOf
 
 internal const val WEBOS_EPG_STORAGE_KEY = "hu.wukki.tv.webos.epg.v1"
 internal const val WEBOS_EPG_SCHEMA_VERSION = 1
+internal const val WEBOS_EPG_CACHE_TARGET_CHARACTERS = 1_500_000
+private const val WEBOS_EPG_CACHE_PAST_WINDOW_MILLIS = 6L * 60L * 60L * 1_000L
 
 internal class WebOsEpgParser(
     private val schedule: ((() -> Unit) -> Unit),
@@ -58,6 +60,8 @@ internal class WebOsEpgCacheStore(
     private val read: () -> String?,
     private val write: (String) -> Unit,
     private val remove: () -> Unit,
+    private val now: () -> Long = { Date.now().toLong() },
+    private val targetCharacters: Int = WEBOS_EPG_CACHE_TARGET_CHARACTERS,
 ) {
     fun load(): WebOsEpgCache? =
         runCatching {
@@ -86,28 +90,56 @@ internal class WebOsEpgCacheStore(
             WebOsEpgCache(sourceUrl, updatedAt, programmes)
         }.getOrNull()
 
-    fun save(cache: WebOsEpgCache): String? =
-        runCatching {
-            val envelope = js("({})")
-            envelope.schemaVersion = WEBOS_EPG_SCHEMA_VERSION
-            envelope.sourceUrl = cache.sourceUrl
-            envelope.updatedAt = cache.updatedAt.toDouble()
-            envelope.programmes =
-                cache.programmes
-                    .map { programme ->
-                        val encoded = js("({})")
-                        encoded.channelId = programme.channelId
-                        encoded.title = programme.title
-                        encoded.start = programme.start.toDouble()
-                        encoded.end = programme.end.toDouble()
-                        encoded.description = programme.description
-                        encoded.imageUrl = programme.imageUrl
-                        encoded
-                    }.toTypedArray()
-            write(JSON.stringify(envelope))
-        }.exceptionOrNull()?.let { "Az EPG cache nem menthető: ${it.message ?: it}" }
+    fun save(cache: WebOsEpgCache): String? {
+        val relevant =
+            cache.programmes
+                .asSequence()
+                .filter { it.end >= now() - WEBOS_EPG_CACHE_PAST_WINDOW_MILLIS }
+                .sortedBy(Programme::start)
+                .toList()
+        if (relevant.isEmpty()) return "Az EPG cache nem frissült, mert nincs aktuális vagy jövőbeli műsor."
+
+        var count = relevant.size
+        var lastError: Throwable? = null
+        while (count > 0) {
+            val encoded = encodeCache(cache.copy(programmes = relevant.take(count)))
+            if (encoded.length > targetCharacters && count > 1) {
+                val ratio = targetCharacters.toDouble() / encoded.length.toDouble()
+                count = (count * ratio * 0.9).toInt().coerceIn(1, count - 1)
+                continue
+            }
+            try {
+                write(encoded)
+                return null
+            } catch (error: Throwable) {
+                lastError = error
+                count /= 2
+            }
+        }
+        return "Az EPG cache nem menthető: ${lastError?.message ?: lastError ?: "ismeretlen tárolási hiba"}"
+    }
 
     fun clear(): String? = runCatching(remove).exceptionOrNull()?.let { "Az EPG cache nem törölhető: ${it.message ?: it}" }
+}
+
+private fun encodeCache(cache: WebOsEpgCache): String {
+    val envelope = js("({})")
+    envelope.schemaVersion = WEBOS_EPG_SCHEMA_VERSION
+    envelope.sourceUrl = cache.sourceUrl
+    envelope.updatedAt = cache.updatedAt.toDouble()
+    envelope.programmes =
+        cache.programmes
+            .map { programme ->
+                val encoded = js("({})")
+                encoded.channelId = programme.channelId
+                encoded.title = programme.title
+                encoded.start = programme.start.toDouble()
+                encoded.end = programme.end.toDouble()
+                encoded.description = programme.description
+                encoded.imageUrl = programme.imageUrl
+                encoded
+            }.toTypedArray()
+    return JSON.stringify(envelope)
 }
 
 private fun string(value: dynamic): String? = if (jsTypeOf(value) == "string") (value as String).takeIf(String::isNotBlank) else null

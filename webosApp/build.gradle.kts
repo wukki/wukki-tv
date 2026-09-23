@@ -115,7 +115,7 @@ val verifyWebOsAppShell by tasks.registering {
             "The Channels screen must keep the shared 62/38 list and preview layout with legacy-compatible flexbox."
         }
         check("category-filter" !in html) { "The obsolete cyclic category button must not return." }
-        check("\"version\": \"0.14.1\"" in appInfoJson) { "The local WebView CORS fix must package as webOS version 0.14.1." }
+        check("\"version\": \"0.14.2\"" in appInfoJson) { "The bounded EPG cache fix must package as webOS version 0.14.2." }
         listOf("playback-hud", "live-channel-number", "live-channel-logo", "live-programme-progress", "channel-number-input").forEach { id ->
             check("id=\"$id\"" in html) { "Missing WOS-18 live information element #$id." }
         }
