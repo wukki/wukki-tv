@@ -3,7 +3,10 @@ package hu.wukki.tv.webos
 import hu.wukki.tv.ui.guide.GuideProgrammeDialogEvent
 import hu.wukki.tv.ui.navigation.AppRemoteKey
 import hu.wukki.tv.ui.navigation.LiveChannelPreviewEvent
+import hu.wukki.tv.ui.navigation.PlaybackSettingsOption
 import hu.wukki.tv.ui.navigation.RemoteKey
+import hu.wukki.tv.ui.navigation.SettingsOptionId
+import hu.wukki.tv.ui.settings.SettingsSection
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -129,6 +132,23 @@ class WebOsRemoteControllerTest {
         assertFalse(host.overlayVisible)
         assertEquals(null, host.openedChannelIndex)
     }
+
+    @Test
+    fun `settings opens adjusts and closes through shared navigation`() {
+        val host = FakeNavigationHost(section = WebOsSection.SETTINGS)
+        val controller = WebOsRemoteController(host)
+        controller.onSectionActivated(WebOsSection.SETTINGS)
+        controller.onSettingsFocused(0)
+
+        assertTrue(controller.dispatch(AppRemoteKey(remote = RemoteKey.CONFIRM)))
+        assertEquals(SettingsSection.PLAYBACK, host.openedSettingsSection)
+
+        assertTrue(controller.dispatch(AppRemoteKey(remote = RemoteKey.RIGHT)))
+        assertEquals(PlaybackSettingsOption.AUTOPLAY to 1, host.adjustedSetting)
+
+        assertTrue(controller.dispatch(AppRemoteKey(back = true)))
+        assertEquals(null, host.openedSettingsSection)
+    }
 }
 
 private class FakeNavigationHost(
@@ -148,6 +168,8 @@ private class FakeNavigationHost(
     var openedChannelIndex: Int? = null
     var channelDelta: Int? = null
     var previousOpened = false
+    var openedSettingsSection: SettingsSection? = null
+    var adjustedSetting: Pair<SettingsOptionId, Int>? = null
     val dialogEvents = mutableListOf<GuideProgrammeDialogEvent>()
 
     override val activeSection: WebOsSection get() = section
@@ -160,6 +182,7 @@ private class FakeNavigationHost(
     override val liveOverlayVisible: Boolean get() = overlayVisible
     override val liveNavigationVisible: Boolean get() = navigationVisible
     override val dialogVisible: Boolean get() = dialogOpen
+    override val settingsDetailOpen: Boolean get() = openedSettingsSection != null
     override val activateSection: (WebOsSection) -> Unit = { section = it }
     override val focusNavigation: (WebOsSection) -> Unit = { focusedNavigation = it }
     override val focusSectionContent: (WebOsSection) -> Unit = {}
@@ -167,6 +190,11 @@ private class FakeNavigationHost(
     override val focusChannelSearch: () -> Unit = {}
     override val focusChannel: (Int, Boolean) -> Unit = { _, _ -> }
     override val focusSettings: (Int) -> Unit = {}
+    override val openSettingsSection: (SettingsSection) -> Unit = { openedSettingsSection = it }
+    override val closeSettingsSection: () -> Unit = { openedSettingsSection = null }
+    override val focusSettingsOption: (Int) -> Unit = {}
+    override val adjustSetting: (SettingsOptionId, Int) -> Unit = { option, delta -> adjustedSetting = option to delta }
+    override val activateSetting: (SettingsOptionId) -> Unit = {}
     override val activateChannelFilter: (Int) -> Unit = {}
     override val activateChannelEmpty: () -> Unit = {}
     override val clearChannelSearch: () -> Unit = {

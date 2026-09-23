@@ -11,6 +11,8 @@ import hu.wukki.tv.UNKNOWN_CHANNEL_NAME_ID
 import hu.wukki.tv.normalizedChannelHistory
 import hu.wukki.tv.programmeProgress
 import hu.wukki.tv.ui.guide.GuideProgrammeDialogEvent
+import hu.wukki.tv.ui.navigation.SettingsOptionId
+import hu.wukki.tv.ui.settings.SettingsSection
 import kotlinx.browser.document
 import kotlinx.browser.window
 import org.w3c.dom.HTMLButtonElement
@@ -81,9 +83,12 @@ private class WebOsApp {
     private val quickSettings = element<HTMLButtonElement>("quick-settings")
     private val quickSettingsDialog = element<HTMLElement>("quick-settings-dialog")
     private val closeQuickSettings = element<HTMLButtonElement>("close-quick-settings")
-    private val quickAspectRatio = element<HTMLElement>("quick-aspect-ratio")
+    private val quickAspectOptions = element<HTMLElement>("quick-aspect-options")
+    private val legalDialog = element<HTMLElement>("legal-dialog")
     private val appShell = WebOsAppShell(::onSectionActivated, ::onNavigationFocused)
-    private val playback = WebOsPlaybackView(appShell, ::show, ::restoreChannelFocus, ::recordSuccessfulPlayback)
+    private var settings = WebOsSettings()
+    private val localizer = WebOsLocalizer(settings.language)
+    private val playback = WebOsPlaybackView(appShell, localizer, ::show, ::restoreChannelFocus, ::recordSuccessfulPlayback)
     var channels = emptyList<Channel>()
     private var filteredChannels = emptyList<Channel>()
     private var categories = emptyList<String>()
@@ -95,7 +100,6 @@ private class WebOsApp {
     private var selectedChannelId: String? = null
     private var lastSuccessfulChannelId: String? = null
     private var recentChannelIds = emptyList<String>()
-    private var settings = WebOsSettings()
     private var playlistCachedAt = 0L
     private var storageProblem: String? = null
     private var favoriteFocusRequested = false
@@ -104,7 +108,22 @@ private class WebOsApp {
     private var programmeIndex = EpgProgrammeIndex(emptyList())
     private var epgLoadGeneration = 0L
     private var programmeRefreshTimer: Int? = null
+    private var playlistRefreshTimer: Int? = null
+    private var epgRefreshTimer: Int? = null
+    private var currentEpgUrl: String? = null
+    private var autoplayStarted = false
     private val epgParser = WebOsEpgParser(schedule = { action -> window.setTimeout(action, 0) })
+    private val settingsView =
+        WebOsSettingsView(
+            localizer = localizer,
+            settings = { settings },
+            update = ::updateSettings,
+            refreshPlaylist = ::fetchPlaylist,
+            refreshEpg = { currentEpgUrl?.let(::fetchEpg) ?: show(localizer.text("settings.no.sources")) },
+            channelCount = { channels.size },
+            playlistUpdatedAt = { playlistCachedAt },
+            platformLabel = { "webOS · ${playback.hlsSupport}" },
+        )
 
     private val navigationHost =
         object : WebOsNavigationHost {
@@ -117,7 +136,8 @@ private class WebOsApp {
             override val channelFilterCount: Int get() = filterButtons.size
             override val liveOverlayVisible: Boolean get() = document.body?.classList?.contains("hud-visible") == true
             override val liveNavigationVisible: Boolean get() = playback.navigationVisible
-            override val dialogVisible: Boolean get() = !quickSettingsDialog.hidden || playback.recoveryVisible
+            override val dialogVisible: Boolean get() = !quickSettingsDialog.hidden || !legalDialog.hidden || playback.recoveryVisible
+            override val settingsDetailOpen: Boolean get() = settingsView.detailOpen
             override val activateSection: (WebOsSection) -> Unit = appShell::activate
             override val focusNavigation: (WebOsSection) -> Unit = appShell::focusNavigation
             override val focusSectionContent: (WebOsSection) -> Unit = { section ->
@@ -140,6 +160,11 @@ private class WebOsApp {
                 focusChannelAt(index)
             }
             override val focusSettings: (Int) -> Unit = ::focusSettingsCategory
+            override val openSettingsSection: (SettingsSection) -> Unit = settingsView::open
+            override val closeSettingsSection: () -> Unit = settingsView::close
+            override val focusSettingsOption: (Int) -> Unit = settingsView::focusOption
+            override val adjustSetting: (SettingsOptionId, Int) -> Unit = settingsView::adjust
+            override val activateSetting: (SettingsOptionId) -> Unit = settingsView::activate
             override val activateChannelFilter: (Int) -> Unit = { index ->
                 filterButtons.getOrNull(index)?.click()
             }
@@ -182,14 +207,20 @@ private class WebOsApp {
         )
 
     fun start() {
-        platform.textContent = "${window.navigator.userAgent} · HLS: ${playback.hlsSupport} · Kotlin/JS core betöltve"
+        platform.textContent = "${window.navigator.userAgent} · HLS: ${playback.hlsSupport} · Kotlin/JS core"
         sourceInput.value = OFFICIAL_PLAYLIST_URL
         diagnosticInput.value = requestedStream() ?: DEFAULT_DIAGNOSTIC_STREAM_URL
         configureControls()
         playback.configure()
+        settingsView.onCategoryFocused = remoteController::onSettingsFocused
+        settingsView.onCategoryActivated = remoteController::onSettingsCategoryActivated
+        settingsView.onOptionFocused = remoteController::onSettingsOptionFocused
+        settingsView.configure()
         configureKeyboard()
         appShell.configure()
         restoreCachedState()
+        applySettings()
+        settingsView.refreshCopy()
         restoreEpgCache()
         fetchPlaylist()
     }
@@ -246,7 +277,7 @@ private class WebOsApp {
         selectedChannelId =
             previousSelectedId?.takeIf { id -> filteredChannels.any { it.id == id } }
                 ?: filteredChannels.firstOrNull()?.id
-        channelCount.textContent = "${filteredChannels.size} / ${channels.size} csatorna"
+        channelCount.textContent = "${filteredChannels.size} / ${localizer.text("settings.channels.count", channels.size)}"
         renderFilterTabs()
         renderEmptyState()
         applyChannelDisplaySettings()
@@ -259,10 +290,10 @@ private class WebOsApp {
     private fun renderFilterTabs() {
         channelTabs.innerHTML = ""
         filterButtons.clear()
-        addFilterTab("Összes", selectedFilter == WebOsChannelFilter.ALL) { selectFilter(WebOsChannelFilter.ALL) }
-        addFilterTab("Kedvencek", selectedFilter == WebOsChannelFilter.FAVORITES) { selectFilter(WebOsChannelFilter.FAVORITES) }
-        addFilterTab("Legutóbbiak", selectedFilter == WebOsChannelFilter.RECENT) { selectFilter(WebOsChannelFilter.RECENT) }
-        addFilterTab("Előző csatorna", false, ::openPreviousChannel)
+        addFilterTab(localizer.text("channels.all"), selectedFilter == WebOsChannelFilter.ALL) { selectFilter(WebOsChannelFilter.ALL) }
+        addFilterTab(localizer.text("channels.favorites"), selectedFilter == WebOsChannelFilter.FAVORITES) { selectFilter(WebOsChannelFilter.FAVORITES) }
+        addFilterTab(localizer.text("channels.recent"), selectedFilter == WebOsChannelFilter.RECENT) { selectFilter(WebOsChannelFilter.RECENT) }
+        addFilterTab(localizer.text("channels.previous"), false, ::openPreviousChannel)
         categories.forEach { category ->
             addFilterTab(displayGroup(category), selectedFilter == WebOsChannelFilter.CATEGORY && selectedCategory == category) {
                 selectedCategory = category
@@ -305,7 +336,7 @@ private class WebOsApp {
         val emptyState = channelEmptyState(channels.isNotEmpty(), filteredChannels.size, channelSearch.value, selectedFilter, playlistLoadFailed)
         channelEmpty.hidden = emptyState == null
         if (emptyState == null) return
-        val copy = emptyStateCopy(emptyState, channelSearch.value, selectedCategory)
+        val copy = emptyStateCopy(emptyState, channelSearch.value, selectedCategory, localizer)
         channelEmptyTitle.textContent = copy.first
         channelEmptyDescription.textContent = copy.second
         channelEmptyAction.textContent = copy.third
@@ -330,7 +361,7 @@ private class WebOsApp {
     }
 
     private fun applyChannelDisplaySettings() {
-        val rowHeight = channelRowHeight(settings.channelListMode)
+        val rowHeight = scaledChannelRowHeight()
         channelList.style.setProperty("--channel-row-height", "${rowHeight}px")
         document.body?.classList?.remove("channel-mode-compact", "channel-mode-normal", "channel-mode-detailed")
         document.body?.classList?.add("channel-mode-${settings.channelListMode.lowercase()}")
@@ -343,13 +374,13 @@ private class WebOsApp {
             channelList.scrollTop = 0.0
             return
         }
-        val rowHeight = channelRowHeight(settings.channelListMode)
+        val rowHeight = scaledChannelRowHeight()
         val maximumScroll = (filteredChannels.size * rowHeight - channelList.clientHeight).coerceAtLeast(0)
         channelList.scrollTop = (index * rowHeight).coerceAtMost(maximumScroll).toDouble()
     }
 
     private fun renderChannelWindow(focusIndex: Int? = null) {
-        val rowHeight = channelRowHeight(settings.channelListMode)
+        val rowHeight = scaledChannelRowHeight()
         val window = calculateChannelRenderWindow(filteredChannels.size, channelList.scrollTop, channelList.clientHeight, rowHeight)
         if (window == renderedWindow) {
             focusIndex?.let(::focusRenderedChannel)
@@ -399,7 +430,7 @@ private class WebOsApp {
             if (settings.showChannelProgramme) {
                 val programme = document.createElement("span") as HTMLElement
                 programme.className = "channel-programme"
-                programme.textContent = currentProgrammes(channel).current?.title?.ifBlank { "Névtelen műsor" } ?: "EPG nincs"
+                programme.textContent = currentProgrammes(channel).current?.title?.ifBlank { localizer.text("epg.untitled") } ?: localizer.text("epg.none")
                 text.appendChild(programme)
             }
             button.appendChild(number)
@@ -417,7 +448,12 @@ private class WebOsApp {
             button.onclick = {
                 selectedChannelId = channel.id
                 updateSelectedChannel()
-                show("Előnézet: ${displayName(channel)}. A lejátszáshoz válaszd a Megnyitás gombot.")
+                show(
+                    localized(
+                        "Előnézet: ${displayName(channel)}. A lejátszáshoz válaszd a Megnyitás gombot.",
+                        "Preview: ${displayName(channel)}. Select Open to start playback.",
+                    ),
+                )
                 null
             }
             val favorite = document.createElement("button") as HTMLButtonElement
@@ -473,9 +509,9 @@ private class WebOsApp {
         openPreviewChannel.disabled = channel == null
         favoritePreviewChannel.disabled = channel == null
         if (channel == null) {
-            previewName.textContent = "Válassz csatornát"
-            previewMeta.textContent = "A csatorna részletei itt jelennek meg."
-            previewMarker.textContent = "Előnézet"
+            previewName.textContent = localizer.text("channels.select")
+            previewMeta.textContent = localizer.text("epg.none.description")
+            previewMarker.textContent = localizer.text("channels.preview")
             previewLogo.hidden = true
             previewLogoFallback.hidden = false
             favoritePreviewChannel.textContent = "♡"
@@ -485,7 +521,7 @@ private class WebOsApp {
         previewName.textContent = displayName(channel)
         val sourceIndex = channels.indexOfFirst { it.id == channel.id }
         previewMeta.textContent = "${channel.tvgChno ?: sourceIndex + 1}. · ${displayGroup(channel)}"
-        previewMarker.textContent = if (channel.id == playback.playingChannelId) "Lejátszás alatt" else "Előnézet"
+        previewMarker.textContent = if (channel.id == playback.playingChannelId) localizer.text("channels.playing") else localizer.text("channels.preview")
         favoritePreviewChannel.textContent = if (channel.favorite) "♥" else "♡"
         favoritePreviewChannel.setAttribute("aria-pressed", channel.favorite.toString())
         val logo = channel.logo?.takeIf { settings.showLogos && it.isNotBlank() }
@@ -510,7 +546,7 @@ private class WebOsApp {
             return
         }
         val target = index.coerceIn(filteredChannels.indices)
-        val rowHeight = channelRowHeight(settings.channelListMode)
+        val rowHeight = scaledChannelRowHeight()
         val rowTop = target * rowHeight
         val rowBottom = rowTop + rowHeight
         val viewportBottom = channelList.scrollTop + channelList.clientHeight
@@ -546,12 +582,14 @@ private class WebOsApp {
         playlistLoading = true
         playlistLoadFailed = false
         loadPlaylist.disabled = true
-        loadPlaylist.textContent = "Betöltés…"
-        show("Hivatalos csatornalista betöltése…")
+        loadPlaylist.textContent = localizer.text("status.playlist.loading")
+        show(localizer.text("status.playlist.loading"))
         fetchPlaylistText(url)
             .then { text ->
                 val parsed = mergeFavoriteState(PlaylistParser.parse(text, WEBOS_PLAYLIST_ID, url), cachedChannels)
                 val discoveredEpgUrl = PlaylistParser.epgUrl(text, url)
+                currentEpgUrl = discoveredEpgUrl
+                settingsView.setEpgSource(discoveredEpgUrl)
                 if (parsed.isEmpty()) {
                     throw IllegalArgumentException("A letöltött fájl nem tartalmaz lejátszható csatornát.")
                 } else {
@@ -562,7 +600,8 @@ private class WebOsApp {
                     recentChannelIds = normalizedChannelHistory(recentChannelIds, parsed)
                     renderChannels()
                     persistState()
-                    show("${channels.size} csatorna betöltve.")
+                    schedulePlaylistRefresh()
+                    show(localizer.text("status.playlist.loaded", channels.size, "Wukki"))
                     if (!playback.isActive() && appShell.activeSection == WebOsSection.CHANNELS) restoreChannelFocus()
                     if (discoveredEpgUrl != null) fetchEpg(discoveredEpgUrl)
                 }
@@ -573,9 +612,14 @@ private class WebOsApp {
                 val detail = error.asDynamic().message ?: error.toString()
                 if (cachedChannels.isEmpty()) {
                     renderChannels()
-                    show("A playlist nem tölthető be: $detail")
+                    show(localizer.text("error.playlist.load", detail))
                 } else {
-                    show("A hálózati frissítés sikertelen; a mentett lista böngészhető, de a lejátszáshoz hálózat kell: $detail")
+                    show(
+                        localized(
+                            "A hálózati frissítés sikertelen; a mentett lista böngészhető, de a lejátszáshoz hálózat kell: $detail",
+                            "Network refresh failed; the saved list remains available, but playback requires a connection: $detail",
+                        ),
+                    )
                 }
             }
     }
@@ -583,13 +627,14 @@ private class WebOsApp {
     private fun finishPlaylistLoad(retry: Boolean = false) {
         playlistLoading = false
         loadPlaylist.disabled = false
-        loadPlaylist.textContent = if (retry) "Újrapróbálás" else "Playlist frissítése"
+        loadPlaylist.textContent = if (retry) localizer.text("action.retry") else localizer.text("settings.refresh")
+        schedulePlaylistRefresh(fromNow = retry)
     }
 
     private fun fetchEpg(url: String) {
         val generation = ++epgLoadGeneration
         epgParser.cancel()
-        show("Műsoradatok betöltése…")
+        show(localizer.text("status.epg.loading", "Wukki"))
         fetchBoundedText(url, MAX_EPG_BYTES, EPG_TIMEOUT_MS, "Az EPG")
             .then { xml ->
                 if (generation != epgLoadGeneration) return@then
@@ -599,16 +644,26 @@ private class WebOsApp {
                         if (generation != epgLoadGeneration) return@parse
                         applyEpg(parsed)
                         val cacheError = epgCacheStore.save(WebOsEpgCache(url, Date.now().toLong(), parsed))
-                        show("${parsed.size} műsor betöltve.${cacheError?.let { " $it" }.orEmpty()}")
+                        scheduleEpgRefresh()
+                        show(localizer.text("status.epg.loaded", parsed.size, "Wukki") + cacheError?.let { " $it" }.orEmpty())
                     },
                     onFailure = { error ->
-                        if (generation == epgLoadGeneration) show("Az EPG nem dolgozható fel; a videó tovább működik: ${error.message ?: error}")
+                        if (generation == epgLoadGeneration) {
+                            scheduleEpgRefresh(fromNow = true)
+                            show(
+                                localized(
+                                    "Az EPG nem dolgozható fel; a videó tovább működik: ${error.message ?: error}",
+                                    "EPG processing failed; video playback continues: ${error.message ?: error}",
+                                ),
+                            )
+                        }
                     },
                 )
             }.catch { error ->
                 if (generation == epgLoadGeneration) {
+                    scheduleEpgRefresh(fromNow = true)
                     val detail = error.asDynamic().message ?: error.toString()
-                    show("Az EPG nem tölthető be; a videó tovább működik: $detail")
+                    show(localized("Az EPG nem tölthető be; a videó tovább működik: $detail", "EPG download failed; video playback continues: $detail"))
                 }
             }
     }
@@ -662,8 +717,8 @@ private class WebOsApp {
         now: Long,
     ) {
         val current = pair.current
-        previewCurrentProgramme.textContent = current?.title?.ifBlank { "Névtelen műsor" } ?: "EPG nincs"
-        previewNextProgramme.textContent = pair.next?.let { "${formatEpgTime(it.start)} · ${it.title.ifBlank { "Névtelen műsor" }}" } ?: "EPG nincs"
+        previewCurrentProgramme.textContent = current?.title?.ifBlank { localizer.text("epg.untitled") } ?: localizer.text("epg.none")
+        previewNextProgramme.textContent = pair.next?.let { "${formatEpgTime(it.start)} · ${it.title.ifBlank { localizer.text("epg.untitled") }}" } ?: localizer.text("epg.none")
         previewProgrammeTime.textContent = current?.let { "${formatEpgTime(it.start)} – ${formatEpgTime(it.end)}" }.orEmpty()
         previewProgrammeTime.hidden = current == null
         previewProgrammeDescription.textContent = current?.description.orEmpty()
@@ -754,14 +809,6 @@ private class WebOsApp {
         previewProgrammeImage.addEventListener("error", {
             previewProgrammeImage.hidden = true
         })
-        val settingsButtons = document.querySelectorAll("#view-settings .settings-categories button")
-        for (index in 0 until settingsButtons.length) {
-            val button = settingsButtons.item(index) as? HTMLButtonElement ?: continue
-            button.onfocus = {
-                remoteController.onSettingsFocused(index)
-                null
-            }
-        }
     }
 
     private fun openSearch() {
@@ -806,7 +853,13 @@ private class WebOsApp {
         selectedChannelId = channel.id
         renderChannels()
         persistState()
-        show("${displayName(channel)} ${if (favorite) "a kedvencekhez adva" else "eltávolítva a kedvencek közül"}.")
+        show(
+            if (settings.language == "ENGLISH") {
+                "${displayName(channel)} ${if (favorite) "added to" else "removed from"} favorites."
+            } else {
+                "${displayName(channel)} ${if (favorite) "a kedvencekhez adva" else "eltávolítva a kedvencek közül"}."
+            },
+        )
     }
 
     private fun switchChannel(delta: Int) {
@@ -818,25 +871,29 @@ private class WebOsApp {
     private fun openPreviousChannel() {
         val previousId = recentChannelIds.firstOrNull { it != playback.playingChannelId }
         val index = channels.indexOfFirst { it.id == previousId }
-        if (index >= 0) startPlayback(index) else show("Még nincs előző sikeresen lejátszott csatorna.")
+        if (index >= 0) startPlayback(index) else show(localized("Még nincs előző sikeresen lejátszott csatorna.", "No previously played channel is available yet."))
     }
 
     private fun selectChannelNumber(number: String) {
         val requested = number.toIntOrNull() ?: return
         val index = channels.indexOfFirst { it.tvgChno == requested }.takeIf { it >= 0 } ?: (requested - 1).takeIf { it in channels.indices }
-        if (index != null) startPlayback(index) else show("Nincs $number számú csatorna.")
+        if (index != null) startPlayback(index) else show(localized("Nincs $number számú csatorna.", "Channel number $number is unavailable."))
     }
 
     private fun showQuickSettings() {
         playback.hideHud()
-        quickAspectRatio.textContent = settings.aspectRatio
+        renderQuickAspectOptions()
         quickSettingsDialog.hidden = false
-        closeQuickSettings.focus()
+        (quickAspectOptions.querySelector("button[aria-pressed=\"true\"]") as? HTMLElement)?.focus() ?: closeQuickSettings.focus()
     }
 
     private fun closeDialog() {
         if (playback.recoveryVisible) {
             playback.handleRecoveryDialog(GuideProgrammeDialogEvent.BACK)
+            return
+        }
+        if (!legalDialog.hidden) {
+            legalDialog.hidden = true
             return
         }
         quickSettingsDialog.hidden = true
@@ -849,8 +906,19 @@ private class WebOsApp {
     private fun handleDialogEvent(event: GuideProgrammeDialogEvent) {
         if (playback.recoveryVisible) {
             playback.handleRecoveryDialog(event)
-        } else if (event == GuideProgrammeDialogEvent.BACK || event == GuideProgrammeDialogEvent.CONFIRM) {
-            closeDialog()
+        } else if (!legalDialog.hidden) {
+            if (event == GuideProgrammeDialogEvent.BACK || event == GuideProgrammeDialogEvent.CONFIRM) {
+                (document.getElementById("close-legal") as? HTMLButtonElement)?.click()
+            }
+        } else {
+            val buttons = quickAspectOptions.querySelectorAll("button")
+            val focused = (0 until buttons.length).indexOfFirst { buttons.item(it) === document.activeElement }.coerceAtLeast(0)
+            when (event) {
+                GuideProgrammeDialogEvent.LEFT -> (buttons.item((focused - 1).coerceAtLeast(0)) as? HTMLElement)?.focus()
+                GuideProgrammeDialogEvent.RIGHT -> (buttons.item((focused + 1).coerceAtMost((buttons.length - 1).coerceAtLeast(0))) as? HTMLElement)?.focus()
+                GuideProgrammeDialogEvent.CONFIRM -> (buttons.item(focused) as? HTMLButtonElement)?.click()
+                GuideProgrammeDialogEvent.BACK -> closeDialog()
+            }
         }
     }
 
@@ -860,26 +928,31 @@ private class WebOsApp {
         val state = loaded.state
         if (state == null) {
             renderChannels()
-            show("Nincs mentett csatornalista; hálózati betöltés indul.")
+            show(localized("Nincs mentett csatornalista; hálózati betöltés indul.", "No saved channel list; starting network download."))
             return
         }
 
         cachedChannels = state.channels
         channels = state.channels
         settings = state.settings
+        localizer.select(settings.language)
         lastSuccessfulChannelId = state.lastChannelId?.takeIf { id -> channels.any { it.id == id } }
         recentChannelIds = normalizedChannelHistory(state.recentChannelIds, channels)
         playlistCachedAt = state.playlistUpdatedAt
         selectedChannelId = lastSuccessfulChannelId ?: channels.firstOrNull()?.id
         renderChannels()
         restoreChannelFocus()
-        show("${channels.size} mentett csatorna betöltve; hálózati frissítés indul.")
+        show(localized("${channels.size} mentett csatorna betöltve; hálózati frissítés indul.", "${channels.size} saved channels loaded; starting network refresh."))
+        maybeAutoplay()
     }
 
     private fun restoreEpgCache() {
         val cache = epgCacheStore.load() ?: return
+        currentEpgUrl = cache.sourceUrl
+        settingsView.setEpgSource(cache.sourceUrl)
         applyEpg(cache.programmes)
-        show("${cache.programmes.size} mentett műsor betöltve; hálózati frissítés indul.")
+        scheduleEpgRefresh()
+        show(localized("${cache.programmes.size} mentett műsor betöltve; hálózati frissítés indul.", "${cache.programmes.size} saved programmes loaded; starting network refresh."))
     }
 
     private fun recordSuccessfulPlayback(channelId: String) {
@@ -905,6 +978,83 @@ private class WebOsApp {
             )
         storageProblem = stateStore.save(state)?.let { "Tárolási hiba: $it" }
     }
+
+    private fun updateSettings(value: WebOsSettings) {
+        settings = value
+        applySettings()
+        renderChannels()
+        persistState()
+        schedulePlaylistRefresh()
+        scheduleEpgRefresh()
+    }
+
+    private fun applySettings() {
+        (document.documentElement as? HTMLElement)?.style?.setProperty("--ui-scale", settings.uiScale.toString())
+        playback.updateSettings(settings)
+        localizer.select(settings.language)
+        applyChannelDisplaySettings()
+    }
+
+    private fun scaledChannelRowHeight(): Int = (channelRowHeight(settings.channelListMode) * settings.uiScale).toInt().coerceAtLeast(48)
+
+    private fun maybeAutoplay() {
+        if (autoplayStarted || !settings.autoPlayOnLaunch) return
+        val index = channels.indexOfFirst { it.id == lastSuccessfulChannelId }
+        if (index >= 0) {
+            autoplayStarted = true
+            startPlayback(index)
+        }
+    }
+
+    private fun schedulePlaylistRefresh(fromNow: Boolean = false) {
+        playlistRefreshTimer?.let(window::clearTimeout)
+        val updatedAt = if (fromNow) Date.now().toLong() else playlistCachedAt
+        playlistRefreshTimer = scheduleRefresh(settings.playlistRefreshHours, updatedAt, ::fetchPlaylist)
+    }
+
+    private fun scheduleEpgRefresh(fromNow: Boolean = false) {
+        epgRefreshTimer?.let(window::clearTimeout)
+        val updatedAt = if (fromNow) Date.now().toLong() else epgCacheStore.load()?.updatedAt ?: 0L
+        epgRefreshTimer = scheduleRefresh(settings.epgRefreshHours, updatedAt) { currentEpgUrl?.let(::fetchEpg) }
+    }
+
+    private fun scheduleRefresh(
+        hours: Int,
+        updatedAt: Long,
+        action: () -> Unit,
+    ): Int? {
+        val delay = refreshDelayMillis(hours, updatedAt, Date.now().toLong()) ?: return null
+        return window.setTimeout(action, delay)
+    }
+
+    private fun renderQuickAspectOptions() {
+        quickAspectOptions.innerHTML = ""
+        listOf("AUTO", "RATIO_16_9", "RATIO_4_3", "RATIO_21_9", "FILL_CROP").forEach { ratio ->
+            val button = document.createElement("button") as HTMLButtonElement
+            button.type = "button"
+            button.textContent =
+                when (ratio) {
+                    "RATIO_16_9" -> "16:9"
+                    "RATIO_4_3" -> "4:3"
+                    "RATIO_21_9" -> "21:9"
+                    "FILL_CROP" -> if (settings.language == "ENGLISH") "Fill" else "Kitöltés"
+                    else -> "Auto"
+                }
+            button.setAttribute("aria-pressed", (playback.effectiveAspectRatio == ratio).toString())
+            button.onclick = {
+                playback.setTemporaryAspectRatio(ratio)
+                renderQuickAspectOptions()
+                (quickAspectOptions.querySelector("button[aria-pressed=\"true\"]") as? HTMLElement)?.focus()
+                null
+            }
+            quickAspectOptions.appendChild(button)
+        }
+    }
+
+    private fun localized(
+        hungarian: String,
+        english: String,
+    ): String = if (settings.language == "ENGLISH") english else hungarian
 }
 
 internal fun displayName(channel: Channel): String = channel.name.takeUnless { it == UNKNOWN_CHANNEL_NAME_ID } ?: "Ismeretlen csatorna"
@@ -913,30 +1063,35 @@ private fun emptyStateCopy(
     state: WebOsChannelEmptyState,
     query: String,
     category: String?,
+    localizer: WebOsLocalizer,
 ): Triple<String, String, String> =
     when (state) {
         WebOsChannelEmptyState.NO_DATA -> {
-            Triple("Még nincsenek csatornák", "Frissítsd a hivatalos Wukki csatornalistát a tévézés megkezdéséhez.", "Frissítés")
+            Triple(localizer.text("channels.empty.no.data.title"), localizer.text("channels.empty.no.data.description"), localizer.text("settings.refresh"))
         }
 
         WebOsChannelEmptyState.LOAD_FAILED -> {
-            Triple("Nem sikerült betölteni a csatornákat", "Ellenőrizd az internetkapcsolatot, majd próbáld újra.", "Újrapróbálás")
+            Triple(localizer.text("channels.empty.load.failed.title"), localizer.text("channels.empty.load.failed.description"), localizer.text("action.retry"))
         }
 
         WebOsChannelEmptyState.NO_SEARCH_RESULTS -> {
-            Triple("Nincs találat", "A keresés nem talált csatornát erre: „$query”.", "Keresés törlése")
+            Triple(localizer.text("channels.empty.search.title"), localizer.text("channels.empty.search.description", query), localizer.text("channels.search.clear"))
         }
 
         WebOsChannelEmptyState.NO_FAVORITES -> {
-            Triple("Még nincsenek kedvenc csatornáid", "Az összes csatorna listájában a szív ikonnal adhatsz hozzá kedvenceket.", "Összes csatorna")
+            Triple(localizer.text("channels.empty.favorites.title"), localizer.text("channels.empty.favorites.description"), localizer.text("channels.show.all"))
         }
 
         WebOsChannelEmptyState.NO_RECENT -> {
-            Triple("Még nincs megtekintési előzmény", "A sikeresen lejátszott csatornák itt jelennek meg.", "Összes csatorna")
+            Triple(localizer.text("channels.empty.recent.title"), localizer.text("channels.empty.recent.description"), localizer.text("channels.show.all"))
         }
 
         WebOsChannelEmptyState.NO_CATEGORY_RESULTS -> {
-            Triple("Ebben a kategóriában nincs csatorna", "A(z) „${category?.let(::displayGroup).orEmpty()}” kategória jelenleg üres.", "Összes csatorna")
+            Triple(
+                localizer.text("channels.empty.category.title"),
+                localizer.text("channels.empty.category.description", category?.let(::displayGroup).orEmpty()),
+                localizer.text("channels.show.all"),
+            )
         }
     }
 
@@ -958,6 +1113,16 @@ internal fun shouldHandleChannelSwitch(
     nowMs: Double,
     lastSwitchMs: Double,
 ): Boolean = !repeated || nowMs - lastSwitchMs >= REPEATED_CHANNEL_SWITCH_INTERVAL_MS
+
+internal fun refreshDelayMillis(
+    hours: Int,
+    updatedAt: Long,
+    now: Long,
+): Int? {
+    if (hours <= 0) return null
+    val interval = hours * 60L * 60L * 1_000L
+    return (updatedAt + interval - now).coerceIn(1_000L, interval).toInt()
+}
 
 private fun isFocusable(element: HTMLElement): Boolean {
     if (element.asDynamic().disabled == true || element.getAttribute("aria-hidden") == "true") return false

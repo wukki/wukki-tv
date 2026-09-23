@@ -66,7 +66,7 @@
         </section>
         <section id="playback-recovery" class="playback-recovery" role="dialog" aria-modal="true" aria-labelledby="playback-recovery-title" hidden>
             <h2 id="playback-recovery-title">Lejátszási hiba</h2>
-            <p>Az adás nem érhető el. Próbáld újra, vagy válassz másik csatornát.</p>
+            <p id="playback-recovery-help">Az adás nem érhető el. Próbáld újra, vagy válassz másik csatornát.</p>
             <p id="playback-technical-detail" class="playback-technical-detail" hidden></p>
             <div class="playback-recovery-actions">
                 <button id="retry-playback" type="button">Újrapróbálás</button>
@@ -80,8 +80,8 @@
         <div class="view-heading"><h1>Műsorújság</h1></div>
         <div class="placeholder-card">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 4h-1V2h-2v2H8V2H6v2H5a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3Zm1 15a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-8h16v8Zm0-10H4V7a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2Z"/></svg>
-            <h2>A műsorújság előkészítve</h2>
-            <p>A teljes, idővonalas műsorújság ezen a nézeten jelenik meg.</p>
+            <h2 id="guide-placeholder-title">A műsorújság előkészítve</h2>
+            <p id="guide-placeholder-description">A teljes, idővonalas műsorújság ezen a nézeten jelenik meg.</p>
         </div>
     </section>
 
@@ -119,11 +119,11 @@
                 <p id="channel-preview-meta">A csatorna részletei itt jelennek meg.</p>
                 <div id="channel-preview-programmes" class="channel-preview-programmes">
                     <img id="channel-preview-programme-image" class="channel-preview-programme-image" alt="" hidden>
-                    <p><span>Most</span><strong id="channel-preview-current">EPG nincs</strong></p>
+                    <p><span id="channel-preview-now-label">Most</span><strong id="channel-preview-current">EPG nincs</strong></p>
                     <p id="channel-preview-time" class="channel-preview-time" hidden></p>
                     <div id="channel-preview-progress" class="channel-preview-progress" role="progressbar" aria-label="Műsor előrehaladása" hidden><span id="channel-preview-progress-value"></span></div>
                     <p id="channel-preview-description" class="channel-preview-description" hidden></p>
-                    <p><span>Következő</span><strong id="channel-preview-next">EPG nincs</strong></p>
+                    <p><span id="channel-preview-next-label">Következő</span><strong id="channel-preview-next">EPG nincs</strong></p>
                 </div>
                 <div class="channel-preview-actions">
                     <button id="open-preview-channel" type="button">Megnyitás</button>
@@ -137,28 +137,27 @@
         <div class="view-heading"><h1>Beállítások</h1></div>
         <div class="settings-layout">
             <nav class="settings-categories" aria-label="Beállítási kategóriák">
-                <button type="button">Lejátszási beállítások <span>›</span></button>
-                <button type="button">EPG beállítások <span>›</span></button>
-                <button type="button">Megjelenítés <span>›</span></button>
-                <button type="button">Szülői felügyelet <span>›</span></button>
-                <button type="button">Playlist kezelése <span>›</span></button>
-                <button type="button">Nyelv <span>›</span></button>
-                <button class="is-active" type="button">Névjegy <span>›</span></button>
+                <button type="button" data-settings-section="PLAYBACK"><span class="settings-category-label">Lejátszási beállítások</span><span>›</span></button>
+                <button type="button" data-settings-section="EPG"><span class="settings-category-label">EPG beállítások</span><span>›</span></button>
+                <button type="button" data-settings-section="DISPLAY"><span class="settings-category-label">Megjelenítés</span><span>›</span></button>
+                <button type="button" data-settings-section="PARENTAL"><span class="settings-category-label">Szülői felügyelet</span><span>›</span></button>
+                <button type="button" data-settings-section="PLAYLISTS"><span class="settings-category-label">Playlist kezelése</span><span>›</span></button>
+                <button type="button" data-settings-section="LANGUAGE"><span class="settings-category-label">Nyelv</span><span>›</span></button>
+                <button type="button" data-settings-section="ABOUT"><span class="settings-category-label">Névjegy</span><span>›</span></button>
             </nav>
-            <div class="settings-detail">
-                <h2>Rendszerinformáció és diagnosztika</h2>
-                <p id="platform" class="platform-info"></p>
-                <div class="diagnostic-group">
-                    <label for="source-url">Hivatalos Wukki playlist</label>
-                    <input id="source-url" type="url" readonly tabindex="-1">
-                    <button id="load-playlist" type="button">Playlist frissítése</button>
-                </div>
-                <div class="diagnostic-group">
-                    <label for="diagnostic-url">Diagnosztikai stream URL</label>
-                    <input id="diagnostic-url" type="url" inputmode="url" autocomplete="off" placeholder="http://…/stream.m3u8">
-                    <button id="play-direct" type="button">Közvetlen lejátszás</button>
+            <div id="settings-detail" class="settings-detail">
+                <div id="settings-home" class="settings-home">
+                    <h2>Állítsd be az alkalmazást<br>a saját igényeid szerint.</h2>
+                    <p>A bal oldali listából válassz egy kategóriát.</p>
                 </div>
             </div>
+        </div>
+        <div class="settings-diagnostics" hidden>
+            <p id="platform" class="platform-info"></p>
+            <input id="source-url" type="url" readonly tabindex="-1">
+            <button id="load-playlist" type="button">Playlist frissítése</button>
+            <input id="diagnostic-url" type="url" inputmode="url" autocomplete="off">
+            <button id="play-direct" type="button">Közvetlen lejátszás</button>
         </div>
     </section>
 
@@ -167,9 +166,17 @@
     <section id="quick-settings-dialog" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="quick-settings-title" hidden>
         <div class="modal-card">
             <h2 id="quick-settings-title">Gyorsbeállítások</h2>
-            <p>Képarány: <strong id="quick-aspect-ratio">Automatikus</strong></p>
-            <p>A részletes lejátszási opciók a Beállításokban érhetők el.</p>
+            <p id="quick-settings-temporary">Csak az aktuális lejátszásra érvényes.</p>
+            <div id="quick-aspect-options" class="quick-aspect-options" aria-label="Képarány"></div>
+            <p id="quick-unsupported-note" class="unsupported-note">A hangsáv és a felirat kiválasztását ez a webOS lejátszó nem teszi elérhetővé.</p>
             <button id="close-quick-settings" type="button">Bezárás</button>
+        </div>
+    </section>
+    <section id="legal-dialog" class="modal-backdrop" role="dialog" aria-modal="true" hidden>
+        <div class="modal-card legal-card">
+            <h2 id="legal-title"></h2>
+            <pre id="legal-content"></pre>
+            <button id="close-legal" type="button">Bezárás</button>
         </div>
     </section>
 </main>

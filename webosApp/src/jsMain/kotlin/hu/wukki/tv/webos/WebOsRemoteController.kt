@@ -12,8 +12,11 @@ import hu.wukki.tv.ui.navigation.DashboardSection
 import hu.wukki.tv.ui.navigation.LiveChannelPreviewEffect
 import hu.wukki.tv.ui.navigation.LiveChannelPreviewEvent
 import hu.wukki.tv.ui.navigation.SettingsNavigationEffect
+import hu.wukki.tv.ui.navigation.SettingsOptionId
 import hu.wukki.tv.ui.navigation.TvFocusZone
+import hu.wukki.tv.ui.navigation.options
 import hu.wukki.tv.ui.navigation.reduce
+import hu.wukki.tv.ui.settings.SettingsSection
 import kotlinx.browser.window
 import org.w3c.dom.events.KeyboardEvent
 import kotlin.js.Date
@@ -29,6 +32,7 @@ internal interface WebOsNavigationHost {
     val liveOverlayVisible: Boolean
     val liveNavigationVisible: Boolean
     val dialogVisible: Boolean
+    val settingsDetailOpen: Boolean
     val activateSection: (WebOsSection) -> Unit
     val focusNavigation: (WebOsSection) -> Unit
     val focusSectionContent: (WebOsSection) -> Unit
@@ -36,6 +40,11 @@ internal interface WebOsNavigationHost {
     val focusChannelSearch: () -> Unit
     val focusChannel: (Int, Boolean) -> Unit
     val focusSettings: (Int) -> Unit
+    val openSettingsSection: (SettingsSection) -> Unit
+    val closeSettingsSection: () -> Unit
+    val focusSettingsOption: (Int) -> Unit
+    val adjustSetting: (SettingsOptionId, Int) -> Unit
+    val activateSetting: (SettingsOptionId) -> Unit
     val activateChannelFilter: (Int) -> Unit
     val activateChannelEmpty: () -> Unit
     val clearChannelSearch: () -> Unit
@@ -118,7 +127,22 @@ internal class WebOsRemoteController(
     }
 
     fun onSettingsFocused(index: Int) {
-        state = state.copy(focus = TvFocusZone.CONTENT, settings = state.settings.copy(categoryIndex = index))
+        state = state.copy(focus = TvFocusZone.CONTENT, settings = state.settings.copy(section = null, option = null, categoryIndex = index))
+    }
+
+    fun onSettingsCategoryActivated(index: Int) {
+        val section = SettingsSection.entries[index.coerceIn(0, SettingsSection.entries.lastIndex)]
+        state = state.copy(focus = TvFocusZone.CONTENT, settings = state.settings.copy(section = section, categoryIndex = section.ordinal, option = section.options().firstOrNull()))
+        host.openSettingsSection(section)
+        host.focusSettingsOption(0)
+    }
+
+    fun onSettingsOptionFocused(index: Int) {
+        val options =
+            state.settings.section
+                ?.options()
+                .orEmpty()
+        options.getOrNull(index)?.let { option -> state = state.copy(focus = TvFocusZone.CONTENT, settings = state.settings.copy(option = option)) }
     }
 
     fun handle(event: KeyboardEvent): Boolean {
@@ -165,6 +189,7 @@ internal class WebOsRemoteController(
             overlayVisible = host.liveOverlayVisible,
             dialogVisible = host.dialogVisible,
             navigationVisible = host.liveNavigationVisible,
+            settings = if (!host.settingsDetailOpen) state.settings.copy(section = null, option = null) else state.settings,
             nowMillis = nowMillis,
         )
 
@@ -270,17 +295,28 @@ internal class WebOsRemoteController(
 
     private fun applyBack(effect: AppBackNavigationEffect) {
         when (effect) {
-            AppBackNavigationEffect.CLOSE_CHANNEL_SEARCH -> host.clearChannelSearch()
+            AppBackNavigationEffect.CLOSE_CHANNEL_SEARCH -> {
+                host.clearChannelSearch()
+            }
 
-            AppBackNavigationEffect.DISMISS_LIVE_OVERLAY -> host.hideLiveOverlay()
+            AppBackNavigationEffect.DISMISS_LIVE_OVERLAY -> {
+                host.hideLiveOverlay()
+            }
 
             AppBackNavigationEffect.FOCUS_MAIN_NAVIGATION,
-            AppBackNavigationEffect.CLOSE_SETTINGS_DETAIL,
-            -> host.focusNavigation(host.activeSection)
+            -> {
+                host.focusNavigation(host.activeSection)
+            }
+
+            AppBackNavigationEffect.CLOSE_SETTINGS_DETAIL -> {
+                host.closeSettingsSection()
+                host.focusSettings(state.settings.categoryIndex)
+            }
 
             AppBackNavigationEffect.DISMISS_GUIDE_DIALOG,
             AppBackNavigationEffect.EXIT_APPLICATION,
-            -> Unit
+            -> {
+            }
         }
     }
 
@@ -313,7 +349,12 @@ internal class WebOsRemoteController(
     }
 
     private fun applySettings(effect: SettingsNavigationEffect) {
-        if (effect == SettingsNavigationEffect.ExitToMainMenu) host.focusNavigation(WebOsSection.SETTINGS)
+        when (effect) {
+            SettingsNavigationEffect.None -> state.settings.section?.let(host.openSettingsSection)
+            SettingsNavigationEffect.ExitToMainMenu -> host.focusNavigation(WebOsSection.SETTINGS)
+            is SettingsNavigationEffect.Adjust -> host.adjustSetting(effect.option, effect.delta)
+            is SettingsNavigationEffect.Activate -> host.activateSetting(effect.option)
+        }
     }
 
     private fun restoreFocus() {
@@ -322,9 +363,17 @@ internal class WebOsRemoteController(
             return
         }
         when (host.activeSection) {
-            WebOsSection.CHANNELS -> restoreChannelFocus()
-            WebOsSection.SETTINGS -> host.focusSettings(state.settings.categoryIndex)
-            else -> host.focusSectionContent(host.activeSection)
+            WebOsSection.CHANNELS -> {
+                restoreChannelFocus()
+            }
+
+            WebOsSection.SETTINGS -> {
+                if (state.settings.section == null) host.focusSettings(state.settings.categoryIndex) else host.focusSettingsOption(state.settings.optionIndex)
+            }
+
+            else -> {
+                host.focusSectionContent(host.activeSection)
+            }
         }
     }
 

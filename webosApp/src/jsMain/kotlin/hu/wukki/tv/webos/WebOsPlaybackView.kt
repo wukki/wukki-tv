@@ -15,6 +15,7 @@ import kotlin.js.Date
 
 internal class WebOsPlaybackView(
     private val appShell: WebOsAppShell,
+    private val localizer: WebOsLocalizer,
     private val showStatus: (String) -> Unit,
     private val restoreChannelFocus: () -> Unit,
     private val recordSuccessfulPlayback: (String) -> Unit,
@@ -64,6 +65,9 @@ internal class WebOsPlaybackView(
     private var hudTimer: Int? = null
     private var navigationTimer: Int? = null
     private var recoveryActionIndex = 0
+    private var persistentSettings = WebOsSettings()
+    private var temporaryAspectRatio: String? = null
+    val effectiveAspectRatio: String get() = temporaryAspectRatio ?: persistentSettings.aspectRatio
 
     fun configure() {
         stopButton.onclick = {
@@ -107,6 +111,8 @@ internal class WebOsPlaybackView(
         programmes: ProgrammePair = ProgrammePair(null, null),
         now: Long = Date.now().toLong(),
     ) {
+        temporaryAspectRatio = null
+        updateSettings(settings)
         playingChannel = channel
         playingProgrammes = programmes
         renderInformationPanel(channel, programmes, now, preview = false)
@@ -125,10 +131,22 @@ internal class WebOsPlaybackView(
         )
     }
 
+    fun updateSettings(settings: WebOsSettings) {
+        persistentSettings = settings
+        video.volume = settings.volume.coerceIn(0, 100) / 100.0
+        session.updatePolicy(WebOsPlaybackPolicy(settings.autoReconnect, settings.reconnectAttempts))
+        applyAspectRatio()
+    }
+
+    fun setTemporaryAspectRatio(value: String) {
+        temporaryAspectRatio = value
+        applyAspectRatio()
+    }
+
     fun stop() {
         session.stop()
         leave()
-        showStatus("Lejátszás leállítva.")
+        showStatus(if (localizer.language == "ENGLISH") "Playback stopped." else "Lejátszás leállítva.")
     }
 
     fun showHud() {
@@ -282,15 +300,20 @@ internal class WebOsPlaybackView(
             }
 
             PlaybackState.OPENING -> {
-                showTransientState("Betöltés", snapshot.detail, reconnecting = false)
+                val detail = snapshot.channel?.let { localizer.text("playback.channel.opening", displayName(it)) }
+                showTransientState(localizer.text("playback.opening"), detail, reconnecting = false)
             }
 
             PlaybackState.BUFFERING -> {
-                showTransientState("Pufferelés", null, reconnecting = false)
+                showTransientState(localizer.text("playback.buffering"), null, reconnecting = false)
             }
 
             PlaybackState.RECONNECTING -> {
-                showTransientState("Újracsatlakozás", snapshot.detail, reconnecting = true)
+                val detail =
+                    snapshot.channel?.let {
+                        localizer.text("playback.reconnect.attempt", displayName(it), snapshot.reconnectAttempt ?: 1, snapshot.reconnectAttempts)
+                    }
+                showTransientState(localizer.text("playback.reconnecting"), detail, reconnecting = true)
             }
 
             PlaybackState.PLAYING -> {
@@ -321,7 +344,7 @@ internal class WebOsPlaybackView(
         hideHud()
         stateOverlay.hidden = true
         recoveryDialog.hidden = false
-        technicalDetail.textContent = snapshot.technicalDetail ?: "Nem érkezett technikai hibakód."
+        technicalDetail.textContent = snapshot.technicalDetail ?: if (localizer.language == "ENGLISH") "No technical error code was provided." else "Nem érkezett technikai hibakód."
         technicalDetail.hidden = true
         recoveryActionIndex = 0
         retryPlayback.focus()
@@ -332,12 +355,26 @@ internal class WebOsPlaybackView(
         cancelNavigationTimer()
         document.body?.classList?.remove("playback-active", "hud-visible", "live-navigation-hidden")
         playingChannel = null
+        temporaryAspectRatio = null
         showChannelNumberInput(null)
         stateOverlay.hidden = true
         recoveryDialog.hidden = true
         liveEmpty.hidden = false
         appShell.activate(WebOsSection.CHANNELS)
         restoreChannelFocus()
+    }
+
+    private fun applyAspectRatio() {
+        document.body?.classList?.remove("aspect-auto", "aspect-ratio-16-9", "aspect-ratio-4-3", "aspect-ratio-21-9", "aspect-fill-crop")
+        val className =
+            when (effectiveAspectRatio) {
+                "RATIO_16_9" -> "aspect-ratio-16-9"
+                "RATIO_4_3" -> "aspect-ratio-4-3"
+                "RATIO_21_9" -> "aspect-ratio-21-9"
+                "FILL_CROP" -> "aspect-fill-crop"
+                else -> "aspect-auto"
+            }
+        document.body?.classList?.add(className)
     }
 
     private fun renderInformationPanel(
@@ -348,14 +385,14 @@ internal class WebOsPlaybackView(
     ) {
         channelNumber.textContent = channel.tvgChno?.toString() ?: "–"
         val current = programmes.current
-        nowPlaying.textContent = current?.title?.ifBlank { "Névtelen műsor" } ?: "EPG nincs"
+        nowPlaying.textContent = current?.title?.ifBlank { localizer.text("epg.untitled") } ?: localizer.text("epg.none")
         programmeTime.textContent = current?.let { "${formatProgrammeTime(it.start)} – ${formatProgrammeTime(it.end)}" }.orEmpty()
         programmeTime.hidden = current == null
         val progress = programmeProgress(current, now)
         programmeProgressBar.hidden = progress == null
         programmeProgressBar.setAttribute("aria-valuenow", ((progress ?: 0.0) * 100).toInt().toString())
         programmeProgressValue.style.width = "${(progress ?: 0.0) * 100}%"
-        nextProgramme.textContent = programmes.next?.let { "Következő: ${it.title.ifBlank { "Névtelen műsor" }} · ${formatProgrammeTime(it.start)}" }.orEmpty()
+        nextProgramme.textContent = programmes.next?.let { "${localizer.text("epg.next")}: ${it.title.ifBlank { localizer.text("epg.untitled") }} · ${formatProgrammeTime(it.start)}" }.orEmpty()
         nextProgramme.hidden = programmes.next == null
         previewLabel.hidden = !preview
         channelLogoFallback.textContent = displayName(channel)

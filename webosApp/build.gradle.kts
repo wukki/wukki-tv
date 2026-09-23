@@ -30,6 +30,7 @@ kotlin {
     sourceSets {
         val commonMain by getting {
             resources.srcDir("../packaging/icons")
+            resources.srcDir("../shared/src/commonMain/resources")
             resources.exclude("*.icns", "*.ico")
             dependencies {
                 implementation(project(":core"))
@@ -102,7 +103,7 @@ val verifyWebOsAppShell by tasks.registering {
             "The Channels screen must keep the shared 62/38 list and preview layout."
         }
         check("category-filter" !in html) { "The obsolete cyclic category button must not return." }
-        check("\"version\": \"0.12.0\"" in appInfoJson) { "WOS-20 must package as webOS version 0.12.0." }
+        check("\"version\": \"0.13.0\"" in appInfoJson) { "WOS-21 must package as webOS version 0.13.0." }
         listOf("playback-hud", "live-channel-number", "live-channel-logo", "live-programme-progress", "channel-number-input").forEach { id ->
             check("id=\"$id\"" in html) { "Missing WOS-18 live information element #$id." }
         }
@@ -133,6 +134,9 @@ val verifyWebOsAppShell by tasks.registering {
         }
         check("webOSTV.js" in html && "fetchEpg" in serviceSource.asFile.readText() && "readChunk" in serviceInfo.asFile.readText()) {
             "WOS-20 must use the packaged JS service for CORS-restricted XMLTV sources."
+        }
+        listOf("settings-detail", "settings-home", "quick-aspect-options", "legal-dialog").forEach { id ->
+            check("id=\"$id\"" in html) { "Missing WOS-21 settings control #$id." }
         }
     }
 }

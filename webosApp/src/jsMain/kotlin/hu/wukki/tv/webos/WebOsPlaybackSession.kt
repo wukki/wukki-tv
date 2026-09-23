@@ -64,6 +64,12 @@ internal class WebOsPlaybackSession(
         start(channel)
     }
 
+    fun updatePolicy(requestedPolicy: WebOsPlaybackPolicy) {
+        policy = requestedPolicy.copy(reconnectAttempts = requestedPolicy.reconnectAttempts.coerceIn(1, 10))
+        update(snapshot.copy(reconnectAttempts = policy.reconnectAttempts))
+        if (snapshot.state == PlaybackState.RECONNECTING && !policy.autoReconnect) cancelReconnect()
+    }
+
     fun playing(token: Long) {
         if (!accepts(token) || retry != null) return
         cancelTimers()

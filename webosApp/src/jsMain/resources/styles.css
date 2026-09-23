@@ -1,4 +1,5 @@
 :root {
+    --ui-scale: 1;
     color: #fff;
     background: #07101a;
     font-family: Arial, sans-serif;
@@ -182,6 +183,11 @@ body[data-section="live"].live-navigation-hidden .app-view {
     object-fit: contain;
     background: #000;
 }
+
+body.aspect-fill-crop .live-view video { object-fit: cover; }
+body.aspect-auto .live-view video, body.aspect-ratio-16-9 .live-view video { object-fit: contain; }
+body.aspect-ratio-4-3 .live-view video { position: relative; left: 50%; width: min(100%, 75vh); object-fit: fill; transform: translateX(-50%); }
+body.aspect-ratio-21-9 .live-view video { position: relative; top: 50%; height: min(100%, 42.86vw); object-fit: fill; transform: translateY(-50%); }
 
 .live-empty {
     position: absolute;
@@ -563,6 +569,49 @@ body.channel-mode-detailed .channel-text { gap: 7px; }
 .settings-detail { padding: 24px; overflow-y: auto; }
 .settings-detail h2 { margin: 0 0 12px; font-size: 24px; }
 
+.settings-home {
+    display: flex;
+    height: 100%;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    color: var(--text-secondary);
+    text-align: center;
+}
+
+.settings-home h2 { white-space: pre-line; line-height: 1.4; }
+.settings-home p { color: var(--text-muted); font-size: 17px; }
+
+.settings-option {
+    width: 100%;
+    min-height: calc(76px * var(--ui-scale));
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 13px 16px;
+    color: var(--text-primary);
+    text-align: left;
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid var(--border);
+    border-radius: 0;
+}
+
+.settings-option:hover { background: var(--background-raised); }
+.settings-option:focus { background: var(--primary-container); box-shadow: inset 0 0 0 3px var(--primary-strong); }
+.settings-option[aria-disabled="true"] { color: var(--text-muted); opacity: .72; }
+.settings-option-copy { display: grid; min-width: 0; gap: 5px; }
+.settings-option-copy strong { font-size: calc(18px * var(--ui-scale)); }
+.settings-option-copy small { color: var(--text-secondary); font-size: calc(13px * var(--ui-scale)); line-height: 1.35; }
+.settings-option-value { min-width: 145px; color: var(--primary-strong); font-size: calc(16px * var(--ui-scale)); font-weight: 700; text-align: right; overflow-wrap: anywhere; }
+.settings-option-value.is-action { text-decoration: underline; }
+.settings-diagnostics { display: none !important; }
+.settings-about-diagnostics { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; margin-top: 24px; padding: 18px; background: var(--background-raised); border-radius: 10px; }
+.settings-about-diagnostics h3, .settings-about-diagnostics .platform-info { grid-column: 1 / -1; }
+.settings-about-diagnostics input { min-width: 0; }
+.settings-about-diagnostics button { padding: 0 16px; background: var(--primary-container); }
+
 .platform-info {
     margin: 0 0 24px;
     color: var(--text-muted);
@@ -627,6 +676,13 @@ body[data-section="live"].hud-visible #status { bottom: 280px; }
 .modal-card h2 { margin: 0 0 20px; font-size: 28px; }
 .modal-card p { color: var(--text-secondary); font-size: 18px; }
 .modal-card button { min-height: 52px; margin-top: 14px; padding: 0 24px; background: var(--primary); }
+
+.quick-aspect-options { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.quick-aspect-options button { min-width: 0; padding: 0 8px; background: var(--primary-container); }
+.quick-aspect-options button[aria-pressed="true"] { background: var(--primary); box-shadow: inset 0 0 0 2px var(--primary-strong); }
+.unsupported-note { padding: 12px; background: var(--background-raised); border-radius: 8px; }
+.legal-card { width: min(900px, 84vw); }
+.legal-card pre { max-height: 55vh; overflow-y: auto; color: var(--text-secondary); font: inherit; line-height: 1.45; white-space: pre-wrap; }
 
 .visually-hidden {
     position: absolute;
