@@ -149,6 +149,17 @@ internal class WebOsPlaybackView(
         showStatus(if (localizer.language == "ENGLISH") "Playback stopped." else "Lejátszás leállítva.")
     }
 
+    fun pauseForBackground() {
+        cancelHudTimer()
+        cancelNavigationTimer()
+        document.body?.classList?.remove("hud-visible")
+        session.pauseForBackground()
+    }
+
+    fun resumeAfterBackground() {
+        session.resumeAfterBackground()
+    }
+
     fun showHud() {
         if (!isActive() || appShell.activeSection != WebOsSection.LIVE || recoveryVisible) return
         document.body?.classList?.add("hud-visible")

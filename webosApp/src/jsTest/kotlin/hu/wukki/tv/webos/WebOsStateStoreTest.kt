@@ -29,6 +29,53 @@ class WebOsStateStoreTest {
         val loaded = store.load()
         assertNull(loaded.error)
         assertEquals(expected, loaded.state)
+        assertNull(loaded.migratedFromVersion)
+    }
+
+    @Test
+    fun `version 0_5 snapshot migrates without losing settings favorites or last channel`() {
+        var stored: String? = null
+        val store = WebOsStateStore(read = { stored }, write = { stored = it })
+        val legacy =
+            WebOsStoredState(
+                playlistUrl = "https://example.test/list.m3u",
+                playlistUpdatedAt = 123L,
+                channels = listOf(channel.copy(favorite = true)),
+                lastChannelId = channel.id,
+                recentChannelIds = listOf(channel.id),
+                settings = WebOsSettings(language = "ENGLISH", autoPlayOnLaunch = false, playlistRefreshHours = 12),
+            )
+        assertNull(store.save(legacy))
+        stored =
+            stored
+                ?.replace("\"schemaVersion\":$WEBOS_STATE_SCHEMA_VERSION", "\"schemaVersion\":$WEBOS_LEGACY_STATE_SCHEMA_VERSION")
+
+        val loaded = store.load()
+
+        assertNull(loaded.error)
+        assertEquals(WEBOS_LEGACY_STATE_SCHEMA_VERSION, loaded.migratedFromVersion)
+        assertEquals(legacy, loaded.state)
+    }
+
+    @Test
+    fun `unsupported schema remains untouched and reports an error`() {
+        var stored = "{\"schemaVersion\":999,\"state\":{}}"
+        var writes = 0
+        val store =
+            WebOsStateStore(
+                read = { stored },
+                write = {
+                    stored = it
+                    writes++
+                },
+            )
+
+        val loaded = store.load()
+
+        assertNull(loaded.state)
+        assertTrue(loaded.error.orEmpty().contains("999"))
+        assertEquals("{\"schemaVersion\":999,\"state\":{}}", stored)
+        assertEquals(0, writes)
     }
 
     @Test

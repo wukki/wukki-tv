@@ -145,6 +145,19 @@ internal class WebOsRemoteController(
         options.getOrNull(index)?.let { option -> state = state.copy(focus = TvFocusZone.CONTENT, settings = state.settings.copy(option = option)) }
     }
 
+    fun pauseForBackground() {
+        cancelNumberTimer()
+        cancelPreviewTimer()
+        host.showChannelNumberInput(null)
+        host.previewChannel(null)
+        state =
+            state.copy(
+                number = "",
+                overlayVisible = false,
+                preview = state.preview.copy(channelId = null),
+            )
+    }
+
     fun handle(event: KeyboardEvent): Boolean {
         val key =
             webOsRemoteKey(

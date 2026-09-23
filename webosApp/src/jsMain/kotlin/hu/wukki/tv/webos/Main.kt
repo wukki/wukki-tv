@@ -97,6 +97,7 @@ private class WebOsApp {
     private var renderedWindow = ChannelRenderWindow(0, 0)
     private var cachedChannels = emptyList<Channel>()
     private var playlistLoading = false
+    private var playlistLoadGeneration = 0L
     private var selectedChannelId: String? = null
     private var lastSuccessfulChannelId: String? = null
     private var recentChannelIds = emptyList<String>()
@@ -107,11 +108,16 @@ private class WebOsApp {
     private var programmes = emptyList<Programme>()
     private var programmeIndex = EpgProgrammeIndex(emptyList())
     private var epgLoadGeneration = 0L
+    private var epgLoading = false
     private var programmeRefreshTimer: Int? = null
     private var playlistRefreshTimer: Int? = null
     private var epgRefreshTimer: Int? = null
     private var currentEpgUrl: String? = null
     private var autoplayStarted = false
+    private var uiActive = true
+    private var playlistRefreshInterrupted = false
+    private var epgRefreshInterrupted = false
+    private var stateWritesBlocked = false
     private val epgParser = WebOsEpgParser(schedule = { action -> window.setTimeout(action, 0) })
     private val settingsView =
         WebOsSettingsView(
@@ -218,6 +224,7 @@ private class WebOsApp {
         settingsView.configure()
         configureKeyboard()
         appShell.configure()
+        configureLifecycle()
         restoreCachedState()
         applySettings()
         settingsView.refreshCopy()
@@ -577,7 +584,9 @@ private class WebOsApp {
     }
 
     private fun fetchPlaylist() {
-        if (playlistLoading) return
+        if (playlistLoading || !uiActive) return
+        val initialLoad = cachedChannels.isEmpty()
+        val generation = ++playlistLoadGeneration
         val url = OFFICIAL_PLAYLIST_URL
         playlistLoading = true
         playlistLoadFailed = false
@@ -586,6 +595,9 @@ private class WebOsApp {
         show(localizer.text("status.playlist.loading"))
         fetchPlaylistText(url)
             .then { text ->
+                if (generation != playlistLoadGeneration || !uiActive) return@then
+                val searchFocused = document.activeElement === channelSearch
+                val focusedChannelId = focusedChannelIdForRefresh()
                 val parsed = mergeFavoriteState(PlaylistParser.parse(text, WEBOS_PLAYLIST_ID, url), cachedChannels)
                 val discoveredEpgUrl = PlaylistParser.epgUrl(text, url)
                 currentEpgUrl = discoveredEpgUrl
@@ -602,11 +614,18 @@ private class WebOsApp {
                     persistState()
                     schedulePlaylistRefresh()
                     show(localizer.text("status.playlist.loaded", channels.size, "Wukki"))
-                    if (!playback.isActive() && appShell.activeSection == WebOsSection.CHANNELS) restoreChannelFocus()
+                    maybeAutoplay()
+                    if (!playback.isActive()) {
+                        restoreFocusAfterRefresh(searchFocused, focusedChannelId)
+                        if (initialLoad && !searchFocused && focusedChannelId == null && appShell.activeSection == WebOsSection.CHANNELS) {
+                            restoreChannelFocus()
+                        }
+                    }
                     if (discoveredEpgUrl != null) fetchEpg(discoveredEpgUrl)
                 }
                 finishPlaylistLoad()
             }.catch { error ->
+                if (generation != playlistLoadGeneration || !uiActive) return@catch
                 playlistLoadFailed = true
                 finishPlaylistLoad(retry = true)
                 val detail = error.asDynamic().message ?: error.toString()
@@ -632,7 +651,9 @@ private class WebOsApp {
     }
 
     private fun fetchEpg(url: String) {
+        if (!uiActive) return
         val generation = ++epgLoadGeneration
+        epgLoading = true
         epgParser.cancel()
         show(localizer.text("status.epg.loading", "Wukki"))
         fetchBoundedText(url, MAX_EPG_BYTES, EPG_TIMEOUT_MS, "Az EPG")
@@ -642,6 +663,17 @@ private class WebOsApp {
                     xml,
                     onComplete = { parsed ->
                         if (generation != epgLoadGeneration) return@parse
+                        epgLoading = false
+                        if (parsed.isEmpty()) {
+                            scheduleEpgRefresh(fromNow = true)
+                            show(
+                                localized(
+                                    "Az EPG nem tartalmaz érvényes műsorokat; a korábbi adatok maradnak használatban.",
+                                    "The EPG contains no valid programmes; the previous data remains in use.",
+                                ),
+                            )
+                            return@parse
+                        }
                         applyEpg(parsed)
                         val cacheError = epgCacheStore.save(WebOsEpgCache(url, Date.now().toLong(), parsed))
                         scheduleEpgRefresh()
@@ -649,6 +681,7 @@ private class WebOsApp {
                     },
                     onFailure = { error ->
                         if (generation == epgLoadGeneration) {
+                            epgLoading = false
                             scheduleEpgRefresh(fromNow = true)
                             show(
                                 localized(
@@ -661,6 +694,7 @@ private class WebOsApp {
                 )
             }.catch { error ->
                 if (generation == epgLoadGeneration) {
+                    epgLoading = false
                     scheduleEpgRefresh(fromNow = true)
                     val detail = error.asDynamic().message ?: error.toString()
                     show(localized("Az EPG nem tölthető be; a videó tovább működik: $detail", "EPG download failed; video playback continues: $detail"))
@@ -697,7 +731,7 @@ private class WebOsApp {
     private fun scheduleProgrammeRefresh(now: Long) {
         programmeRefreshTimer?.let(window::clearTimeout)
         programmeRefreshTimer = null
-        if (programmes.isEmpty()) return
+        if (!uiActive || programmes.isEmpty()) return
         val boundary = programmeIndex.nextBoundary(channels, now) ?: return
         val delay = minOf((boundary - now + 50L).coerceAtLeast(1_000L), 60_000L).toInt()
         programmeRefreshTimer =
@@ -833,6 +867,79 @@ private class WebOsApp {
         }
     }
 
+    private fun configureLifecycle() {
+        document.addEventListener("visibilitychange", {
+            if (document.asDynamic().hidden == true) pauseForBackground() else resumeAfterBackground()
+        })
+        window.addEventListener("pagehide", { pauseForBackground() })
+        window.addEventListener("pageshow", { resumeAfterBackground() })
+        if (document.asDynamic().hidden == true) pauseForBackground()
+    }
+
+    private fun pauseForBackground() {
+        if (!uiActive) return
+        uiActive = false
+        playlistRefreshInterrupted = playlistRefreshInterrupted || playlistLoading
+        epgRefreshInterrupted = epgRefreshInterrupted || epgLoading
+        playlistLoadGeneration++
+        epgLoadGeneration++
+        epgParser.cancel()
+        playlistLoading = false
+        epgLoading = false
+        loadPlaylist.disabled = false
+        loadPlaylist.textContent = localizer.text("settings.refresh")
+        clearUiTimers()
+        remoteController.pauseForBackground()
+        playback.pauseForBackground()
+        persistState()
+    }
+
+    private fun resumeAfterBackground() {
+        if (uiActive) return
+        uiActive = true
+        playback.resumeAfterBackground()
+        if (programmes.isNotEmpty()) refreshProgrammeViews()
+        schedulePlaylistRefresh()
+        scheduleEpgRefresh()
+        val resumePlaylist = playlistRefreshInterrupted || cachedChannels.isEmpty()
+        val resumeEpg = epgRefreshInterrupted
+        playlistRefreshInterrupted = false
+        epgRefreshInterrupted = false
+        when {
+            resumePlaylist -> fetchPlaylist()
+            resumeEpg -> currentEpgUrl?.let(::fetchEpg)
+        }
+        maybeAutoplay()
+    }
+
+    private fun clearUiTimers() {
+        programmeRefreshTimer?.let(window::clearTimeout)
+        playlistRefreshTimer?.let(window::clearTimeout)
+        epgRefreshTimer?.let(window::clearTimeout)
+        programmeRefreshTimer = null
+        playlistRefreshTimer = null
+        epgRefreshTimer = null
+    }
+
+    private fun focusedChannelIdForRefresh(): String? {
+        val element = document.activeElement as? HTMLElement ?: return null
+        val index = element.getAttribute("data-filtered-index")?.toIntOrNull() ?: return null
+        return filteredChannels.getOrNull(index)?.id
+    }
+
+    private fun restoreFocusAfterRefresh(
+        searchFocused: Boolean,
+        focusedChannelId: String?,
+    ) {
+        if (appShell.activeSection != WebOsSection.CHANNELS) return
+        if (searchFocused) {
+            channelSearch.focus()
+            return
+        }
+        val index = filteredChannels.indexOfFirst { it.id == focusedChannelId }
+        if (index >= 0) focusChannelAt(index)
+    }
+
     private fun focusSettingsCategory(categoryIndex: Int) {
         val buttons = document.querySelectorAll("#view-settings .settings-categories button")
         val button = buttons.item(categoryIndex.coerceIn(0, buttons.length - 1)) as? HTMLElement
@@ -925,6 +1032,7 @@ private class WebOsApp {
     private fun restoreCachedState() {
         val loaded = stateStore.load()
         storageProblem = loaded.error?.let { "Tárolási hiba: $it" }
+        stateWritesBlocked = loaded.error != null
         val state = loaded.state
         if (state == null) {
             renderChannels()
@@ -943,6 +1051,7 @@ private class WebOsApp {
         renderChannels()
         restoreChannelFocus()
         show(localized("${channels.size} mentett csatorna betöltve; hálózati frissítés indul.", "${channels.size} saved channels loaded; starting network refresh."))
+        if (loaded.migratedFromVersion != null) persistState()
         maybeAutoplay()
     }
 
@@ -966,7 +1075,7 @@ private class WebOsApp {
     }
 
     private fun persistState() {
-        if (cachedChannels.isEmpty()) return
+        if (cachedChannels.isEmpty() || stateWritesBlocked) return
         val state =
             WebOsStoredState(
                 playlistUrl = OFFICIAL_PLAYLIST_URL,
@@ -980,12 +1089,14 @@ private class WebOsApp {
     }
 
     private fun updateSettings(value: WebOsSettings) {
+        val autoplayEnabled = !settings.autoPlayOnLaunch && value.autoPlayOnLaunch
         settings = value
         applySettings()
         renderChannels()
         persistState()
         schedulePlaylistRefresh()
         scheduleEpgRefresh()
+        if (autoplayEnabled) maybeAutoplay()
     }
 
     private fun applySettings() {
@@ -998,8 +1109,9 @@ private class WebOsApp {
     private fun scaledChannelRowHeight(): Int = (channelRowHeight(settings.channelListMode) * settings.uiScale).toInt().coerceAtLeast(48)
 
     private fun maybeAutoplay() {
-        if (autoplayStarted || !settings.autoPlayOnLaunch) return
-        val index = channels.indexOfFirst { it.id == lastSuccessfulChannelId }
+        if (autoplayStarted || !settings.autoPlayOnLaunch || !uiActive) return
+        val targetId = lastSuccessfulChannelId ?: selectedChannelId ?: channels.firstOrNull()?.id
+        val index = channels.indexOfFirst { it.id == targetId }
         if (index >= 0) {
             autoplayStarted = true
             startPlayback(index)
@@ -1008,12 +1120,16 @@ private class WebOsApp {
 
     private fun schedulePlaylistRefresh(fromNow: Boolean = false) {
         playlistRefreshTimer?.let(window::clearTimeout)
+        playlistRefreshTimer = null
+        if (!uiActive) return
         val updatedAt = if (fromNow) Date.now().toLong() else playlistCachedAt
         playlistRefreshTimer = scheduleRefresh(settings.playlistRefreshHours, updatedAt, ::fetchPlaylist)
     }
 
     private fun scheduleEpgRefresh(fromNow: Boolean = false) {
         epgRefreshTimer?.let(window::clearTimeout)
+        epgRefreshTimer = null
+        if (!uiActive) return
         val updatedAt = if (fromNow) Date.now().toLong() else epgCacheStore.load()?.updatedAt ?: 0L
         epgRefreshTimer = scheduleRefresh(settings.epgRefreshHours, updatedAt) { currentEpgUrl?.let(::fetchEpg) }
     }
@@ -1023,6 +1139,7 @@ private class WebOsApp {
         updatedAt: Long,
         action: () -> Unit,
     ): Int? {
+        if (!uiActive) return null
         val delay = refreshDelayMillis(hours, updatedAt, Date.now().toLong()) ?: return null
         return window.setTimeout(action, delay)
     }

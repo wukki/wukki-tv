@@ -45,11 +45,15 @@ internal class WebOsPlaybackSession(
     private var retry: WebOsPlaybackCancellation? = null
     private var buffering: WebOsPlaybackCancellation? = null
     private var stateBeforeBuffering: PlaybackState? = null
+    private var backgroundChannel: Channel? = null
+    private var backgrounded = false
 
     fun play(
         channel: Channel,
         requestedPolicy: WebOsPlaybackPolicy,
     ) {
+        backgroundChannel = null
+        backgrounded = false
         policy = requestedPolicy.copy(reconnectAttempts = requestedPolicy.reconnectAttempts.coerceIn(1, 10))
         val restart =
             channel.streamUrl != snapshot.channel?.streamUrl ||
@@ -148,6 +152,32 @@ internal class WebOsPlaybackSession(
     }
 
     fun stop() {
+        backgroundChannel = null
+        backgrounded = false
+        stopCurrentPlayback()
+    }
+
+    fun pauseForBackground() {
+        if (backgrounded) return
+        backgrounded = true
+        val resumableChannel =
+            snapshot.channel?.takeIf {
+                snapshot.state in setOf(PlaybackState.OPENING, PlaybackState.BUFFERING, PlaybackState.PLAYING, PlaybackState.RECONNECTING)
+            }
+        stopCurrentPlayback()
+        backgroundChannel = resumableChannel
+    }
+
+    fun resumeAfterBackground() {
+        if (!backgrounded) return
+        backgrounded = false
+        val channel = backgroundChannel ?: return
+        backgroundChannel = null
+        attempts = 0
+        start(channel)
+    }
+
+    private fun stopCurrentPlayback() {
         generation++
         cancelTimers()
         stopMedia()

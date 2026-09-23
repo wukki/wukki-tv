@@ -52,20 +52,22 @@ val webOsPackageOutput = layout.buildDirectory.dir("outputs/webos")
 val webOsServiceDirectory = rootProject.layout.projectDirectory.dir("webosService")
 val verifyWebOsAppShell by tasks.registering {
     group = "verification"
-    description = "Checks the WOS-15–21.1 shell, navigation, playback, settings and legacy layout contracts."
+    description = "Checks the WOS-15–22 shell, navigation, playback, settings, persistence and lifecycle contracts."
     val markup = layout.projectDirectory.file("src/jsMain/resources/index.html")
     val styles = layout.projectDirectory.file("src/jsMain/resources/styles.css")
     val appInfo = layout.projectDirectory.file("src/jsMain/resources/appinfo.json")
     val remoteAdapter = layout.projectDirectory.file("src/jsMain/kotlin/hu/wukki/tv/webos/WebOsRemoteController.kt")
     val liveTiming = layout.projectDirectory.file("src/jsMain/kotlin/hu/wukki/tv/webos/LiveLayerTiming.kt")
     val playbackSession = layout.projectDirectory.file("src/jsMain/kotlin/hu/wukki/tv/webos/WebOsPlaybackSession.kt")
+    val mainSource = layout.projectDirectory.file("src/jsMain/kotlin/hu/wukki/tv/webos/Main.kt")
+    val stateStore = layout.projectDirectory.file("src/jsMain/kotlin/hu/wukki/tv/webos/WebOsStateStore.kt")
     val epgData = layout.projectDirectory.file("src/jsMain/kotlin/hu/wukki/tv/webos/WebOsEpgData.kt")
     val xmlTvParser = rootProject.layout.projectDirectory.file("core/src/commonMain/kotlin/hu/wukki/tv/XmlTvProgrammeParser.kt")
     val serviceSource = webOsServiceDirectory.file("epg-service.js")
     val serviceInfo = webOsServiceDirectory.file("services.json")
     val serviceCertificateAuthority = webOsServiceDirectory.file("certificates/isrg-root-x1.pem")
     val sharedReducer = rootProject.layout.projectDirectory.file("core/src/commonMain/kotlin/hu/wukki/tv/ui/navigation/AppRemoteReducer.kt")
-    inputs.files(markup, styles, appInfo, remoteAdapter, liveTiming, playbackSession, epgData, xmlTvParser, serviceSource, serviceInfo, serviceCertificateAuthority, sharedReducer)
+    inputs.files(markup, styles, appInfo, remoteAdapter, liveTiming, playbackSession, mainSource, stateStore, epgData, xmlTvParser, serviceSource, serviceInfo, serviceCertificateAuthority, sharedReducer)
 
     doLast {
         val html = markup.asFile.readText()
@@ -104,7 +106,7 @@ val verifyWebOsAppShell by tasks.registering {
             "The Channels screen must keep the shared 62/38 list and preview layout with legacy-compatible flexbox."
         }
         check("category-filter" !in html) { "The obsolete cyclic category button must not return." }
-        check("\"version\": \"0.13.2\"" in appInfoJson) { "The EPG TLS fix must package as webOS version 0.13.2." }
+        check("\"version\": \"0.14.0\"" in appInfoJson) { "WOS-22 must package as webOS version 0.14.0." }
         listOf("playback-hud", "live-channel-number", "live-channel-logo", "live-programme-progress", "channel-number-input").forEach { id ->
             check("id=\"$id\"" in html) { "Missing WOS-18 live information element #$id." }
         }
@@ -121,6 +123,14 @@ val verifyWebOsAppShell by tasks.registering {
         val sessionSource = playbackSession.asFile.readText()
         check("generation" in sessionSource && "reconnectAttempts" in sessionSource && "accepts(token" in sessionSource) {
             "WOS-19 requires generation-safe, settings-driven playback recovery."
+        }
+        val lifecycleSource = mainSource.asFile.readText()
+        val stateSource = stateStore.asFile.readText()
+        check("visibilitychange" in lifecycleSource && "pauseForBackground" in lifecycleSource && "resumeAfterBackground" in lifecycleSource) {
+            "WOS-22 requires explicit background and foreground lifecycle handling."
+        }
+        check("stateWritesBlocked" in lifecycleSource && "WEBOS_STATE_SCHEMA_VERSION = 2" in stateSource && "WEBOS_LEGACY_STATE_SCHEMA_VERSION = 1" in stateSource) {
+            "WOS-22 requires guarded persistence and migration from the legacy state schema."
         }
         listOf("channel-preview-current", "channel-preview-next", "channel-preview-progress", "channel-preview-programme-image").forEach { id ->
             check("id=\"$id\"" in html) { "Missing WOS-20 programme-data element #$id." }
@@ -150,6 +160,7 @@ val verifyWebOsAppShell by tasks.registering {
         listOf("settings-detail", "settings-home", "quick-aspect-options", "legal-dialog").forEach { id ->
             check("id=\"$id\"" in html) { "Missing WOS-21 settings control #$id." }
         }
+
         fun cssRule(selector: String): String {
             val start = css.indexOf("$selector {")
             check(start >= 0) { "Missing CSS rule for $selector." }

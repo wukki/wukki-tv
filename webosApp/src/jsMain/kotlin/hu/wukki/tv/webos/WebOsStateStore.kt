@@ -5,7 +5,8 @@ import hu.wukki.tv.normalizedChannelHistory
 import kotlin.js.JSON
 import kotlin.js.jsTypeOf
 
-internal const val WEBOS_STATE_SCHEMA_VERSION = 1
+internal const val WEBOS_STATE_SCHEMA_VERSION = 2
+internal const val WEBOS_LEGACY_STATE_SCHEMA_VERSION = 1
 internal const val WEBOS_STATE_STORAGE_KEY = "hu.wukki.tv.webos.state.v1"
 
 internal data class WebOsSettings(
@@ -46,6 +47,7 @@ internal data class WebOsStoredState(
 internal data class WebOsStateLoadResult(
     val state: WebOsStoredState? = null,
     val error: String? = null,
+    val migratedFromVersion: Int? = null,
 )
 
 internal class WebOsStateStore(
@@ -63,10 +65,15 @@ internal class WebOsStateStore(
         return try {
             val envelope = JSON.parse<dynamic>(raw)
             val version = requiredInt(envelope.schemaVersion, "schemaVersion")
-            require(version == WEBOS_STATE_SCHEMA_VERSION) { "Nem támogatott tárolási séma: $version" }
-            val state = decodeState(envelope.state).normalized()
+            require(version == WEBOS_STATE_SCHEMA_VERSION || version == WEBOS_LEGACY_STATE_SCHEMA_VERSION) {
+                "Nem támogatott tárolási séma: $version"
+            }
+            val state = decodeState(envelope.state, version).normalized()
             require(state.channels.isNotEmpty()) { "A mentett csatornalista üres." }
-            WebOsStateLoadResult(state = state)
+            WebOsStateLoadResult(
+                state = state,
+                migratedFromVersion = version.takeIf { it != WEBOS_STATE_SCHEMA_VERSION },
+            )
         } catch (error: Throwable) {
             WebOsStateLoadResult(error = "A mentett állapot sérült: ${error.message ?: error}")
         }
@@ -97,14 +104,22 @@ private fun encodeState(state: WebOsStoredState): dynamic {
     return encoded
 }
 
-private fun decodeState(encoded: dynamic): WebOsStoredState {
+private fun decodeState(
+    encoded: dynamic,
+    schemaVersion: Int,
+): WebOsStoredState {
     require(encoded != null) { "Hiányzik a state mező." }
     return WebOsStoredState(
         playlistUrl = requiredString(encoded.playlistUrl, "playlistUrl"),
         playlistUpdatedAt = requiredLong(encoded.playlistUpdatedAt, "playlistUpdatedAt"),
         channels = requiredArray(encoded.channels, "channels").map(::decodeChannel),
         lastChannelId = optionalString(encoded.lastChannelId),
-        recentChannelIds = requiredArray(encoded.recentChannelIds, "recentChannelIds").map { requiredString(it, "recentChannelIds[]") },
+        recentChannelIds =
+            if (schemaVersion == WEBOS_LEGACY_STATE_SCHEMA_VERSION) {
+                optionalArray(encoded.recentChannelIds).orEmpty().map { requiredString(it, "recentChannelIds[]") }
+            } else {
+                requiredArray(encoded.recentChannelIds, "recentChannelIds").map { requiredString(it, "recentChannelIds[]") }
+            },
         settings = decodeSettings(encoded.settings),
     )
 }
@@ -192,6 +207,8 @@ private fun requiredArray(
     require(js("Array.isArray(value)") as Boolean) { "A(z) $field mező nem lista." }
     return value as Array<dynamic>
 }
+
+private fun optionalArray(value: dynamic): Array<dynamic>? = if (value == null || !(js("Array.isArray(value)") as Boolean)) null else value as Array<dynamic>
 
 private fun requiredString(
     value: dynamic,

@@ -135,6 +135,38 @@ class WebOsPlaybackSessionTest {
         assertEquals(PlaybackState.PLAYING, harness.session.snapshot.state)
     }
 
+    @Test
+    fun `background pause stops sound and resumes the same source exactly once`() {
+        val harness = harness()
+        harness.session.play(channel("one"), policy())
+        harness.session.playing(harness.starts.last().second)
+
+        harness.session.pauseForBackground()
+        harness.session.pauseForBackground()
+        assertEquals(PlaybackState.IDLE, harness.session.snapshot.state)
+        assertEquals(1, harness.starts.size)
+
+        harness.session.resumeAfterBackground()
+        harness.session.resumeAfterBackground()
+        assertEquals(PlaybackState.OPENING, harness.session.snapshot.state)
+        assertEquals(listOf("one", "one"), harness.starts.map { it.first })
+    }
+
+    @Test
+    fun `idle and failed playback do not restart after background`() {
+        val idle = harness()
+        idle.session.pauseForBackground()
+        idle.session.resumeAfterBackground()
+        assertTrue(idle.starts.isEmpty())
+
+        val failed = harness()
+        failed.session.play(channel("one"), policy(autoReconnect = false))
+        failed.session.failed(failed.starts.last().second, "offline")
+        failed.session.pauseForBackground()
+        failed.session.resumeAfterBackground()
+        assertEquals(1, failed.starts.size)
+    }
+
     private fun harness(): Harness {
         val clock = Clock()
         val starts = mutableListOf<Pair<String, Long>>()
