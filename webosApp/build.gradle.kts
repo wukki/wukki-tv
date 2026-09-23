@@ -63,8 +63,9 @@ val verifyWebOsAppShell by tasks.registering {
     val xmlTvParser = rootProject.layout.projectDirectory.file("core/src/commonMain/kotlin/hu/wukki/tv/XmlTvProgrammeParser.kt")
     val serviceSource = webOsServiceDirectory.file("epg-service.js")
     val serviceInfo = webOsServiceDirectory.file("services.json")
+    val serviceCertificateAuthority = webOsServiceDirectory.file("certificates/isrg-root-x1.pem")
     val sharedReducer = rootProject.layout.projectDirectory.file("core/src/commonMain/kotlin/hu/wukki/tv/ui/navigation/AppRemoteReducer.kt")
-    inputs.files(markup, styles, appInfo, remoteAdapter, liveTiming, playbackSession, epgData, xmlTvParser, serviceSource, serviceInfo, sharedReducer)
+    inputs.files(markup, styles, appInfo, remoteAdapter, liveTiming, playbackSession, epgData, xmlTvParser, serviceSource, serviceInfo, serviceCertificateAuthority, sharedReducer)
 
     doLast {
         val html = markup.asFile.readText()
@@ -103,7 +104,7 @@ val verifyWebOsAppShell by tasks.registering {
             "The Channels screen must keep the shared 62/38 list and preview layout with legacy-compatible flexbox."
         }
         check("category-filter" !in html) { "The obsolete cyclic category button must not return." }
-        check("\"version\": \"0.13.1\"" in appInfoJson) { "WOS-21.1 must package as webOS version 0.13.1." }
+        check("\"version\": \"0.13.2\"" in appInfoJson) { "The EPG TLS fix must package as webOS version 0.13.2." }
         listOf("playback-hud", "live-channel-number", "live-channel-logo", "live-programme-progress", "channel-number-input").forEach { id ->
             check("id=\"$id\"" in html) { "Missing WOS-18 live information element #$id." }
         }
@@ -134,6 +135,17 @@ val verifyWebOsAppShell by tasks.registering {
         }
         check("webOSTV.js" in html && "fetchEpg" in serviceSource.asFile.readText() && "readChunk" in serviceInfo.asFile.readText()) {
             "WOS-20 must use the packaged JS service for CORS-restricted XMLTV sources."
+        }
+        val epgServiceSource = serviceSource.asFile.readText()
+        val certificateAuthority = serviceCertificateAuthority.asFile.readText()
+        check("isUnknownIssuer" in epgServiceSource && "BUNDLED_ISRG_ROOT_X1" in epgServiceSource) {
+            "The webOS EPG service must retry obsolete trust stores with the bundled ISRG Root X1."
+        }
+        check("rejectUnauthorized" !in epgServiceSource) {
+            "The EPG TLS workaround must never disable certificate validation."
+        }
+        check(certificateAuthority.startsWith("-----BEGIN CERTIFICATE-----") && certificateAuthority.contains("-----END CERTIFICATE-----")) {
+            "The packaged ISRG Root X1 PEM is missing or malformed."
         }
         listOf("settings-detail", "settings-home", "quick-aspect-options", "legal-dialog").forEach { id ->
             check("id=\"$id\"" in html) { "Missing WOS-21 settings control #$id." }

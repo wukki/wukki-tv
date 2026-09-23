@@ -6,17 +6,19 @@ var http = require('http');
 var https = require('https');
 var urlParser = require('url');
 var crypto = require('crypto');
+var fs = require('fs');
 var service = new Service('hu.wukki.tv.webos.epg');
 var documents = Object.create(null);
 var MAX_BYTES = 32 * 1024 * 1024;
 var MAX_CHUNK_CHARACTERS = 128 * 1024;
 var DOCUMENT_LIFETIME_MS = 2 * 60 * 1000;
+var BUNDLED_ISRG_ROOT_X1 = loadCertificateAuthority(__dirname + '/certificates/isrg-root-x1.pem');
 
 service.register('fetchEpg', function (message) {
     var payload = message.payload || {};
     var maximum = Math.min(positiveInteger(payload.maxBytes, MAX_BYTES), MAX_BYTES);
     var timeout = Math.min(positiveInteger(payload.timeoutMillis, 30000), 60000);
-    download(payload.url, maximum, timeout, 0, function (error, buffer) {
+    download(payload.url, maximum, timeout, 0, false, function (error, buffer) {
         if (error) {
             respondError(message, error);
             return;
@@ -52,7 +54,7 @@ service.register('release', function (message) {
     message.respond({ returnValue: true });
 });
 
-function download(rawUrl, maximum, timeout, redirects, callback) {
+function download(rawUrl, maximum, timeout, redirects, useBundledCertificateAuthority, callback) {
     callback = once(callback);
     var parsed;
     try {
@@ -66,10 +68,14 @@ function download(rawUrl, maximum, timeout, redirects, callback) {
         return;
     }
     var client = parsed.protocol === 'https:' ? https : http;
-    var request = client.get(parsed, function (response) {
+    var requestOptions = parsed;
+    if (parsed.protocol === 'https:' && useBundledCertificateAuthority && BUNDLED_ISRG_ROOT_X1) {
+        requestOptions = Object.assign({}, parsed, { ca: BUNDLED_ISRG_ROOT_X1 });
+    }
+    var request = client.get(requestOptions, function (response) {
         if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location && redirects < 3) {
             response.resume();
-            download(urlParser.resolve(rawUrl, response.headers.location), maximum, timeout, redirects + 1, callback);
+            download(urlParser.resolve(rawUrl, response.headers.location), maximum, timeout, redirects + 1, false, callback);
             return;
         }
         if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -101,7 +107,31 @@ function download(rawUrl, maximum, timeout, redirects, callback) {
         request.abort();
         callback(new Error('Az EPG letöltése túllépte az időkorlátot.'));
     });
-    request.on('error', callback);
+    request.on('error', function (error) {
+        if (!useBundledCertificateAuthority && parsed.protocol === 'https:' && BUNDLED_ISRG_ROOT_X1 && isUnknownIssuer(error)) {
+            download(rawUrl, maximum, timeout, redirects, true, callback);
+            return;
+        }
+        callback(error);
+    });
+}
+
+function loadCertificateAuthority(path) {
+    try {
+        return fs.readFileSync(path);
+    } catch (error) {
+        console.error('[EPG] A csomagolt ISRG Root X1 tanúsítvány nem olvasható:', error.message || error);
+        return null;
+    }
+}
+
+function isUnknownIssuer(error) {
+    var code = error && error.code ? String(error.code) : '';
+    var message = error && error.message ? String(error.message).toLowerCase() : '';
+    return code === 'UNABLE_TO_GET_ISSUER_CERT_LOCALLY' ||
+        code === 'UNABLE_TO_VERIFY_LEAF_SIGNATURE' ||
+        message.indexOf('unable to get local issuer certificate') >= 0 ||
+        message.indexOf('unable to verify the first certificate') >= 0;
 }
 
 function release(token) {
