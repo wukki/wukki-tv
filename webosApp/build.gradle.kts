@@ -53,7 +53,7 @@ val webOsServiceDirectory = rootProject.layout.projectDirectory.dir("webosServic
 val webOsPreviewServer = layout.projectDirectory.file("preview-server.js")
 val verifyWebOsAppShell by tasks.registering {
     group = "verification"
-    description = "Checks the WOS-15–22 shell, navigation, playback, settings, persistence and lifecycle contracts."
+    description = "Checks the WOS-15–23 shell, navigation, playback, settings, persistence, lifecycle and guide contracts."
     val markup = layout.projectDirectory.file("src/jsMain/resources/index.html")
     val styles = layout.projectDirectory.file("src/jsMain/resources/styles.css")
     val appInfo = layout.projectDirectory.file("src/jsMain/resources/appinfo.json")
@@ -64,12 +64,14 @@ val verifyWebOsAppShell by tasks.registering {
     val mainSource = layout.projectDirectory.file("src/jsMain/kotlin/hu/wukki/tv/webos/Main.kt")
     val stateStore = layout.projectDirectory.file("src/jsMain/kotlin/hu/wukki/tv/webos/WebOsStateStore.kt")
     val epgData = layout.projectDirectory.file("src/jsMain/kotlin/hu/wukki/tv/webos/WebOsEpgData.kt")
+    val guideState = layout.projectDirectory.file("src/jsMain/kotlin/hu/wukki/tv/webos/WebOsGuideState.kt")
+    val guideView = layout.projectDirectory.file("src/jsMain/kotlin/hu/wukki/tv/webos/WebOsGuideView.kt")
     val xmlTvParser = rootProject.layout.projectDirectory.file("core/src/commonMain/kotlin/hu/wukki/tv/XmlTvProgrammeParser.kt")
     val serviceSource = webOsServiceDirectory.file("epg-service.js")
     val serviceInfo = webOsServiceDirectory.file("services.json")
     val serviceCertificateAuthority = webOsServiceDirectory.file("certificates/isrg-root-x1.pem")
     val sharedReducer = rootProject.layout.projectDirectory.file("core/src/commonMain/kotlin/hu/wukki/tv/ui/navigation/AppRemoteReducer.kt")
-    inputs.files(markup, styles, appInfo, embeddedResources, remoteAdapter, liveTiming, playbackSession, mainSource, stateStore, epgData, xmlTvParser, serviceSource, serviceInfo, serviceCertificateAuthority, sharedReducer)
+    inputs.files(markup, styles, appInfo, embeddedResources, remoteAdapter, liveTiming, playbackSession, mainSource, stateStore, epgData, guideState, guideView, xmlTvParser, serviceSource, serviceInfo, serviceCertificateAuthority, sharedReducer)
 
     doLast {
         val html = markup.asFile.readText()
@@ -115,7 +117,7 @@ val verifyWebOsAppShell by tasks.registering {
             "The Channels screen must keep the shared 62/38 list and preview layout with legacy-compatible flexbox."
         }
         check("category-filter" !in html) { "The obsolete cyclic category button must not return." }
-        check("\"version\": \"0.14.2\"" in appInfoJson) { "The bounded EPG cache fix must package as webOS version 0.14.2." }
+        check("\"version\": \"0.15.0\"" in appInfoJson) { "WOS-23 must package as webOS version 0.15.0." }
         listOf("playback-hud", "live-channel-number", "live-channel-logo", "live-programme-progress", "channel-number-input").forEach { id ->
             check("id=\"$id\"" in html) { "Missing WOS-18 live information element #$id." }
         }
@@ -165,6 +167,20 @@ val verifyWebOsAppShell by tasks.registering {
         }
         check(certificateAuthority.startsWith("-----BEGIN CERTIFICATE-----") && certificateAuthority.contains("-----END CERTIFICATE-----")) {
             "The packaged ISRG Root X1 PEM is missing or malformed."
+        }
+        listOf("guide-actions", "guide-timeline", "guide-rows", "guide-programme-dialog").forEach { id ->
+            check("id=\"$id\"" in html) { "Missing WOS-23 guide control #$id." }
+        }
+        check(".guide-row" in css && ".guide-programme" in css && ".guide-now-line" in css) {
+            "WOS-23 requires channel rows, programme blocks and a current-time marker."
+        }
+        val guideStateSource = guideState.asFile.readText()
+        val guideViewSource = guideView.asFile.readText()
+        check("guideVisibleRows" in guideStateSource && "WEBOS_GUIDE_WINDOW_MILLIS" in guideStateSource) {
+            "WOS-23 requires virtualized rows and a bounded time window."
+        }
+        check("GuideProgrammeDialogState" in guideViewSource && "handleGuideKey" in remoteAdapter.asFile.readText()) {
+            "WOS-23 requires the shared programme dialog behavior and remote-control routing."
         }
         listOf("settings-detail", "settings-home", "quick-aspect-options", "legal-dialog").forEach { id ->
             check("id=\"$id\"" in html) { "Missing WOS-21 settings control #$id." }

@@ -77,11 +77,20 @@
     </section>
 
     <section id="view-guide" class="app-view content-view" data-route="guide" tabindex="-1" hidden>
-        <div class="view-heading"><h1>Műsorújság</h1></div>
-        <div class="placeholder-card">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 4h-1V2h-2v2H8V2H6v2H5a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3Zm1 15a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-8h16v8Zm0-10H4V7a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2Z"/></svg>
-            <h2 id="guide-placeholder-title">A műsorújság előkészítve</h2>
-            <p id="guide-placeholder-description">A teljes, idővonalas műsorújság ezen a nézeten jelenik meg.</p>
+        <div class="guide-card">
+            <div class="guide-title-row">
+                <h1 id="guide-title">Műsorújság</h1>
+                <time id="guide-date"></time>
+            </div>
+            <div id="guide-actions" class="guide-actions" aria-label="Műsorújság időszak és szűrők"></div>
+            <div class="guide-timeline-header">
+                <div class="guide-channel-corner">·</div>
+                <div id="guide-timeline" class="guide-timeline" aria-hidden="true"></div>
+            </div>
+            <div id="guide-empty" class="guide-empty" hidden></div>
+            <div id="guide-rows" class="guide-rows" role="grid" aria-label="Műsorújság">
+                <div id="guide-rows-spacer" class="guide-rows-spacer"></div>
+            </div>
         </div>
     </section>
 
@@ -177,6 +186,19 @@
             <h2 id="legal-title"></h2>
             <pre id="legal-content"></pre>
             <button id="close-legal" type="button">Bezárás</button>
+        </div>
+    </section>
+    <section id="guide-programme-dialog" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="guide-dialog-title" hidden>
+        <div class="modal-card guide-dialog-card">
+            <img id="guide-dialog-image" alt="" hidden>
+            <small id="guide-dialog-channel"></small>
+            <h2 id="guide-dialog-title"></h2>
+            <p id="guide-dialog-time"></p>
+            <p id="guide-dialog-description"></p>
+            <div class="guide-dialog-actions">
+                <button id="guide-dialog-cancel" type="button">Mégse</button>
+                <button id="guide-dialog-open" type="button">Csatorna megnyitása</button>
+            </div>
         </div>
     </section>
 </main>

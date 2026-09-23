@@ -38,7 +38,7 @@ internal class WebOsLocalizer(
         set("nav-settings", "nav.settings", child = true)
         (document.querySelector("#view-channels .view-heading h1") as? HTMLElement)?.textContent = text("channels.title")
         (document.querySelector("#view-settings .view-heading h1") as? HTMLElement)?.textContent = text("settings.title")
-        (document.querySelector("#view-guide .view-heading h1") as? HTMLElement)?.textContent = text("epg.guide.title")
+        (document.getElementById("guide-title") as? HTMLElement)?.textContent = text("epg.guide.title")
         set("live-empty", "live.empty")
         set("live-preview-label", "channels.preview")
         set("quick-settings", "playback.quick.title")
@@ -55,12 +55,6 @@ internal class WebOsLocalizer(
         literal("channel-down", "Csatorna −", "Channel −")
         literal("channel-up", "Csatorna +", "Channel +")
         literal("stop", "Leállítás", "Stop")
-        literal("guide-placeholder-title", "A műsorújság előkészítve", "TV guide is ready for implementation")
-        literal(
-            "guide-placeholder-description",
-            "A teljes, idővonalas műsorújság ezen a nézeten jelenik meg.",
-            "The complete timeline guide will appear in this view.",
-        )
         literal(
             "quick-unsupported-note",
             "A hangsáv és a felirat kiválasztását ez a webOS lejátszó nem teszi elérhetővé.",

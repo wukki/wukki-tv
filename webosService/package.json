@@ -1,6 +1,6 @@
 {
   "name": "hu.wukki.tv.webos.epg",
-  "version": "0.14.2",
+  "version": "0.15.0",
   "description": "Bounded XMLTV downloader for Wukki TV",
   "main": "epg-service.js"
 }

@@ -11,6 +11,7 @@ import hu.wukki.tv.ui.navigation.ChannelRemoteFocus
 import hu.wukki.tv.ui.navigation.DashboardSection
 import hu.wukki.tv.ui.navigation.LiveChannelPreviewEffect
 import hu.wukki.tv.ui.navigation.LiveChannelPreviewEvent
+import hu.wukki.tv.ui.navigation.RemoteKey
 import hu.wukki.tv.ui.navigation.SettingsNavigationEffect
 import hu.wukki.tv.ui.navigation.SettingsOptionId
 import hu.wukki.tv.ui.navigation.TvFocusZone
@@ -61,6 +62,8 @@ internal interface WebOsNavigationHost {
     val showQuickSettings: () -> Unit
     val closeDialog: () -> Unit
     val handleDialogEvent: (GuideProgrammeDialogEvent) -> Unit
+    val handleGuideKey: (RemoteKey) -> Unit
+    val confirmGuide: () -> Unit
     val showStatus: (String) -> Unit
     val exitApplication: () -> Unit
 }
@@ -105,6 +108,10 @@ internal class WebOsRemoteController(
                 focus = TvFocusZone.MAIN_NAVIGATION,
                 menuIndex = section.dashboardSection().ordinal,
             )
+    }
+
+    fun onGuideFocused() {
+        state = state.copy(focus = TvFocusZone.CONTENT, section = DashboardSection.GUIDE)
     }
 
     fun onChannelFocused(
@@ -209,10 +216,16 @@ internal class WebOsRemoteController(
     private fun applyEffect(effect: AppRemoteEffect) {
         when (effect) {
             AppRemoteEffect.ResetExit,
-            AppRemoteEffect.ConfirmGuide,
-            is AppRemoteEffect.GuideKey,
             -> {
                 return
+            }
+
+            AppRemoteEffect.ConfirmGuide -> {
+                host.confirmGuide()
+            }
+
+            is AppRemoteEffect.GuideKey -> {
+                host.handleGuideKey(effect.key)
             }
 
             is AppRemoteEffect.Dialog -> {

@@ -14,6 +14,31 @@ import kotlin.test.assertTrue
 
 class WebOsRemoteControllerTest {
     @Test
+    fun `guide directional and confirm events reach the guide host`() {
+        val host = FakeNavigationHost(section = WebOsSection.GUIDE)
+        val controller = WebOsRemoteController(host)
+
+        assertTrue(controller.dispatch(AppRemoteKey(remote = RemoteKey.RIGHT)))
+        assertTrue(controller.dispatch(AppRemoteKey(remote = RemoteKey.CONFIRM)))
+
+        assertEquals(listOf(RemoteKey.RIGHT), host.guideKeys)
+        assertEquals(1, host.guideConfirmations)
+    }
+
+    @Test
+    fun `pointer route activation hands remote focus to the guide`() {
+        val host = FakeNavigationHost(section = WebOsSection.GUIDE)
+        val controller = WebOsRemoteController(host)
+        controller.onNavigationFocused(WebOsSection.GUIDE)
+        controller.onSectionActivated(WebOsSection.GUIDE)
+        controller.onGuideFocused()
+
+        assertTrue(controller.dispatch(AppRemoteKey(remote = RemoteKey.DOWN)))
+
+        assertEquals(listOf(RemoteKey.DOWN), host.guideKeys)
+    }
+
+    @Test
     fun `menu changes route only after confirm`() {
         val host = FakeNavigationHost()
         val controller = WebOsRemoteController(host)
@@ -171,6 +196,8 @@ private class FakeNavigationHost(
     var openedSettingsSection: SettingsSection? = null
     var adjustedSetting: Pair<SettingsOptionId, Int>? = null
     val dialogEvents = mutableListOf<GuideProgrammeDialogEvent>()
+    val guideKeys = mutableListOf<RemoteKey>()
+    var guideConfirmations = 0
 
     override val activeSection: WebOsSection get() = section
     override val visibleChannelIds = listOf("one", "two", "three")
@@ -218,6 +245,8 @@ private class FakeNavigationHost(
     override val showQuickSettings: () -> Unit = {}
     override val closeDialog: () -> Unit = {}
     override val handleDialogEvent: (GuideProgrammeDialogEvent) -> Unit = { dialogEvents += it }
+    override val handleGuideKey: (RemoteKey) -> Unit = { guideKeys += it }
+    override val confirmGuide: () -> Unit = { guideConfirmations++ }
     override val showStatus: (String) -> Unit = { status = it }
     override val exitApplication: () -> Unit = { exited = true }
 }

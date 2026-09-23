@@ -11,6 +11,7 @@ import hu.wukki.tv.UNKNOWN_CHANNEL_NAME_ID
 import hu.wukki.tv.normalizedChannelHistory
 import hu.wukki.tv.programmeProgress
 import hu.wukki.tv.ui.guide.GuideProgrammeDialogEvent
+import hu.wukki.tv.ui.navigation.RemoteKey
 import hu.wukki.tv.ui.navigation.SettingsOptionId
 import hu.wukki.tv.ui.settings.SettingsSection
 import kotlinx.browser.document
@@ -130,6 +131,16 @@ private class WebOsApp {
             playlistUpdatedAt = { playlistCachedAt },
             platformLabel = { "webOS · ${playback.hlsSupport}" },
         )
+    private val guideView =
+        WebOsGuideView(
+            localizer = localizer,
+            channels = { channels },
+            programmesFor = { channel -> programmeIndex.programmes(channel) },
+            selectedChannelId = { playback.playingChannelId ?: selectedChannelId },
+            showLogos = { settings.showLogos },
+            showProgrammeImages = { settings.showProgrammeImages },
+            openChannel = ::openGuideChannel,
+        )
 
     private val navigationHost =
         object : WebOsNavigationHost {
@@ -142,7 +153,7 @@ private class WebOsApp {
             override val channelFilterCount: Int get() = filterButtons.size
             override val liveOverlayVisible: Boolean get() = document.body?.classList?.contains("hud-visible") == true
             override val liveNavigationVisible: Boolean get() = playback.navigationVisible
-            override val dialogVisible: Boolean get() = !quickSettingsDialog.hidden || !legalDialog.hidden || playback.recoveryVisible
+            override val dialogVisible: Boolean get() = guideView.dialogVisible || !quickSettingsDialog.hidden || !legalDialog.hidden || playback.recoveryVisible
             override val settingsDetailOpen: Boolean get() = settingsView.detailOpen
             override val activateSection: (WebOsSection) -> Unit = appShell::activate
             override val focusNavigation: (WebOsSection) -> Unit = appShell::focusNavigation
@@ -151,7 +162,7 @@ private class WebOsApp {
                     WebOsSection.CHANNELS -> restoreChannelFocus()
                     WebOsSection.SETTINGS -> focusSettingsCategory(0)
                     WebOsSection.LIVE -> focusAndReveal(appShell.view(section))
-                    WebOsSection.GUIDE -> focusAndReveal(appShell.view(section))
+                    WebOsSection.GUIDE -> guideView.focusCurrent()
                 }
             }
             override val focusChannelFilter: (Int) -> Unit = { index ->
@@ -195,6 +206,8 @@ private class WebOsApp {
             override val showQuickSettings: () -> Unit = ::showQuickSettings
             override val closeDialog: () -> Unit = ::closeDialog
             override val handleDialogEvent: (GuideProgrammeDialogEvent) -> Unit = ::handleDialogEvent
+            override val handleGuideKey: (RemoteKey) -> Unit = guideView::handleRemoteKey
+            override val confirmGuide: () -> Unit = guideView::confirm
             override val showStatus: (String) -> Unit = ::show
             override val exitApplication: () -> Unit = ::platformBack
         }
@@ -222,6 +235,7 @@ private class WebOsApp {
         settingsView.onCategoryActivated = remoteController::onSettingsCategoryActivated
         settingsView.onOptionFocused = remoteController::onSettingsOptionFocused
         settingsView.configure()
+        guideView.configure()
         configureKeyboard()
         appShell.configure()
         configureLifecycle()
@@ -251,6 +265,11 @@ private class WebOsApp {
         playback.start(playbackChannel(channel), settings, currentProgrammes(channel))
     }
 
+    private fun openGuideChannel(channelId: String) {
+        val index = channels.indexOfFirst { it.id == channelId }
+        if (index >= 0) startPlayback(index)
+    }
+
     private fun playbackChannel(channel: Channel): Channel = if (settings.showLogos) channel else channel.copy(logo = null)
 
     private fun onSectionActivated(section: WebOsSection) {
@@ -264,7 +283,18 @@ private class WebOsApp {
             playback.hideHud()
             playback.leaveLiveNavigation()
         }
-        if (section == WebOsSection.CHANNELS) renderChannelWindow()
+        when (section) {
+            WebOsSection.CHANNELS -> {
+                renderChannelWindow()
+            }
+
+            WebOsSection.GUIDE -> {
+                guideView.activate()
+                remoteController.onGuideFocused()
+            }
+
+            else -> {}
+        }
     }
 
     private fun onNavigationFocused(section: WebOsSection) {
@@ -583,6 +613,7 @@ private class WebOsApp {
         playback.start(probeChannel(url), settings)
     }
 
+    @Suppress("CognitiveComplexMethod")
     private fun fetchPlaylist() {
         if (playlistLoading || !uiActive) return
         val initialLoad = cachedChannels.isEmpty()
@@ -611,6 +642,7 @@ private class WebOsApp {
                     lastSuccessfulChannelId = lastSuccessfulChannelId?.takeIf { id -> parsed.any { it.id == id } }
                     recentChannelIds = normalizedChannelHistory(recentChannelIds, parsed)
                     renderChannels()
+                    guideView.updateData()
                     persistState()
                     schedulePlaylistRefresh()
                     show(localizer.text("status.playlist.loaded", channels.size, "Wukki"))
@@ -711,6 +743,7 @@ private class WebOsApp {
         val focusedIndex = focusedChannelIndex()
         renderedWindow = ChannelRenderWindow(-1, -1)
         renderChannelWindow(focusedIndex)
+        guideView.updateData()
         refreshProgrammeViews()
         persistState()
     }
@@ -725,6 +758,7 @@ private class WebOsApp {
         channels.firstOrNull { it.id == playback.playingChannelId }?.let { channel ->
             playback.updateProgramme(playbackChannel(channel), programmeIndex.nowAndNext(channel, now), now)
         }
+        guideView.refreshClock()
         scheduleProgrammeRefresh(now)
     }
 
@@ -995,6 +1029,10 @@ private class WebOsApp {
     }
 
     private fun closeDialog() {
+        if (guideView.dialogVisible) {
+            guideView.handleDialogEvent(GuideProgrammeDialogEvent.BACK)
+            return
+        }
         if (playback.recoveryVisible) {
             playback.handleRecoveryDialog(GuideProgrammeDialogEvent.BACK)
             return
@@ -1011,7 +1049,9 @@ private class WebOsApp {
     }
 
     private fun handleDialogEvent(event: GuideProgrammeDialogEvent) {
-        if (playback.recoveryVisible) {
+        if (guideView.dialogVisible) {
+            guideView.handleDialogEvent(event)
+        } else if (playback.recoveryVisible) {
             playback.handleRecoveryDialog(event)
         } else if (!legalDialog.hidden) {
             if (event == GuideProgrammeDialogEvent.BACK || event == GuideProgrammeDialogEvent.CONFIRM) {
@@ -1096,6 +1136,7 @@ private class WebOsApp {
         persistState()
         schedulePlaylistRefresh()
         scheduleEpgRefresh()
+        guideView.refreshCopy()
         if (autoplayEnabled) maybeAutoplay()
     }
 

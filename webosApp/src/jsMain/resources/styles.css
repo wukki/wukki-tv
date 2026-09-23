@@ -542,6 +542,138 @@ button.channel:focus { background: var(--primary-container); border-color: var(-
 body.channel-mode-compact .channel-programme { display: none; }
 body.channel-mode-detailed .channel-text > * + * { margin-top: 7px; }
 
+.guide-card {
+    --guide-channel-width: 270px;
+    --guide-row-height: 94px;
+    display: flex;
+    height: 100%;
+    min-width: 0;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--background);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}
+
+.guide-title-row {
+    display: flex;
+    min-height: 62px;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 28px;
+}
+
+.guide-title-row h1 { margin: 0; font-size: 28px; text-transform: uppercase; }
+.guide-title-row time { color: var(--text-secondary); font-size: 17px; }
+
+.guide-actions {
+    display: flex;
+    min-height: 54px;
+    padding: 0 20px 8px;
+    overflow: hidden;
+}
+
+.guide-actions button {
+    min-width: max-content;
+    padding: 0 18px;
+    background: var(--surface);
+    border-color: var(--border);
+}
+
+.guide-actions button + button { margin-left: 8px; }
+.guide-actions button[aria-pressed="true"] { color: var(--primary-strong); background: var(--primary-container); }
+.guide-actions button.is-focused { border-color: var(--primary-strong); box-shadow: 0 0 0 2px var(--primary-strong); }
+
+.guide-timeline-header {
+    display: flex;
+    min-height: 62px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+}
+
+.guide-channel-corner {
+    width: var(--guide-channel-width);
+    flex: 0 0 var(--guide-channel-width);
+    padding: 17px 28px;
+    color: var(--text-muted);
+    font-size: 20px;
+    background: var(--navigation);
+}
+
+.guide-timeline { position: relative; min-width: 0; flex: 1 1 auto; overflow: hidden; }
+.guide-tick { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--border); }
+.guide-tick strong { position: absolute; top: 9px; left: 10px; color: var(--text-secondary); font-size: 15px; white-space: nowrap; }
+.guide-tick small { position: absolute; top: 32px; left: 10px; color: var(--text-muted); font-size: 12px; white-space: nowrap; }
+.guide-now-line { position: absolute; z-index: 5; top: 0; bottom: 0; width: 2px; background: var(--primary-strong); pointer-events: none; }
+.guide-now-line::before { position: absolute; top: 0; left: -5px; width: 0; height: 0; border-top: 7px solid var(--primary-strong); border-right: 6px solid transparent; border-left: 6px solid transparent; content: ""; }
+
+.guide-rows { position: relative; min-height: 0; flex: 1 1 auto; overflow-y: auto; overflow-x: hidden; background: var(--background-raised); }
+.guide-rows-spacer { position: relative; width: 100%; min-height: 100%; }
+.guide-row { position: absolute; right: 0; left: 0; display: flex; height: var(--guide-row-height); }
+
+.guide-channel {
+    display: flex;
+    width: var(--guide-channel-width);
+    min-width: 0;
+    flex: 0 0 var(--guide-channel-width);
+    align-items: center;
+    padding: 0 15px;
+    text-align: left;
+    background: var(--navigation);
+    border: 1px solid var(--border);
+    border-radius: 0;
+}
+
+.guide-channel.is-focused { background: var(--primary-container); border: 2px solid var(--primary-strong); }
+.guide-channel-number { width: 42px; flex: 0 0 42px; color: var(--text-secondary); font-size: 22px; font-weight: 300; }
+.guide-channel img { width: 42px; height: 42px; flex: 0 0 42px; margin-right: 10px; object-fit: contain; }
+.guide-channel-name { min-width: 0; overflow: hidden; font-size: 17px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+
+.guide-programmes { position: relative; min-width: 0; flex: 1 1 auto; overflow: hidden; border-bottom: 1px solid var(--border-subtle); }
+.guide-programmes::before { position: absolute; top: 0; bottom: 0; left: 50%; border-left: 1px solid rgba(38,56,75,.45); content: ""; }
+.guide-programme {
+    position: absolute;
+    top: 2px;
+    bottom: 2px;
+    display: flex;
+    min-width: 22px;
+    flex-direction: column;
+    justify-content: center;
+    padding: 8px 13px;
+    overflow: hidden;
+    text-align: left;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+}
+
+.guide-programme.is-focused { background: var(--surface-selected); border: 2px solid var(--primary-strong); box-shadow: inset 0 0 0 1px var(--primary-strong); }
+.guide-programme strong, .guide-programme small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.guide-programme strong { font-size: 16px; }
+.guide-programme small { margin-top: 6px; color: var(--text-muted); font-size: 13px; }
+.guide-no-programme { position: absolute; top: 34px; left: 18px; color: var(--text-muted); font-size: 15px; }
+.guide-empty { display: flex; min-height: 0; flex: 1 1 auto; align-items: center; justify-content: center; color: var(--text-muted); font-size: 20px; }
+
+.guide-dialog-card { width: min(760px, 84vw); }
+.guide-dialog-card img { width: 100%; max-height: 230px; margin-bottom: 18px; object-fit: cover; border-radius: 8px; }
+.guide-dialog-card small { color: var(--primary-strong); font-size: 15px; font-weight: 700; text-transform: uppercase; }
+.guide-dialog-card h2 { margin: 8px 0 10px; font-size: 30px; }
+.guide-dialog-card p { margin: 0 0 14px; color: var(--text-secondary); font-size: 17px; line-height: 1.45; }
+.guide-dialog-actions { display: flex; margin-top: 24px; }
+.guide-dialog-actions button { min-height: 52px; flex: 1 1 0; background: var(--primary-container); }
+.guide-dialog-actions button + button { margin-left: 10px; }
+.guide-dialog-actions button:last-child { background: var(--primary); }
+
+@media (max-width: 1100px), (max-height: 650px) {
+    .guide-card { --guide-channel-width: 220px; }
+    .guide-title-row { min-height: 48px; }
+    .guide-title-row h1 { font-size: 23px; }
+    .guide-actions { min-height: 46px; }
+    .guide-timeline-header { min-height: 52px; }
+    .guide-channel-corner { padding-top: 12px; }
+}
+
 .placeholder-card {
     display: flex;
     height: calc(100% - 56px);
