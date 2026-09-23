@@ -52,7 +52,7 @@ val webOsPackageOutput = layout.buildDirectory.dir("outputs/webos")
 val webOsServiceDirectory = rootProject.layout.projectDirectory.dir("webosService")
 val verifyWebOsAppShell by tasks.registering {
     group = "verification"
-    description = "Checks the WOS-15–20 shell, navigation, playback and programme-data contracts."
+    description = "Checks the WOS-15–21.1 shell, navigation, playback, settings and legacy layout contracts."
     val markup = layout.projectDirectory.file("src/jsMain/resources/index.html")
     val styles = layout.projectDirectory.file("src/jsMain/resources/styles.css")
     val appInfo = layout.projectDirectory.file("src/jsMain/resources/appinfo.json")
@@ -99,11 +99,11 @@ val verifyWebOsAppShell by tasks.registering {
         listOf("channel-tabs", "open-channel-search", "channel-preview", "channel-empty-action").forEach { id ->
             check("id=\"$id\"" in html) { "Missing WOS-17 channel-browser control #$id." }
         }
-        check("grid-template-columns: minmax(0, 62fr) minmax(300px, 38fr)" in css) {
-            "The Channels screen must keep the shared 62/38 list and preview layout."
+        check(".channel-browser-layout > .channel-surface" in css && "flex: 0 0 calc(62% - 6px)" in css) {
+            "The Channels screen must keep the shared 62/38 list and preview layout with legacy-compatible flexbox."
         }
         check("category-filter" !in html) { "The obsolete cyclic category button must not return." }
-        check("\"version\": \"0.13.0\"" in appInfoJson) { "WOS-21 must package as webOS version 0.13.0." }
+        check("\"version\": \"0.13.1\"" in appInfoJson) { "WOS-21.1 must package as webOS version 0.13.1." }
         listOf("playback-hud", "live-channel-number", "live-channel-logo", "live-programme-progress", "channel-number-input").forEach { id ->
             check("id=\"$id\"" in html) { "Missing WOS-18 live information element #$id." }
         }
@@ -137,6 +137,25 @@ val verifyWebOsAppShell by tasks.registering {
         }
         listOf("settings-detail", "settings-home", "quick-aspect-options", "legal-dialog").forEach { id ->
             check("id=\"$id\"" in html) { "Missing WOS-21 settings control #$id." }
+        }
+        fun cssRule(selector: String): String {
+            val start = css.indexOf("$selector {")
+            check(start >= 0) { "Missing CSS rule for $selector." }
+            val end = css.indexOf('}', start)
+            check(end >= 0) { "Unclosed CSS rule for $selector." }
+            return css.substring(start, end + 1)
+        }
+        val legacyLayoutContracts =
+            listOf(
+                Triple(".top-navigation", "display: flex", "horizontal top navigation"),
+                Triple(".brand", "flex: 0 0 20%", "20% brand column"),
+                Triple(".nav-item", "flex: 0 0 calc(20% - 6px)", "20% navigation columns"),
+                Triple(".channel-browser-layout", "display: flex", "two-panel Channels layout"),
+                Triple(".settings-layout", "display: flex", "two-panel Settings layout"),
+                Triple(".settings-categories", "flex: 0 0 430px", "fixed Settings category panel"),
+            )
+        legacyLayoutContracts.forEach { (selector, declaration, contract) ->
+            check(declaration in cssRule(selector)) { "Missing WOS-21.1 legacy webOS layout contract: $contract." }
         }
     }
 }
