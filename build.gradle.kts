@@ -29,7 +29,15 @@ val wukkiVersionInfo = WukkiVersioning.resolve(project)
 
 allprojects {
     group = "hu.wukki.tv"
-    version = wukkiVersionInfo.displayVersion
+    // Kotlin/JS writes Gradle project versions into the committed npm lockfile. Keep the
+    // workspace-only packages stable so every commit does not invalidate that lockfile;
+    // application/installer versions still come from the Wukki version metadata below.
+    version =
+        if (path == ":" || path == ":core" || path == ":webosApp") {
+            "0.0.0"
+        } else {
+            wukkiVersionInfo.displayVersion
+        }
 
     tasks.withType<CyclonedxDirectTask>().configureEach {
         includeConfigs.set(
