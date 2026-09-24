@@ -57,7 +57,12 @@ class MainActivity : ComponentActivity() {
                 remember {
                     { action: (() -> Boolean)? -> appBackAction = action }
                 }
-            MaterialTheme(colorScheme = WukkiColorScheme) {
+            MaterialTheme(
+                colorScheme = WukkiColorScheme,
+                typography =
+                    hu.wukki.tv.ui.components
+                        .wukkiTypography(),
+            ) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = WukkiColors.background,

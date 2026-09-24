@@ -159,7 +159,12 @@ fun ParityReferenceScreen(
     }
     val callbacks = DashboardCallbacks({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
     CompositionLocalProvider(LocalDensity provides Density(1f, 1f)) {
-        MaterialTheme(colorScheme = WukkiColorScheme) {
+        MaterialTheme(
+            colorScheme = WukkiColorScheme,
+            typography =
+                hu.wukki.tv.ui.components
+                    .wukkiTypography(),
+        ) {
             Surface(Modifier.fillMaxSize(), color = WukkiColors.background, contentColor = WukkiColors.textPrimary) {
                 DashboardScreen(
                     session,

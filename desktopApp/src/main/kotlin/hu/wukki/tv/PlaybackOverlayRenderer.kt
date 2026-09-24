@@ -19,40 +19,48 @@ internal data class RenderedPlaybackOverlay(
     val data: PlaybackOverlayData,
     val logo: BufferedImage? = null,
     val programmeImage: BufferedImage? = null,
-    val programmeImageFailed: Boolean = false
+    val programmeImageFailed: Boolean = false,
 )
 
-internal data class DesktopBufferingOverlaySnapshot(val spinner: Boolean, val label: String)
+internal data class DesktopBufferingOverlaySnapshot(
+    val spinner: Boolean,
+    val label: String,
+)
 
-internal fun desktopBufferingOverlaySnapshot(data: PlaybackOverlayData): DesktopBufferingOverlaySnapshot? =
-    data.buffering?.let { DesktopBufferingOverlaySnapshot(spinner = true, label = it.label) }
+internal fun desktopBufferingOverlaySnapshot(data: PlaybackOverlayData): DesktopBufferingOverlaySnapshot? = data.buffering?.let { DesktopBufferingOverlaySnapshot(spinner = true, label = it.label) }
 
 internal class DesktopPlaybackOverlayCoordinator(
     private val component: OverlayCallbackMediaPlayerComponent,
     private val requestRepaint: () -> Unit,
-    private val imageLoader: DesktopOverlayImageLoader = DesktopOverlayImageLoader()
+    private val imageLoader: DesktopOverlayImageLoader = DesktopOverlayImageLoader(),
 ) {
-    private val imageExecutor = Executors.newSingleThreadExecutor { runnable ->
-        Thread(runnable, "wukki-vlc-overlay-image").apply { isDaemon = true }
-    }
+    private val imageExecutor =
+        Executors.newSingleThreadExecutor { runnable ->
+            Thread(runnable, "wukki-vlc-overlay-image").apply { isDaemon = true }
+        }
     private val imageCache = ConcurrentHashMap<String, BufferedImage>()
     private val pendingImages = ConcurrentHashMap.newKeySet<String>()
     private val failedImages = ConcurrentHashMap<String, Long>()
+
     @Volatile private var released = false
 
     fun update(data: PlaybackOverlayData) {
         if (released) return
-        component.overlay = RenderedPlaybackOverlay(
-            data = data,
-            logo = data.logoUrl?.let(imageCache::get),
-            programmeImage = data.programmeImageUrl?.let(imageCache::get),
-            programmeImageFailed = data.programmeImageUrl?.let(failedImages::containsKey) == true
-        )
+        component.overlay =
+            RenderedPlaybackOverlay(
+                data = data,
+                logo = data.logoUrl?.let(imageCache::get),
+                programmeImage = data.programmeImageUrl?.let(imageCache::get),
+                programmeImageFailed = data.programmeImageUrl?.let(failedImages::containsKey) == true,
+            )
         requestRepaint()
         listOfNotNull(data.logoUrl, data.programmeImageUrl).distinct().forEach { loadImage(it, data.channelId) }
     }
 
-    private fun loadImage(imageUrl: String, channelId: String) {
+    private fun loadImage(
+        imageUrl: String,
+        channelId: String,
+    ) {
         if (imageCache.containsKey(imageUrl) || !canRetry(imageUrl) || !pendingImages.add(imageUrl)) return
         imageExecutor.execute {
             val loaded = runCatching { imageLoader.load(imageUrl) }.getOrNull()
@@ -66,11 +74,12 @@ internal class DesktopPlaybackOverlayCoordinator(
             val current = component.overlay
             val imageStillUsed = current?.data?.let { it.logoUrl == imageUrl || it.programmeImageUrl == imageUrl } == true
             if (!released && current?.data?.channelId == channelId && imageStillUsed) {
-                component.overlay = current.copy(
-                    logo = current.data.logoUrl?.let(imageCache::get),
-                    programmeImage = current.data.programmeImageUrl?.let(imageCache::get),
-                    programmeImageFailed = current.data.programmeImageUrl?.let(failedImages::containsKey) == true
-                )
+                component.overlay =
+                    current.copy(
+                        logo = current.data.logoUrl?.let(imageCache::get),
+                        programmeImage = current.data.programmeImageUrl?.let(imageCache::get),
+                        programmeImageFailed = current.data.programmeImageUrl?.let(failedImages::containsKey) == true,
+                    )
                 requestRepaint()
             }
         }
@@ -93,7 +102,9 @@ internal class DesktopPlaybackOverlayCoordinator(
 }
 
 /** The overlay is painted by the same Swing component as the callback video, above every frame. */
-internal class OverlayCallbackMediaPlayerComponent(vararg factoryArguments: String) : CallbackMediaPlayerComponent(*factoryArguments) {
+internal class OverlayCallbackMediaPlayerComponent(
+    vararg factoryArguments: String,
+) : CallbackMediaPlayerComponent(*factoryArguments) {
     @Volatile var overlay: RenderedPlaybackOverlay? = null
 
     override fun onPaintOverlay(graphics: Graphics2D) {
@@ -123,7 +134,13 @@ internal class OverlayCallbackMediaPlayerComponent(vararg factoryArguments: Stri
     }
 }
 
-private fun drawBufferingSpinner(graphics: Graphics2D, label: String, width: Int, height: Int, scale: Float) {
+private fun drawBufferingSpinner(
+    graphics: Graphics2D,
+    label: String,
+    width: Int,
+    height: Int,
+    scale: Float,
+) {
     val diameter = (52 * scale).toInt().coerceAtLeast(30)
     val x = (width - diameter) / 2
     val y = (height - diameter) / 2 - (14 * scale).toInt()
@@ -134,7 +151,9 @@ private fun drawBufferingSpinner(graphics: Graphics2D, label: String, width: Int
     val rotation = ((System.currentTimeMillis() % 900L) * 360f / 900f)
     graphics.color = WukkiOverlayColors.accent
     graphics.draw(Arc2D.Float(x.toFloat(), y.toFloat(), diameter.toFloat(), diameter.toFloat(), -rotation, 105f, Arc2D.OPEN))
-    graphics.font = Font(Font.SANS_SERIF, Font.BOLD, (17 * scale).toInt().coerceAtLeast(12))
+    graphics.font =
+        hu.wukki.tv.ui.components.OverlayFont
+            .at(Font.BOLD, (17 * scale).toInt().coerceAtLeast(12))
     graphics.color = WukkiOverlayColors.text
     val baseline = y + diameter + graphics.fontMetrics.height + (9 * scale).toInt()
     graphics.drawString(label, (width - graphics.fontMetrics.stringWidth(label)) / 2, baseline)
@@ -144,7 +163,7 @@ private fun drawPreviewLogo(
     graphics: Graphics2D,
     content: RenderedPlaybackOverlay,
     width: Int,
-    scale: Float
+    scale: Float,
 ) {
     val margin = (24 * scale).toInt().coerceAtLeast(12)
     val maxWidth = min((190 * scale).toInt(), (width * .28f).toInt()).coerceAtLeast(48)
@@ -156,14 +175,23 @@ private fun drawPreviewLogo(
         val drawnHeight = (logo.height * logoScale).toInt().coerceAtLeast(1)
         graphics.drawImage(logo, margin, margin, drawnWidth, drawnHeight, null)
     } else {
-        graphics.font = Font(Font.SANS_SERIF, Font.BOLD, (22 * scale).toInt().coerceAtLeast(13))
+        graphics.font =
+            hu.wukki.tv.ui.components.OverlayFont
+                .at(Font.BOLD, (22 * scale).toInt().coerceAtLeast(13))
         graphics.color = Color.WHITE
         graphics.drawString(content.data.channelName, margin, margin + graphics.fontMetrics.ascent)
     }
 }
 
-private fun drawChannelNumberInput(graphics: Graphics2D, number: String, width: Int, scale: Float) {
-    graphics.font = Font(Font.SANS_SERIF, Font.BOLD, (48 * scale).toInt().coerceAtLeast(26))
+private fun drawChannelNumberInput(
+    graphics: Graphics2D,
+    number: String,
+    width: Int,
+    scale: Float,
+) {
+    graphics.font =
+        hu.wukki.tv.ui.components.OverlayFont
+            .at(Font.BOLD, (48 * scale).toInt().coerceAtLeast(26))
     val metrics = graphics.fontMetrics
     val horizontalPadding = (24 * scale).toInt().coerceAtLeast(12)
     val verticalPadding = (14 * scale).toInt().coerceAtLeast(8)
@@ -183,7 +211,7 @@ private fun drawChannelNumberInput(graphics: Graphics2D, number: String, width: 
     graphics.drawString(
         number,
         x + (boxWidth - metrics.stringWidth(number)) / 2,
-        y + (boxHeight - metrics.height) / 2 + metrics.ascent
+        y + (boxHeight - metrics.height) / 2 + metrics.ascent,
     )
 }
 
@@ -192,12 +220,15 @@ private fun drawProgrammePanel(
     content: RenderedPlaybackOverlay,
     width: Int,
     height: Int,
-    scale: Float
+    scale: Float,
 ) {
     val data = content.data
     val geometry = desktopInfoPanelGeometry(width, height, scale)
-    fun scaled(value: Float, minimum: Int = 1): Int =
-        (value * geometry.contentScale).toInt().coerceAtLeast(minimum)
+
+    fun scaled(
+        value: Float,
+        minimum: Int = 1,
+    ): Int = (value * geometry.contentScale).toInt().coerceAtLeast(minimum)
 
     val margin = geometry.left
     val top = geometry.top
@@ -214,7 +245,9 @@ private fun drawProgrammePanel(
     val channelRight = channelLeft + channelWidth
     val channelColumnCenterX = (channelLeft + channelRight) / 2
     val arrowSize = scaled(PlaybackInfoPanelStyle.CHANNEL_ARROW_SIZE, 14)
-    val numberFont = Font(Font.SANS_SERIF, Font.BOLD, scaled(PlaybackInfoPanelStyle.CHANNEL_NUMBER_TEXT_SIZE, 16))
+    val numberFont =
+        hu.wukki.tv.ui.components.OverlayFont
+            .at(Font.BOLD, scaled(PlaybackInfoPanelStyle.CHANNEL_NUMBER_TEXT_SIZE, 16))
     val logoWidth = scaled(PlaybackInfoPanelStyle.CHANNEL_LOGO_WIDTH, 34)
     val logoHeight = scaled(PlaybackInfoPanelStyle.CHANNEL_LOGO_HEIGHT, 17)
     val numberHeight = graphics.getFontMetrics(numberFont).height
@@ -227,7 +260,7 @@ private fun drawProgrammePanel(
         centerY = channelY + arrowSize / 2,
         size = arrowSize,
         pointsUp = true,
-        scale = geometry.contentScale
+        scale = geometry.contentScale,
     )
     channelY += arrowSize + channelGap
     graphics.font = numberFont
@@ -244,13 +277,15 @@ private fun drawProgrammePanel(
         val logoY = channelY + (logoHeight - drawnHeight) / 2
         graphics.drawImage(logo, logoX, logoY, drawnWidth, drawnHeight, null)
     } else {
-        graphics.font = Font(Font.SANS_SERIF, Font.PLAIN, scaled(PlaybackInfoPanelStyle.META_TEXT_SIZE, 9))
+        graphics.font =
+            hu.wukki.tv.ui.components.OverlayFont
+                .at(Font.PLAIN, scaled(PlaybackInfoPanelStyle.META_TEXT_SIZE, 9))
         drawCentered(
             graphics,
             data.channelName,
             channelLeft,
             channelRight,
-            channelY + (logoHeight - graphics.fontMetrics.height) / 2 + graphics.fontMetrics.ascent
+            channelY + (logoHeight - graphics.fontMetrics.height) / 2 + graphics.fontMetrics.ascent,
         )
     }
     channelY += logoHeight + channelGap
@@ -260,7 +295,7 @@ private fun drawProgrammePanel(
         centerY = channelY + arrowSize / 2,
         size = arrowSize,
         pointsUp = false,
-        scale = geometry.contentScale
+        scale = geometry.contentScale,
     )
 
     val artwork = content.programmeImage
@@ -276,27 +311,35 @@ private fun drawProgrammePanel(
             y = top + (panelHeight - artworkHeight) / 2,
             width = artworkWidth,
             height = artworkHeight,
-            radius = scaled(PlaybackInfoPanelStyle.ARTWORK_CORNER_RADIUS, 4)
+            radius = scaled(PlaybackInfoPanelStyle.ARTWORK_CORNER_RADIUS, 4),
         )
     }
-    val contentLeft = if (showArtworkSlot) {
-        artworkLeft + artworkWidth + columnGap
-    } else {
-        channelRight + columnGap
-    }
+    val contentLeft =
+        if (showArtworkSlot) {
+            artworkLeft + artworkWidth + columnGap
+        } else {
+            channelRight + columnGap
+        }
     val contentRight = margin + panelWidth - padding
     val availableContentWidth = (contentRight - contentLeft).coerceAtLeast(1)
     val title = data.programme.title
-    val titleFont = Font(Font.SANS_SERIF, Font.BOLD, scaled(PlaybackInfoPanelStyle.TITLE_TEXT_SIZE, 12))
-    val metaFont = Font(Font.SANS_SERIF, Font.PLAIN, scaled(PlaybackInfoPanelStyle.META_TEXT_SIZE, 9))
-    val nextFont = Font(Font.SANS_SERIF, Font.PLAIN, scaled(PlaybackInfoPanelStyle.NEXT_TEXT_SIZE, 9))
+    val titleFont =
+        hu.wukki.tv.ui.components.OverlayFont
+            .at(Font.BOLD, scaled(PlaybackInfoPanelStyle.TITLE_TEXT_SIZE, 12))
+    val metaFont =
+        hu.wukki.tv.ui.components.OverlayFont
+            .at(Font.PLAIN, scaled(PlaybackInfoPanelStyle.META_TEXT_SIZE, 9))
+    val nextFont =
+        hu.wukki.tv.ui.components.OverlayFont
+            .at(Font.PLAIN, scaled(PlaybackInfoPanelStyle.NEXT_TEXT_SIZE, 9))
     val itemGap = scaled(PlaybackInfoPanelStyle.ITEM_GAP, 2)
     val progressHeight = scaled(PlaybackInfoPanelStyle.PROGRESS_HEIGHT, 3)
     val hasTiming = data.programme.timeRange != null && data.programme.progress != null
     val hasNext = data.programme.nextLine != null
-    val contentHeight = graphics.getFontMetrics(titleFont).height +
-        (if (hasTiming) itemGap + graphics.getFontMetrics(metaFont).height + itemGap + progressHeight else 0) +
-        (if (hasNext) itemGap + graphics.getFontMetrics(nextFont).height else 0)
+    val contentHeight =
+        graphics.getFontMetrics(titleFont).height +
+            (if (hasTiming) itemGap + graphics.getFontMetrics(metaFont).height + itemGap + progressHeight else 0) +
+            (if (hasNext) itemGap + graphics.getFontMetrics(nextFont).height else 0)
     var contentY = top + (panelHeight - contentHeight) / 2
 
     graphics.font = titleFont
@@ -320,7 +363,7 @@ private fun drawProgrammePanel(
             (availableContentWidth * progress).toInt(),
             progressHeight,
             progressHeight,
-            progressHeight
+            progressHeight,
         )
         contentY += progressHeight
     }
@@ -333,7 +376,7 @@ private fun drawProgrammePanel(
             nextLine,
             contentLeft,
             contentY + graphics.fontMetrics.ascent,
-            availableContentWidth
+            availableContentWidth,
         )
     }
 }
@@ -344,23 +387,25 @@ private fun drawChannelNavigationChevron(
     centerY: Int,
     size: Int,
     pointsUp: Boolean,
-    scale: Float
+    scale: Float,
 ) {
     val halfWidth = size / 2f
     val halfHeight = size / 4f
     val outerY = if (pointsUp) centerY + halfHeight else centerY - halfHeight
     val middleY = if (pointsUp) centerY - halfHeight else centerY + halfHeight
-    val path = Path2D.Float().apply {
-        moveTo(centerX - halfWidth, outerY)
-        lineTo(centerX.toFloat(), middleY)
-        lineTo(centerX + halfWidth, outerY)
-    }
+    val path =
+        Path2D.Float().apply {
+            moveTo(centerX - halfWidth, outerY)
+            lineTo(centerX.toFloat(), middleY)
+            lineTo(centerX + halfWidth, outerY)
+        }
     graphics.color = WukkiOverlayColors.accent
-    graphics.stroke = BasicStroke(
-        (3.2f * scale).coerceAtLeast(2f),
-        BasicStroke.CAP_ROUND,
-        BasicStroke.JOIN_ROUND
-    )
+    graphics.stroke =
+        BasicStroke(
+            (3.2f * scale).coerceAtLeast(2f),
+            BasicStroke.CAP_ROUND,
+            BasicStroke.JOIN_ROUND,
+        )
     graphics.draw(path)
 }
 
@@ -371,7 +416,7 @@ private fun drawCroppedImage(
     y: Int,
     width: Int,
     height: Int,
-    radius: Int
+    radius: Int,
 ) {
     if (image.width <= 0 || image.height <= 0 || width <= 0 || height <= 0) return
     val targetRatio = width.toDouble() / height
@@ -395,9 +440,15 @@ private fun drawCroppedImage(
     graphics.clip(RoundRectangle2D.Float(x.toFloat(), y.toFloat(), width.toFloat(), height.toFloat(), radius.toFloat(), radius.toFloat()))
     graphics.drawImage(
         image,
-        x, y, x + width, y + height,
-        sourceX, sourceY, sourceX + sourceWidth, sourceY + sourceHeight,
-        null
+        x,
+        y,
+        x + width,
+        y + height,
+        sourceX,
+        sourceY,
+        sourceX + sourceWidth,
+        sourceY + sourceHeight,
+        null,
     )
     graphics.clip = previousClip
 }
@@ -409,9 +460,11 @@ private fun drawPlaybackStatus(
     centered: Boolean,
     width: Int,
     height: Int,
-    scale: Float
+    scale: Float,
 ) {
-    graphics.font = Font(Font.SANS_SERIF, Font.BOLD, (17 * scale).toInt().coerceAtLeast(12))
+    graphics.font =
+        hu.wukki.tv.ui.components.OverlayFont
+            .at(Font.BOLD, (17 * scale).toInt().coerceAtLeast(12))
     val paddingX = (18 * scale).toInt()
     val boxHeight = (42 * scale).toInt().coerceAtLeast(28)
     val maxTextWidth = width - paddingX * 4
@@ -425,16 +478,32 @@ private fun drawPlaybackStatus(
     graphics.drawString(visibleLabel, left + paddingX, top + (boxHeight + graphics.fontMetrics.ascent) / 2 - 3)
 }
 
-private fun drawCentered(graphics: Graphics2D, text: String, left: Int, right: Int, baseline: Int) {
+private fun drawCentered(
+    graphics: Graphics2D,
+    text: String,
+    left: Int,
+    right: Int,
+    baseline: Int,
+) {
     val clipped = clippedText(graphics, text, (right - left).coerceAtLeast(1))
     graphics.drawString(clipped, left + ((right - left) - graphics.fontMetrics.stringWidth(clipped)) / 2, baseline)
 }
 
-private fun drawClippedText(graphics: Graphics2D, text: String, x: Int, baseline: Int, maxWidth: Int) {
+private fun drawClippedText(
+    graphics: Graphics2D,
+    text: String,
+    x: Int,
+    baseline: Int,
+    maxWidth: Int,
+) {
     graphics.drawString(clippedText(graphics, text, maxWidth), x, baseline)
 }
 
-private fun clippedText(graphics: Graphics2D, text: String, maxWidth: Int): String {
+private fun clippedText(
+    graphics: Graphics2D,
+    text: String,
+    maxWidth: Int,
+): String {
     if (graphics.fontMetrics.stringWidth(text) <= maxWidth) return text
     val ellipsis = "…"
     var end = text.length

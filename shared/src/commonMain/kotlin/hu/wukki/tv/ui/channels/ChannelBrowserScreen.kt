@@ -45,6 +45,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
@@ -70,6 +71,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import coil3.compose.SubcomposeAsyncImage
 import hu.wukki.tv.ChannelListDisplayMode
 import hu.wukki.tv.Programme
@@ -96,7 +98,9 @@ fun ChannelBrowserScreen(
     listOpenRequest: Int,
     searchOpen: Boolean,
     onSearchOpenChange: (Boolean) -> Unit,
+    compactLayout: Boolean = false,
 ) {
+    var previewOpen by remember { mutableStateOf(false) }
     val screenFocusRequester = remember { FocusRequester() }
     val searchFocusRequester = remember { FocusRequester() }
 
@@ -131,6 +135,9 @@ fun ChannelBrowserScreen(
                 onSearchOpenChange(false)
             },
         )
+        if (compactLayout && state.preview != null) {
+            Button(onClick = { previewOpen = true }) { Text(tr(state.language, "channels.preview")) }
+        }
         Row(
             modifier = Modifier.fillMaxWidth().weight(1f),
             horizontalArrangement = Arrangement.spacedBy(20.dp * scale),
@@ -142,14 +149,24 @@ fun ChannelBrowserScreen(
                 remoteFocus,
                 remoteListIndex,
                 listOpenRequest,
-                modifier = Modifier.weight(.62f).fillMaxHeight(),
+                modifier = Modifier.weight(if (compactLayout) 1f else .62f).fillMaxHeight(),
             )
-            ProgrammeInformation(
-                state,
-                callbacks,
-                scale,
-                Modifier.weight(.38f).fillMaxHeight(),
-            )
+            if (!compactLayout) {
+                ProgrammeInformation(
+                    state,
+                    callbacks,
+                    scale,
+                    Modifier.weight(.38f).fillMaxHeight(),
+                )
+            }
+        }
+    }
+    if (compactLayout && previewOpen) {
+        Dialog(onDismissRequest = { previewOpen = false }) {
+            Column(Modifier.fillMaxSize().background(WukkiColors.surface)) {
+                Button(onClick = { previewOpen = false }) { Text(tr(state.language, "action.close")) }
+                ProgrammeInformation(state, callbacks, scale, Modifier.weight(1f).fillMaxWidth())
+            }
         }
     }
 }

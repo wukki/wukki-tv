@@ -74,7 +74,12 @@ private fun runApplication() =
                 }
             }
             LaunchedEffect(Unit) { window.minimumSize = Dimension(1024, 640) }
-            MaterialTheme(colorScheme = WukkiColorScheme) {
+            MaterialTheme(
+                colorScheme = WukkiColorScheme,
+                typography =
+                    hu.wukki.tv.ui.components
+                        .wukkiTypography(),
+            ) {
                 Surface(modifier = Modifier.fillMaxSize(), color = WukkiColors.background, contentColor = WukkiColors.textPrimary) {
                     DesktopWukkiApp()
                 }

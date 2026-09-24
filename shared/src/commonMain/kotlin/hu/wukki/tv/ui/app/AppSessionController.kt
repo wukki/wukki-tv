@@ -112,7 +112,7 @@ internal class AppSessionController(
             if (section == DashboardSection.GUIDE && activeSection != DashboardSection.GUIDE) {
                 guideState.focusCurrentProgramme(guideDataSource, guideTimeline(tick, model.guideLatestProgrammeEnd()), tick)
             }
-            if (androidSettingsNavigation && section == DashboardSection.SETTINGS && activeSection != DashboardSection.SETTINGS) {
+            if (section == DashboardSection.SETTINGS && activeSection != DashboardSection.SETTINGS) {
                 settingsNavigation = settingsNavigation.copy(section = null, option = null)
             }
             activeSection = section

@@ -132,7 +132,12 @@ fun DashboardScreen(
     playingChannelId: String?,
 ) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val scale = minOf(maxWidth.value / 1470f, maxHeight.value / 920f).coerceIn(.70f, 1.45f)
+        val scale =
+            hu.wukki.tv.ui.layout.DisplayLayout
+                .dashboardScale(maxWidth.value, maxHeight.value)
+        val compactLayout =
+            hu.wukki.tv.ui.layout.DisplayLayout
+                .isCompact(maxWidth.value)
         val padding = (14.dp * scale).coerceIn(8.dp, 20.dp)
         val focusedSection = DashboardSection.entries[session.mainNavigationIndex].takeIf { session.focusZone == TvFocusZone.MAIN_NAVIGATION }
         val navigationState =
@@ -145,7 +150,7 @@ fun DashboardScreen(
                     state = navigationState,
                     onSelect = callbacks.onSectionChange,
                     scale = scale,
-                    showLabels = !androidSettingsNavigation,
+                    showLabels = true,
                     overlay = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -196,6 +201,7 @@ fun DashboardScreen(
                             }
                         ChannelBrowserScreen(
                             state = browserStateWithPreview,
+                            compactLayout = compactLayout,
                             callbacks =
                                 ChannelBrowserCallbacks(
                                     onQueryChange = model::setChannelQuery,
@@ -262,7 +268,7 @@ fun DashboardScreen(
                             settingsDropdownOpenRequest = session.settingsDropdownOpenRequest,
                             settingsDropdownOptionIndex = session.settingsDropdownOptionIndex,
                             settingsAboutOpenRequest = session.settingsAboutOpenRequest,
-                            androidFullScreenSubmenus = androidSettingsNavigation,
+                            androidFullScreenSubmenus = compactLayout,
                             onCategoryFocus = callbacks.onSettingsCategoryFocus,
                             onOptionFocus = callbacks.onSettingsOptionFocus,
                             modifier = Modifier.fillMaxSize().padding(padding),
@@ -288,7 +294,7 @@ fun DashboardScreen(
                     state = navigationState,
                     onSelect = callbacks.onSectionChange,
                     scale = scale,
-                    showLabels = !androidSettingsNavigation,
+                    showLabels = true,
                     overlay = true,
                     modifier = Modifier.fillMaxWidth(),
                 )

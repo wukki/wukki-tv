@@ -1,0 +1,12 @@
+{
+  "source": "https://github.com/google/fonts/tree/main/ofl/inter",
+  "opticalSize": 14,
+  "files": {
+    "inter_300.ttf": "ad8d4122523ec580855a9518e66b8026c52237e5672b75f6915405b95283e6d8",
+    "inter_400.ttf": "3faa8ab102bf7a36f3887180ffd7ab988735e4e7377444d11ea4022d349a4786",
+    "inter_500.ttf": "9b4369bd084e7c6c56f9d38617cb55b7485b766d0a0e10cfe3c33e9cf7ed9b6c",
+    "inter_600.ttf": "78ffbb10fa068df9efd42836478ce1029b2f82d1b491c631fed27c88dbe17406",
+    "inter_700.ttf": "8f9abee0fd4aea7bd39c13a8dcfd0eb61c1bf0d0ec960d3b3fa97f7b9c6ca1ba",
+    "inter_900.ttf": "ec3a66860d7e182c6c2ab0a1890e68a7784a7e31b500c652f95520a176e1afa5"
+  }
+}

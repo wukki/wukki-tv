@@ -2,8 +2,10 @@ package hu.wukki.tv.ui.navigation
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -12,6 +14,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.FormatListBulleted
@@ -62,31 +65,40 @@ fun TopNavigation(
     modifier: Modifier = Modifier,
 ) {
     val navigationHeight = if (overlay) 48.dp else (32.dp * scale).coerceIn(60.dp, 90.dp)
-    Surface(
-        color = if (overlay) Color.Black.copy(alpha = .0f) else MaterialTheme.colorScheme.surface,
-        contentColor = MaterialTheme.colorScheme.onSurface,
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .then(if (overlay) Modifier.height(navigationHeight) else Modifier.heightIn(min = 60.dp, max = 90.dp)),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().height(navigationHeight),
-            verticalAlignment = Alignment.Top,
+    BoxWithConstraints(modifier) {
+        val compact =
+            hu.wukki.tv.ui.layout.DisplayLayout
+                .isCompact(maxWidth.value)
+        Surface(
+            color = if (overlay) Color.Black.copy(alpha = .0f) else MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .then(if (overlay) Modifier.height(navigationHeight) else Modifier.heightIn(min = 60.dp, max = 90.dp)),
         ) {
-            WukkiTvBrand(
-                scale = scale,
-                modifier = Modifier.weight(1f).height(48.dp),
-            )
-            state.entries.forEach { entry ->
-                TopNavigationItem(
-                    entry = entry,
-                    selected = entry.section == state.highlightedSection,
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(navigationHeight)
+                        .then(if (compact) Modifier.horizontalScroll(rememberScrollState()) else Modifier),
+                verticalAlignment = Alignment.Top,
+            ) {
+                WukkiTvBrand(
                     scale = scale,
-                    showLabel = showLabels,
-                    onClick = { onSelect(entry.section) },
-                    modifier = Modifier.weight(1f).height(48.dp),
+                    modifier = (if (compact) Modifier.width(180.dp) else Modifier.weight(1f)).height(48.dp),
                 )
+                state.entries.forEach { entry ->
+                    TopNavigationItem(
+                        entry = entry,
+                        selected = entry.section == state.highlightedSection,
+                        scale = scale,
+                        showLabel = showLabels,
+                        onClick = { onSelect(entry.section) },
+                        modifier = (if (compact) Modifier.width(180.dp) else Modifier.weight(1f)).height(48.dp),
+                    )
+                }
             }
         }
     }
