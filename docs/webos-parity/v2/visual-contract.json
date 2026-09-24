@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "viewport": [1920, 1080],
+  "chromeDomViewport": [1920, 993],
+  "fixedEpochMillis": 1790006400000,
+  "timezone": "Europe/Budapest",
+  "palette": ["rgb(7, 16, 26)", "rgb(16, 29, 43)", "rgb(139, 92, 246)", "rgb(162, 119, 255)"],
+  "navigationLabels": ["Élő adás", "Műsorújság", "Csatornák", "Beállítások"],
+  "globalSelectors": ["body", ".top-navigation", ".brand", "#nav-live", "#nav-guide", "#nav-channels", "#nav-settings"],
+  "scenarios": {
+    "live": {"selectors": ["#view-live", "#player", "#playback-hud"], "focusSelector": "#nav-live", "containsText": "Élő adás"},
+    "live-empty": {"selectors": ["#view-live", "#live-empty"], "focusSelector": "#nav-live", "containsText": "még nem érhető el"},
+    "channels": {"selectors": ["#view-channels", ".channel-browser-layout", ".channel-surface", "#channel-preview", "#channel-list button"], "focusSelector": "#channel-list button", "containsText": "Hírek"},
+    "search": {"selectors": ["#view-channels", ".channel-surface", "#channel-preview", "#channel-search-bar", "#channel-search", "#channel-list button"], "focusSelector": "#channel-search", "containsText": "Hírek"},
+    "no-results": {"selectors": ["#view-channels", "#channel-search", "#channel-empty", "#channel-empty-action"], "focusSelector": "#channel-search", "containsText": "Nincs találat"},
+    "no-data": {"selectors": ["#view-channels", "#channel-empty", "#channel-empty-action"], "focusSelector": "#channel-empty-action", "containsText": "Nem sikerült betölteni a csatornákat"},
+    "favorites": {"selectors": ["#view-channels", ".channel-surface", "#channel-preview", "#channel-tabs", "#channel-list button"], "focusSelector": "#channel-list button", "containsText": "Hírek"},
+    "recent": {"selectors": ["#view-channels", ".channel-surface", "#channel-preview", "#channel-tabs", "#channel-list button"], "focusSelector": "#channel-list button", "containsText": "Kultúra"},
+    "guide": {"selectors": ["#view-guide", "#guide-actions", "#guide-timeline", ".guide-row", ".guide-programme"], "focusSelector": "#guide-actions button", "containsText": "MŰSORÚJSÁG"},
+    "guide-details": {"selectors": ["#view-guide", "#guide-programme-dialog", "#guide-dialog-title", "#guide-dialog-open"], "focusSelector": "#guide-dialog-open", "containsText": "Csatorna megnyitása"},
+    "settings": {"selectors": ["#view-settings", ".settings-layout", ".settings-categories", "#settings-detail", "[data-settings-section]"], "focusSelector": "[data-settings-section]", "containsText": "BEÁLLÍTÁSOK"},
+    "settings-playback": {"selectors": ["#view-settings", ".settings-layout", ".settings-categories", "#settings-detail", ".settings-option"], "focusSelector": ".settings-option", "containsText": "Automatikus lejátszás"},
+    "quick-settings": {"selectors": ["#view-live", "#quick-settings-dialog", "#quick-aspect-options", "#close-quick-settings"], "focusSelector": "#close-quick-settings", "containsText": "Gyorsbeállítások"},
+    "offline": {"selectors": ["#view-channels", ".channel-surface", "#channel-preview", "#channel-list button", "#status"], "focusSelector": "#channel-list button", "containsText": "mentett lista"}
+  }
+}

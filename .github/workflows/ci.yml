@@ -53,3 +53,41 @@ jobs:
           path: androidApp/build/outputs/apk/debug/androidApp-debug.apk
           if-no-files-found: error
           retention-days: 14
+
+  package-webos:
+    name: Package webOS IPK
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+
+      - name: Install pinned LG webOS CLI
+        run: npm install --global @webos-tools/cli@3.2.6
+
+      - name: Build and inspect webOS release package
+        run: |
+          set -euo pipefail
+          ./gradlew :webosApp:packageWebOsRelease --no-daemon
+          ipk="$(find webosApp/build/outputs/webos -maxdepth 1 -name '*.ipk' -print -quit)"
+          test -n "$ipk"
+          ares-package -i "$ipk"
+          (cd webosApp/build/outputs/webos && sha256sum --check SHA256SUMS.txt)
+
+      - name: Upload webOS package
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: wukki-tv-webos-ci
+          path: webosApp/build/outputs/webos/*
+          if-no-files-found: error
+          retention-days: 14

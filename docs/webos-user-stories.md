@@ -51,7 +51,7 @@ A régi azonosítókat nem számozzuk át és nem használjuk fel más célra. A
 | WOS-12 | Kiadás és ellenőrzés → WOS-24 |
 | WOS-13 | Teljes műsorújság → WOS-23, a paritási kiadás része |
 
-WOS-04–06 korábbi állapota „implementálva, TV-s ellenőrzésre vár”; ez nem jelent igazolt UI-paritást. WOS-14 állapota: **implementálva és referencia-harness-szel ellenőrizve**; [verziózott referenciacsomag](webos-parity/v1/README.md). WOS-15–23 állapota: **implementálva, TV-s ellenőrzésre vár**. WOS-24 állapota: **tervezett**.
+WOS-04–06 korábbi állapota „implementálva, TV-s ellenőrzésre vár”; ez nem jelent igazolt UI-paritást. WOS-14 állapota: **implementálva és referencia-harness-szel ellenőrizve**; [verziózott referenciacsomag](webos-parity/v1/README.md). WOS-15–23 állapota: **implementálva, TV-s ellenőrzésre vár**. WOS-24 automatizált és kiadási része **implementálva**, a [fizikai TV-jegyzőkönyv](webos-parity/v2/tv-validation.json) lezárásáig **TV-s ellenőrzésre vár**.
 
 ## WOS-14 – Rögzített képernyő- és viselkedési referencia
 

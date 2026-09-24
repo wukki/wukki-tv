@@ -1,5 +1,6 @@
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsEnvSpec
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsPlugin
+import java.security.MessageDigest
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
@@ -11,6 +12,29 @@ plugins.withType<NodeJsPlugin>().configureEach {
     extensions.configure<NodeJsEnvSpec> {
         download.set(false)
         command.set("node")
+    }
+}
+
+val wukkiDisplayVersion = rootProject.extra["wukkiDisplayVersion"].toString()
+val wukkiBuildId = rootProject.extra["wukkiBuildId"].toString()
+val wukkiPackageVersion = rootProject.extra["wukkiPackageVersion"].toString()
+val generatedBuildInfo = layout.buildDirectory.dir("generated/wos24/kotlin")
+val generateWebOsBuildInfo by tasks.registering {
+    inputs.property("displayVersion", wukkiDisplayVersion)
+    inputs.property("buildId", wukkiBuildId)
+    outputs.dir(generatedBuildInfo)
+    doLast {
+        val source = generatedBuildInfo.get().file("hu/wukki/tv/webos/WebOsBuildInfo.kt").asFile
+        source.parentFile.mkdirs()
+        source.writeText(
+            """package hu.wukki.tv.webos
+
+internal object WebOsBuildInfo {
+    const val DISPLAY_VERSION = ${wukkiDisplayVersion.quoted()}
+    const val BUILD_ID = ${wukkiBuildId.quoted()}
+}
+""",
+        )
     }
 }
 
@@ -29,6 +53,7 @@ kotlin {
 
     sourceSets {
         val commonMain by getting {
+            kotlin.srcDir(generatedBuildInfo)
             resources.srcDir("../packaging/icons")
             resources.srcDir("../shared/src/commonMain/resources")
             resources.exclude("*.icns", "*.ico")
@@ -47,13 +72,22 @@ kotlin {
     }
 }
 
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask<*>>().configureEach {
+    dependsOn(generateWebOsBuildInfo)
+}
+tasks.matching { it.name.startsWith("runKtlint") || it.name == "detekt" }.configureEach {
+    dependsOn(generateWebOsBuildInfo)
+}
+
 val webOsDistribution = layout.buildDirectory.dir("dist/js/productionExecutable")
 val webOsPackageOutput = layout.buildDirectory.dir("outputs/webos")
+val webOsRawPackageOutput = layout.buildDirectory.dir("tmp/webos-package")
+val webOsPackageStaging = layout.buildDirectory.dir("staging/webos")
 val webOsServiceDirectory = rootProject.layout.projectDirectory.dir("webosService")
 val webOsPreviewServer = layout.projectDirectory.file("preview-server.js")
 val verifyWebOsAppShell by tasks.registering {
     group = "verification"
-    description = "Checks the WOS-15–23 shell, navigation, playback, settings, persistence, lifecycle and guide contracts."
+    description = "Checks the WOS-15–24 shell, navigation, playback, settings, persistence, lifecycle, guide and parity contracts."
     val markup = layout.projectDirectory.file("src/jsMain/resources/index.html")
     val styles = layout.projectDirectory.file("src/jsMain/resources/styles.css")
     val appInfo = layout.projectDirectory.file("src/jsMain/resources/appinfo.json")
@@ -117,7 +151,7 @@ val verifyWebOsAppShell by tasks.registering {
             "The Channels screen must keep the shared 62/38 list and preview layout with legacy-compatible flexbox."
         }
         check("category-filter" !in html) { "The obsolete cyclic category button must not return." }
-        check("\"version\": \"0.15.0\"" in appInfoJson) { "WOS-23 must package as webOS version 0.15.0." }
+        check("\"version\": \"0.16.0\"" in appInfoJson) { "WOS-24 source metadata must use webOS version 0.16.0." }
         listOf("playback-hud", "live-channel-number", "live-channel-logo", "live-programme-progress", "channel-number-input").forEach { id ->
             check("id=\"$id\"" in html) { "Missing WOS-18 live information element #$id." }
         }
@@ -244,7 +278,19 @@ val verifyWebOs5Bundle by tasks.registering {
     }
 }
 
-tasks.matching { it.name == "check" }.configureEach { dependsOn(verifyWebOsAppShell, verifyWebOsService, verifyWebOsPreviewServer) }
+val verifyWebOsParity by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Verifies the sealed WOS-24 three-platform screenshots and explicit webOS DOM geometry."
+    workingDir(rootProject.projectDir)
+    inputs.dir(rootProject.layout.projectDirectory.dir("docs/webos-parity/v1"))
+    inputs.dir(rootProject.layout.projectDirectory.dir("docs/webos-parity/v2"))
+    inputs.file(rootProject.layout.projectDirectory.file("tools/parity/verify_wos24.py"))
+    commandLine("python3", "tools/parity/verify_wos24.py")
+}
+
+tasks.matching { it.name == "check" }.configureEach {
+    dependsOn(verifyWebOsAppShell, verifyWebOsService, verifyWebOsPreviewServer, verifyWebOsParity)
+}
 
 tasks.register<Exec>("previewWebOs") {
     group = "application"
@@ -253,23 +299,116 @@ tasks.register<Exec>("previewWebOs") {
     commandLine("node", webOsPreviewServer.asFile.absolutePath)
 }
 
-tasks.register<Exec>("packageWebOs") {
+val prepareWebOsPackage by tasks.registering(Sync::class) {
+    dependsOn(verifyWebOs5Bundle, verifyWebOsService)
+    into(webOsPackageStaging.map { it.dir("app") })
+    from(webOsDistribution)
+    doLast {
+        val appInfo = webOsPackageStaging.get().file("app/appinfo.json").asFile
+        appInfo.writeText(appInfo.readText().replace(Regex("\"version\"\\s*:\\s*\"[^\"]+\""), "\"version\": \"$wukkiPackageVersion\""))
+    }
+}
+
+val prepareWebOsService by tasks.registering(Sync::class) {
+    into(webOsPackageStaging.map { it.dir("service") })
+    from(webOsServiceDirectory)
+    inputs.property("packageVersion", wukkiPackageVersion)
+    doLast {
+        val packageJson = webOsPackageStaging.get().file("service/package.json").asFile
+        packageJson.writeText(packageJson.readText().replace(Regex("\"version\"\\s*:\\s*\"[^\"]+\""), "\"version\": \"$wukkiPackageVersion\""))
+    }
+}
+
+val packageWebOs by tasks.registering(Exec::class) {
     group = "distribution"
     description = "Builds and packages the webOS application as an IPK with the LG webOS CLI."
-    dependsOn(verifyWebOs5Bundle, verifyWebOsService)
-    inputs.dir(webOsDistribution)
-    inputs.dir(webOsServiceDirectory)
-    outputs.dir(webOsPackageOutput)
+    dependsOn(prepareWebOsPackage, prepareWebOsService)
+    inputs.dir(webOsPackageStaging)
+    inputs.property("packageVersion", wukkiPackageVersion)
+    outputs.dir(webOsRawPackageOutput)
 
     doFirst {
-        webOsPackageOutput.get().asFile.mkdirs()
+        webOsRawPackageOutput.get().asFile.apply {
+            deleteRecursively()
+            mkdirs()
+        }
     }
     commandLine(
         "ares-package",
         "--no-minify",
         "--outdir",
-        webOsPackageOutput.get().asFile.absolutePath,
-        webOsDistribution.get().asFile.absolutePath,
-        webOsServiceDirectory.asFile.absolutePath,
+        webOsRawPackageOutput.get().asFile.absolutePath,
+        webOsPackageStaging
+            .get()
+            .file("app")
+            .asFile.absolutePath,
+        webOsPackageStaging
+            .get()
+            .file("service")
+            .asFile.absolutePath,
     )
 }
+
+tasks.register("packageWebOsRelease") {
+    group = "distribution"
+    description = "Builds a versioned WOS-24 IPK with checksum, metadata, changelog and installation guide."
+    dependsOn(packageWebOs)
+    inputs.property("displayVersion", wukkiDisplayVersion)
+    inputs.property("buildId", wukkiBuildId)
+    inputs.files(
+        rootProject.layout.projectDirectory.file("docs/webos-installation.md"),
+        rootProject.layout.projectDirectory.file("docs/webos-wos24-changelog.md"),
+    )
+    outputs.dir(webOsPackageOutput)
+    doLast {
+        val output =
+            webOsPackageOutput.get().asFile.apply {
+                deleteRecursively()
+                mkdirs()
+            }
+        val ipk =
+            webOsRawPackageOutput
+                .get()
+                .asFile
+                .listFiles()
+                .orEmpty()
+                .singleOrNull { it.extension == "ipk" }
+                ?: error("Exactly one raw IPK was expected")
+        val releaseIpk = output.resolve(ipk.name)
+        ipk.copyTo(releaseIpk)
+        val sha256 = MessageDigest.getInstance("SHA-256").digest(releaseIpk.readBytes()).joinToString("") { "%02x".format(it) }
+        output.resolve("SHA256SUMS.txt").writeText("$sha256  ${releaseIpk.name}\n")
+        output.resolve("release-metadata.json").writeText(
+            """{
+  "schemaVersion": 1,
+  "platform": "webos",
+  "displayVersion": ${wukkiDisplayVersion.quoted()},
+  "packageVersion": ${wukkiPackageVersion.quoted()},
+  "buildId": ${wukkiBuildId.quoted()},
+  "artifact": ${releaseIpk.name.quoted()},
+  "sha256": "$sha256"
+}
+""",
+        )
+        copy {
+            from(rootProject.file("docs/webos-installation.md"), rootProject.file("docs/webos-wos24-changelog.md"))
+            into(output)
+        }
+    }
+}
+
+fun String.quoted(): String =
+    buildString {
+        append('"')
+        this@quoted.forEach { character ->
+            when (character) {
+                '\\' -> append("\\\\")
+                '"' -> append("\\\"")
+                '\n' -> append("\\n")
+                '\r' -> append("\\r")
+                '\t' -> append("\\t")
+                else -> append(character)
+            }
+        }
+        append('"')
+    }

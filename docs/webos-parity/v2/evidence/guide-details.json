@@ -1,0 +1,164 @@
+{
+  "scenario": "guide-details",
+  "viewport": [
+    1920,
+    993
+  ],
+  "active": "guide-dialog-open",
+  "elements": {
+    "body": {
+      "rect": [
+        0,
+        0,
+        1920,
+        993
+      ],
+      "text": "WukkiTV Élő adás Műsorújság Csatornák Beállítások A Wukki TV csatornalista még nem érhető el. Mégse ⌃ – ⌄ Előnézet EPG nincs Előző Csatorna − Csatorna + Gyorsbeállítások Leállítás Lejátszási hiba Az adás nem érhető el. Próbáld újra, vagy válassz másik csatornát. Újrapróbálás Csatornák Technikai részletek MŰSORÚJSÁG szeptember 21. · hétfő MostMa esteElőző napKövetkező napMindenKedvencek · 15:0015:3016:0016:3017:0017:3018:0018:30 Nincs megjeleníthető csatorna. 1HírekMűsor 115:45 – 16:45Műsor 216:4",
+      "backgroundColor": "rgb(7, 16, 26)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgb(255, 255, 255)",
+      "display": "block",
+      "focused": false
+    },
+    ".top-navigation": {
+      "rect": [
+        0,
+        0,
+        1920,
+        48
+      ],
+      "text": "WukkiTV Élő adás Műsorújság Csatornák Beállítások",
+      "backgroundColor": "rgb(5, 12, 20)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgb(255, 255, 255)",
+      "display": "flex",
+      "focused": false
+    },
+    ".brand": {
+      "rect": [
+        0,
+        0,
+        384,
+        48
+      ],
+      "text": "WukkiTV",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgb(255, 255, 255)",
+      "display": "flex",
+      "focused": false
+    },
+    "#nav-live": {
+      "rect": [
+        387,
+        0,
+        378,
+        48
+      ],
+      "text": "Élő adás",
+      "backgroundColor": "rgb(16, 29, 43)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgba(0, 0, 0, 0)",
+      "display": "flex",
+      "focused": false
+    },
+    "#nav-guide": {
+      "rect": [
+        771,
+        0,
+        378,
+        48
+      ],
+      "text": "Műsorújság",
+      "backgroundColor": "rgb(139, 92, 246)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgba(0, 0, 0, 0)",
+      "display": "flex",
+      "focused": false
+    },
+    "#nav-channels": {
+      "rect": [
+        1155,
+        0,
+        378,
+        48
+      ],
+      "text": "Csatornák",
+      "backgroundColor": "rgb(16, 29, 43)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgba(0, 0, 0, 0)",
+      "display": "flex",
+      "focused": false
+    },
+    "#nav-settings": {
+      "rect": [
+        1539,
+        0,
+        378,
+        48
+      ],
+      "text": "Beállítások",
+      "backgroundColor": "rgb(16, 29, 43)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgba(0, 0, 0, 0)",
+      "display": "flex",
+      "focused": false
+    },
+    "#view-guide": {
+      "rect": [
+        0,
+        48,
+        1920,
+        945
+      ],
+      "text": "MŰSORÚJSÁG szeptember 21. · hétfő MostMa esteElőző napKövetkező napMindenKedvencek · 15:0015:3016:0016:3017:0017:3018:0018:30 Nincs megjeleníthető csatorna. 1HírekMűsor 115:45 – 16:45Műsor 216:45 – 17:45Esti műsor – Hírek17:45 – 18:452KultúraMűsor 115:45 – 16:45Műsor 216:45 – 17:45Esti műsor – Kultúra17:45 – 18:453SportMűsor 115:45 – 16:45Műsor 216:45 – 17:45Esti műsor – Sport17:45 – 18:454Film – nagyon hosszú csatornanév a csonkolás ellenőrzéséhezMűsor 115:45 – 16:45Műsor 216:45 – 17:45Esti műs",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgb(255, 255, 255)",
+      "display": "block",
+      "focused": false
+    },
+    "#guide-programme-dialog": {
+      "rect": [
+        0,
+        0,
+        1920,
+        993
+      ],
+      "text": "Hírek Műsor 1 szeptember 21. · hétfő · 15:45 – 16:45 Rögzített műsorleírás. Árvíztűrő tükörfúrógép; több soros tartalom ellenőrzéséhez. Mégse Csatorna megnyitása",
+      "backgroundColor": "rgba(4, 12, 22, 0.88)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgb(255, 255, 255)",
+      "display": "flex",
+      "focused": false
+    },
+    "#guide-dialog-title": {
+      "rect": [
+        679,
+        388.359375,
+        562,
+        32
+      ],
+      "text": "Műsor 1",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgb(255, 255, 255)",
+      "display": "block",
+      "focused": false
+    },
+    "#guide-dialog-open": {
+      "rect": [
+        965,
+        570.640625,
+        276,
+        52
+      ],
+      "text": "Csatorna megnyitása",
+      "backgroundColor": "rgb(139, 92, 246)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgb(162, 119, 255)",
+      "display": "block",
+      "focused": true
+    }
+  }
+}

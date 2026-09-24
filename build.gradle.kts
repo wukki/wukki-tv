@@ -177,7 +177,7 @@ tasks.register("verifyAll") {
         ":core:jsBrowserTest",
         ":core:detekt",
         ":core:ktlintCheck",
-        ":webosApp:verifyWebOs5Bundle",
+        ":webosApp:check",
         ":webosApp:detekt",
         ":webosApp:ktlintCheck",
         ":desktopApp:detekt",

@@ -1,0 +1,178 @@
+{
+  "scenario": "recent",
+  "viewport": [
+    1920,
+    993
+  ],
+  "active": "",
+  "elements": {
+    "body": {
+      "rect": [
+        0,
+        0,
+        1920,
+        993
+      ],
+      "text": "WukkiTV Élő adás Műsorújság Csatornák Beállítások A Wukki TV csatornalista még nem érhető el. Mégse ⌃ – ⌄ Előnézet EPG nincs Előző Csatorna − Csatorna + Gyorsbeállítások Leállítás Lejátszási hiba Az adás nem érhető el. Próbáld újra, vagy válassz másik csatornát. Újrapróbálás Csatornák Technikai részletek MŰSORÚJSÁG szeptember 21. · hétfő MostMa esteElőző napKövetkező napMindenKedvencek · 15:0015:3016:0016:3017:0017:3018:0018:30 Nincs megjeleníthető csatorna. 1HírekMűsor 115:45 – 16:45Műsor 216:4",
+      "backgroundColor": "rgb(7, 16, 26)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgb(255, 255, 255)",
+      "display": "block",
+      "focused": false
+    },
+    ".top-navigation": {
+      "rect": [
+        0,
+        0,
+        1920,
+        48
+      ],
+      "text": "WukkiTV Élő adás Műsorújság Csatornák Beállítások",
+      "backgroundColor": "rgb(5, 12, 20)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgb(255, 255, 255)",
+      "display": "flex",
+      "focused": false
+    },
+    ".brand": {
+      "rect": [
+        0,
+        0,
+        384,
+        48
+      ],
+      "text": "WukkiTV",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgb(255, 255, 255)",
+      "display": "flex",
+      "focused": false
+    },
+    "#nav-live": {
+      "rect": [
+        387,
+        0,
+        378,
+        48
+      ],
+      "text": "Élő adás",
+      "backgroundColor": "rgb(16, 29, 43)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgba(0, 0, 0, 0)",
+      "display": "flex",
+      "focused": false
+    },
+    "#nav-guide": {
+      "rect": [
+        771,
+        0,
+        378,
+        48
+      ],
+      "text": "Műsorújság",
+      "backgroundColor": "rgb(16, 29, 43)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgba(0, 0, 0, 0)",
+      "display": "flex",
+      "focused": false
+    },
+    "#nav-channels": {
+      "rect": [
+        1155,
+        0,
+        378,
+        48
+      ],
+      "text": "Csatornák",
+      "backgroundColor": "rgb(139, 92, 246)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgba(0, 0, 0, 0)",
+      "display": "flex",
+      "focused": false
+    },
+    "#nav-settings": {
+      "rect": [
+        1539,
+        0,
+        378,
+        48
+      ],
+      "text": "Beállítások",
+      "backgroundColor": "rgb(16, 29, 43)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgba(0, 0, 0, 0)",
+      "display": "flex",
+      "focused": false
+    },
+    "#view-channels": {
+      "rect": [
+        0,
+        48,
+        1920,
+        945
+      ],
+      "text": "CSATORNÁK 2 / 4 csatorna MindenKedvencekLegutóbb nézettElőző csatornaKözszolgálatiSzórakozás ⌕ Csatorna keresése Keresés törlése ✕ 2KultúraKözszolgálatiEsti műsor – Kultúra♡1HírekKözszolgálatiEsti műsor – Hírek♥ TV Előnézet Kultúra 2. · Közszolgálati MostEsti műsor – Kultúra 17:45 – 18:45 Rögzített műsorleírás. Árvíztűrő tükörfúrógép; több soros tartalom ellenőrzéséhez. Következő18:45 · Műsor 4 Megnyitás ♡",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgb(255, 255, 255)",
+      "display": "block",
+      "focused": false
+    },
+    ".channel-surface": {
+      "rect": [
+        16,
+        178,
+        1164.546875,
+        799
+      ],
+      "text": "2KultúraKözszolgálatiEsti műsor – Kultúra♡1HírekKözszolgálatiEsti műsor – Hírek♥",
+      "backgroundColor": "rgb(22, 38, 56)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgb(38, 56, 75)",
+      "display": "block",
+      "focused": false
+    },
+    "#channel-preview": {
+      "rect": [
+        1192.546875,
+        178,
+        711.453125,
+        799
+      ],
+      "text": "TV Előnézet Kultúra 2. · Közszolgálati MostEsti műsor – Kultúra 17:45 – 18:45 Rögzített műsorleírás. Árvíztűrő tükörfúrógép; több soros tartalom ellenőrzéséhez. Következő18:45 · Műsor 4 Megnyitás ♡",
+      "backgroundColor": "rgb(16, 29, 43)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgb(38, 56, 75)",
+      "display": "flex",
+      "focused": false
+    },
+    "#channel-tabs": {
+      "rect": [
+        16,
+        118,
+        1824,
+        52
+      ],
+      "text": "MindenKedvencekLegutóbb nézettElőző csatornaKözszolgálatiSzórakozás",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgb(255, 255, 255)",
+      "display": "flex",
+      "focused": false
+    },
+    "#channel-list button": {
+      "rect": [
+        17,
+        179,
+        1092.546875,
+        88
+      ],
+      "text": "2KultúraKözszolgálatiEsti műsor – Kultúra",
+      "backgroundColor": "rgb(40, 32, 64)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgb(162, 119, 255)",
+      "display": "flex",
+      "focused": true
+    }
+  }
+}

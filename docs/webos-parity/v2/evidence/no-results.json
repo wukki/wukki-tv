@@ -1,0 +1,164 @@
+{
+  "scenario": "no-results",
+  "viewport": [
+    1920,
+    993
+  ],
+  "active": "channel-search",
+  "elements": {
+    "body": {
+      "rect": [
+        0,
+        0,
+        1920,
+        993
+      ],
+      "text": "WukkiTV Élő adás Műsorújság Csatornák Beállítások A Wukki TV csatornalista még nem érhető el. Mégse ⌃ – ⌄ Előnézet EPG nincs Előző Csatorna − Csatorna + Gyorsbeállítások Leállítás Lejátszási hiba Az adás nem érhető el. Próbáld újra, vagy válassz másik csatornát. Újrapróbálás Csatornák Technikai részletek MŰSORÚJSÁG szeptember 21. · hétfő MostMa esteElőző napKövetkező napMindenKedvencek · 15:0015:3016:0016:3017:0017:3018:0018:30 Nincs megjeleníthető csatorna. 1HírekMűsor 115:45 – 16:45Műsor 216:4",
+      "backgroundColor": "rgb(7, 16, 26)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgb(255, 255, 255)",
+      "display": "block",
+      "focused": false
+    },
+    ".top-navigation": {
+      "rect": [
+        0,
+        0,
+        1920,
+        48
+      ],
+      "text": "WukkiTV Élő adás Műsorújság Csatornák Beállítások",
+      "backgroundColor": "rgb(5, 12, 20)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgb(255, 255, 255)",
+      "display": "flex",
+      "focused": false
+    },
+    ".brand": {
+      "rect": [
+        0,
+        0,
+        384,
+        48
+      ],
+      "text": "WukkiTV",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgb(255, 255, 255)",
+      "display": "flex",
+      "focused": false
+    },
+    "#nav-live": {
+      "rect": [
+        387,
+        0,
+        378,
+        48
+      ],
+      "text": "Élő adás",
+      "backgroundColor": "rgb(16, 29, 43)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgba(0, 0, 0, 0)",
+      "display": "flex",
+      "focused": false
+    },
+    "#nav-guide": {
+      "rect": [
+        771,
+        0,
+        378,
+        48
+      ],
+      "text": "Műsorújság",
+      "backgroundColor": "rgb(16, 29, 43)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgba(0, 0, 0, 0)",
+      "display": "flex",
+      "focused": false
+    },
+    "#nav-channels": {
+      "rect": [
+        1155,
+        0,
+        378,
+        48
+      ],
+      "text": "Csatornák",
+      "backgroundColor": "rgb(139, 92, 246)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgba(0, 0, 0, 0)",
+      "display": "flex",
+      "focused": false
+    },
+    "#nav-settings": {
+      "rect": [
+        1539,
+        0,
+        378,
+        48
+      ],
+      "text": "Beállítások",
+      "backgroundColor": "rgb(16, 29, 43)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgba(0, 0, 0, 0)",
+      "display": "flex",
+      "focused": false
+    },
+    "#view-channels": {
+      "rect": [
+        0,
+        48,
+        1920,
+        945
+      ],
+      "text": "CSATORNÁK 0 / 4 csatorna MindenKedvencekLegutóbb nézettElőző csatornaKözszolgálatiSzórakozás ⌕ Csatorna keresése Keresés törlése ✕ Nincs találat A keresés nem talált csatornát erre: „nincsilyen”. Keresés törlése TV Előnézet Válassz csatornát. Nincs műsoradat MostEPG nincs KövetkezőEPG nincs Megnyitás ♡",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgb(255, 255, 255)",
+      "display": "block",
+      "focused": false
+    },
+    "#channel-search": {
+      "rect": [
+        26,
+        118,
+        1652.828125,
+        52
+      ],
+      "text": "",
+      "backgroundColor": "rgb(23, 40, 58)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgb(162, 119, 255)",
+      "display": "block",
+      "focused": true
+    },
+    "#channel-empty": {
+      "rect": [
+        17,
+        179,
+        1162.546875,
+        797
+      ],
+      "text": "Nincs találat A keresés nem talált csatornát erre: „nincsilyen”. Keresés törlése",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "color": "rgb(197, 205, 216)",
+      "borderColor": "rgb(197, 205, 216)",
+      "display": "flex",
+      "focused": false
+    },
+    "#channel-empty-action": {
+      "rect": [
+        520.6875,
+        595.546875,
+        155.171875,
+        48
+      ],
+      "text": "Keresés törlése",
+      "backgroundColor": "rgb(139, 92, 246)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgba(0, 0, 0, 0)",
+      "display": "block",
+      "focused": false
+    }
+  }
+}

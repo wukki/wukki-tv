@@ -1,0 +1,192 @@
+{
+  "scenario": "guide",
+  "viewport": [
+    1920,
+    993
+  ],
+  "active": "",
+  "elements": {
+    "body": {
+      "rect": [
+        0,
+        0,
+        1920,
+        993
+      ],
+      "text": "WukkiTV Élő adás Műsorújság Csatornák Beállítások A Wukki TV csatornalista még nem érhető el. Mégse ⌃ – ⌄ Előnézet EPG nincs Előző Csatorna − Csatorna + Gyorsbeállítások Leállítás Lejátszási hiba Az adás nem érhető el. Próbáld újra, vagy válassz másik csatornát. Újrapróbálás Csatornák Technikai részletek MŰSORÚJSÁG szeptember 21. · hétfő MostMa esteElőző napKövetkező napMindenKedvencek · 15:0015:3016:0016:3017:0017:3018:0018:30 Nincs megjeleníthető csatorna. 1HírekMűsor 115:45 – 16:45Műsor 216:4",
+      "backgroundColor": "rgb(7, 16, 26)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgb(255, 255, 255)",
+      "display": "block",
+      "focused": false
+    },
+    ".top-navigation": {
+      "rect": [
+        0,
+        0,
+        1920,
+        48
+      ],
+      "text": "WukkiTV Élő adás Műsorújság Csatornák Beállítások",
+      "backgroundColor": "rgb(5, 12, 20)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgb(255, 255, 255)",
+      "display": "flex",
+      "focused": false
+    },
+    ".brand": {
+      "rect": [
+        0,
+        0,
+        384,
+        48
+      ],
+      "text": "WukkiTV",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgb(255, 255, 255)",
+      "display": "flex",
+      "focused": false
+    },
+    "#nav-live": {
+      "rect": [
+        387,
+        0,
+        378,
+        48
+      ],
+      "text": "Élő adás",
+      "backgroundColor": "rgb(16, 29, 43)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgba(0, 0, 0, 0)",
+      "display": "flex",
+      "focused": false
+    },
+    "#nav-guide": {
+      "rect": [
+        771,
+        0,
+        378,
+        48
+      ],
+      "text": "Műsorújság",
+      "backgroundColor": "rgb(139, 92, 246)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgba(0, 0, 0, 0)",
+      "display": "flex",
+      "focused": false
+    },
+    "#nav-channels": {
+      "rect": [
+        1155,
+        0,
+        378,
+        48
+      ],
+      "text": "Csatornák",
+      "backgroundColor": "rgb(16, 29, 43)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgba(0, 0, 0, 0)",
+      "display": "flex",
+      "focused": false
+    },
+    "#nav-settings": {
+      "rect": [
+        1539,
+        0,
+        378,
+        48
+      ],
+      "text": "Beállítások",
+      "backgroundColor": "rgb(16, 29, 43)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgba(0, 0, 0, 0)",
+      "display": "flex",
+      "focused": false
+    },
+    "#view-guide": {
+      "rect": [
+        0,
+        48,
+        1920,
+        945
+      ],
+      "text": "MŰSORÚJSÁG szeptember 21. · hétfő MostMa esteElőző napKövetkező napMindenKedvencek · 15:0015:3016:0016:3017:0017:3018:0018:30 Nincs megjeleníthető csatorna. 1HírekMűsor 115:45 – 16:45Műsor 216:45 – 17:45Esti műsor – Hírek17:45 – 18:452KultúraMűsor 115:45 – 16:45Műsor 216:45 – 17:45Esti műsor – Kultúra17:45 – 18:453SportMűsor 115:45 – 16:45Műsor 216:45 – 17:45Esti műsor – Sport17:45 – 18:454Film – nagyon hosszú csatornanév a csonkolás ellenőrzéséhezMűsor 115:45 – 16:45Műsor 216:45 – 17:45Esti műs",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgb(255, 255, 255)",
+      "display": "block",
+      "focused": false
+    },
+    "#guide-actions": {
+      "rect": [
+        17,
+        125,
+        1886,
+        54
+      ],
+      "text": "MostMa esteElőző napKövetkező napMindenKedvencek",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgb(255, 255, 255)",
+      "display": "flex",
+      "focused": false
+    },
+    "#guide-timeline": {
+      "rect": [
+        287,
+        180,
+        1616,
+        60
+      ],
+      "text": "15:0015:3016:0016:3017:0017:3018:0018:30",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgb(255, 255, 255)",
+      "display": "block",
+      "focused": false
+    },
+    ".guide-row": {
+      "rect": [
+        17,
+        241,
+        1886,
+        94
+      ],
+      "text": "1HírekMűsor 115:45 – 16:45Műsor 216:45 – 17:45Esti műsor – Hírek17:45 – 18:45",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgb(255, 255, 255)",
+      "display": "flex",
+      "focused": false
+    },
+    ".guide-programme": {
+      "rect": [
+        691,
+        243,
+        404,
+        89
+      ],
+      "text": "Műsor 115:45 – 16:45",
+      "backgroundColor": "rgb(16, 29, 43)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgb(38, 56, 75)",
+      "display": "flex",
+      "focused": false
+    },
+    "#guide-actions button": {
+      "rect": [
+        37,
+        125,
+        74.671875,
+        46
+      ],
+      "text": "Most",
+      "backgroundColor": "rgb(16, 29, 43)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgb(162, 119, 255)",
+      "display": "block",
+      "focused": true
+    }
+  }
+}

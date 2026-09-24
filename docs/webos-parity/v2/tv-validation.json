@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "status": "pending",
+  "device": {
+    "model": "",
+    "webOsVersion": "",
+    "firmwareVersion": "",
+    "remote": "",
+    "testedAt": "",
+    "tester": ""
+  },
+  "measurements": {
+    "coldStartMs": null,
+    "guideOpenMs": null,
+    "channelSwitchMedianMs": null,
+    "channelSwitchP95Ms": null,
+    "memoryBeforeMb": null,
+    "memoryAfterTwoHoursMb": null
+  },
+  "checks": [
+    {"id": "all-official-channels", "target": "Minden hivatalos csatorna", "status": "pending", "notes": ""},
+    {"id": "channel-switch-100", "target": "100 egymást követő csatornaváltás", "status": "pending", "notes": ""},
+    {"id": "playback-two-hours", "target": "Két óra folyamatos lejátszás", "status": "pending", "notes": ""},
+    {"id": "lifecycle-20", "target": "20 háttér/előtér ciklus", "status": "pending", "notes": ""},
+    {"id": "network-loss", "target": "Hálózatvesztés és helyreállás", "status": "pending", "notes": ""},
+    {"id": "search-filter", "target": "Keresés, szűrés és fókuszmegőrzés", "status": "pending", "notes": ""},
+    {"id": "persistence", "target": "Beállítások, kedvencek, előzmények és EPG megőrzése", "status": "pending", "notes": ""},
+    {"id": "magic-remote", "target": "Magic Remote → D-pad → billentyűzet → Back", "status": "pending", "notes": ""},
+    {"id": "overscan", "target": "1920×1080 geometria, hosszú cím és fókuszkeret", "status": "pending", "notes": ""}
+  ]
+}

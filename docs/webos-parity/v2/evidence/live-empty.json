@@ -1,0 +1,136 @@
+{
+  "scenario": "live-empty",
+  "viewport": [
+    1920,
+    993
+  ],
+  "active": "nav-live",
+  "elements": {
+    "body": {
+      "rect": [
+        0,
+        0,
+        1920,
+        993
+      ],
+      "text": "WukkiTV Élő adás Műsorújság Csatornák Beállítások A Wukki TV csatornalista még nem érhető el. Mégse ⌃ – ⌄ Előnézet EPG nincs Előző Csatorna − Csatorna + Gyorsbeállítások Leállítás Lejátszási hiba Az adás nem érhető el. Próbáld újra, vagy válassz másik csatornát. Újrapróbálás Csatornák Technikai részletek MŰSORÚJSÁG szeptember 21. · hétfő MostMa esteElőző napKövetkező napMindenKedvencek · 00:00szeptember 21. · hétfő00:3001:0001:3002:0002:3003:0003:30 Nincs megjeleníthető csatorna. CSATORNÁK 0 / 0",
+      "backgroundColor": "rgb(7, 16, 26)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgb(255, 255, 255)",
+      "display": "block",
+      "focused": false
+    },
+    ".top-navigation": {
+      "rect": [
+        0,
+        0,
+        1920,
+        48
+      ],
+      "text": "WukkiTV Élő adás Műsorújság Csatornák Beállítások",
+      "backgroundColor": "rgb(5, 12, 20)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgb(255, 255, 255)",
+      "display": "flex",
+      "focused": false
+    },
+    ".brand": {
+      "rect": [
+        0,
+        0,
+        384,
+        48
+      ],
+      "text": "WukkiTV",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgb(255, 255, 255)",
+      "display": "flex",
+      "focused": false
+    },
+    "#nav-live": {
+      "rect": [
+        387,
+        0,
+        378,
+        48
+      ],
+      "text": "Élő adás",
+      "backgroundColor": "rgb(139, 92, 246)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgb(162, 119, 255)",
+      "display": "flex",
+      "focused": true
+    },
+    "#nav-guide": {
+      "rect": [
+        771,
+        0,
+        378,
+        48
+      ],
+      "text": "Műsorújság",
+      "backgroundColor": "rgb(16, 29, 43)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgba(0, 0, 0, 0)",
+      "display": "flex",
+      "focused": false
+    },
+    "#nav-channels": {
+      "rect": [
+        1155,
+        0,
+        378,
+        48
+      ],
+      "text": "Csatornák",
+      "backgroundColor": "rgb(16, 29, 43)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgba(0, 0, 0, 0)",
+      "display": "flex",
+      "focused": false
+    },
+    "#nav-settings": {
+      "rect": [
+        1539,
+        0,
+        378,
+        48
+      ],
+      "text": "Beállítások",
+      "backgroundColor": "rgb(16, 29, 43)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgba(0, 0, 0, 0)",
+      "display": "flex",
+      "focused": false
+    },
+    "#view-live": {
+      "rect": [
+        0,
+        48,
+        1920,
+        945
+      ],
+      "text": "A Wukki TV csatornalista még nem érhető el. Mégse ⌃ – ⌄ Előnézet EPG nincs Előző Csatorna − Csatorna + Gyorsbeállítások Leállítás Lejátszási hiba Az adás nem érhető el. Próbáld újra, vagy válassz másik csatornát. Újrapróbálás Csatornák Technikai részletek",
+      "backgroundColor": "rgb(0, 0, 0)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgb(255, 255, 255)",
+      "display": "block",
+      "focused": false
+    },
+    "#live-empty": {
+      "rect": [
+        800.6640625,
+        511.5,
+        318.671875,
+        18
+      ],
+      "text": "A Wukki TV csatornalista még nem érhető el.",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "color": "rgb(155, 169, 190)",
+      "borderColor": "rgb(155, 169, 190)",
+      "display": "block",
+      "focused": false
+    }
+  }
+}

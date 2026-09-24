@@ -1,0 +1,178 @@
+{
+  "scenario": "settings",
+  "viewport": [
+    1920,
+    993
+  ],
+  "active": "",
+  "elements": {
+    "body": {
+      "rect": [
+        0,
+        0,
+        1920,
+        993
+      ],
+      "text": "WukkiTV Élő adás Műsorújság Csatornák Beállítások A Wukki TV csatornalista még nem érhető el. Mégse ⌃ – ⌄ Előnézet EPG nincs Előző Csatorna − Csatorna + Gyorsbeállítások Leállítás Lejátszási hiba Az adás nem érhető el. Próbáld újra, vagy válassz másik csatornát. Újrapróbálás Csatornák Technikai részletek MŰSORÚJSÁG szeptember 21. · hétfő MostMa esteElőző napKövetkező napMindenKedvencek · 15:0015:3016:0016:3017:0017:3018:0018:30 Nincs megjeleníthető csatorna. 1HírekMűsor 115:45 – 16:45Műsor 216:4",
+      "backgroundColor": "rgb(7, 16, 26)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgb(255, 255, 255)",
+      "display": "block",
+      "focused": false
+    },
+    ".top-navigation": {
+      "rect": [
+        0,
+        0,
+        1920,
+        48
+      ],
+      "text": "WukkiTV Élő adás Műsorújság Csatornák Beállítások",
+      "backgroundColor": "rgb(5, 12, 20)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgb(255, 255, 255)",
+      "display": "flex",
+      "focused": false
+    },
+    ".brand": {
+      "rect": [
+        0,
+        0,
+        384,
+        48
+      ],
+      "text": "WukkiTV",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgb(255, 255, 255)",
+      "display": "flex",
+      "focused": false
+    },
+    "#nav-live": {
+      "rect": [
+        387,
+        0,
+        378,
+        48
+      ],
+      "text": "Élő adás",
+      "backgroundColor": "rgb(16, 29, 43)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgba(0, 0, 0, 0)",
+      "display": "flex",
+      "focused": false
+    },
+    "#nav-guide": {
+      "rect": [
+        771,
+        0,
+        378,
+        48
+      ],
+      "text": "Műsorújság",
+      "backgroundColor": "rgb(16, 29, 43)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgba(0, 0, 0, 0)",
+      "display": "flex",
+      "focused": false
+    },
+    "#nav-channels": {
+      "rect": [
+        1155,
+        0,
+        378,
+        48
+      ],
+      "text": "Csatornák",
+      "backgroundColor": "rgb(16, 29, 43)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgba(0, 0, 0, 0)",
+      "display": "flex",
+      "focused": false
+    },
+    "#nav-settings": {
+      "rect": [
+        1539,
+        0,
+        378,
+        48
+      ],
+      "text": "Beállítások",
+      "backgroundColor": "rgb(139, 92, 246)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgba(0, 0, 0, 0)",
+      "display": "flex",
+      "focused": false
+    },
+    "#view-settings": {
+      "rect": [
+        0,
+        48,
+        1920,
+        945
+      ],
+      "text": "BEÁLLÍTÁSOK Lejátszási beállítások› EPG beállítások› Megjelenítés› Szülői felügyelet› Playlist kezelése› Nyelv› Névjegy› Állítsd be az alkalmazást a saját igényeid szerint.A bal oldali listából válassz egy kategóriát. Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36 · HLS: maybe · Kotlin/JS core Frissítés Közvetlen lejátszás",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgb(255, 255, 255)",
+      "display": "block",
+      "focused": false
+    },
+    ".settings-layout": {
+      "rect": [
+        16,
+        118,
+        1888,
+        859
+      ],
+      "text": "Lejátszási beállítások› EPG beállítások› Megjelenítés› Szülői felügyelet› Playlist kezelése› Nyelv› Névjegy› Állítsd be az alkalmazást a saját igényeid szerint.A bal oldali listából válassz egy kategóriát.",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgb(255, 255, 255)",
+      "display": "flex",
+      "focused": false
+    },
+    ".settings-categories": {
+      "rect": [
+        16,
+        118,
+        430,
+        859
+      ],
+      "text": "Lejátszási beállítások› EPG beállítások› Megjelenítés› Szülői felügyelet› Playlist kezelése› Nyelv› Névjegy›",
+      "backgroundColor": "rgb(16, 29, 43)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgb(255, 255, 255)",
+      "display": "flex",
+      "focused": false
+    },
+    "#settings-detail": {
+      "rect": [
+        480,
+        118,
+        1424,
+        859
+      ],
+      "text": "Állítsd be az alkalmazást a saját igényeid szerint.A bal oldali listából válassz egy kategóriát.",
+      "backgroundColor": "rgb(16, 29, 43)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgb(255, 255, 255)",
+      "display": "block",
+      "focused": false
+    },
+    "[data-settings-section]": {
+      "rect": [
+        16,
+        118,
+        430,
+        122.84375
+      ],
+      "text": "Lejátszási beállítások›",
+      "backgroundColor": "rgb(139, 92, 246)",
+      "color": "rgb(255, 255, 255)",
+      "borderColor": "rgb(255, 255, 255) rgb(255, 255, 255) rgb(38, 56, 75)",
+      "display": "flex",
+      "focused": true
+    }
+  }
+}

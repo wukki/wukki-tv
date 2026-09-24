@@ -215,8 +215,8 @@ internal class WebOsSettingsView(
 
     private fun renderAbout() {
         row(AboutSettingsOption.APPLICATION, "settings.about", null, "Wukki TV")
-        row(AboutSettingsOption.VERSION, "settings.about.version", null, "0.15.0")
-        row(AboutSettingsOption.BUILD, "settings.about.build", null, "WOS-23")
+        row(AboutSettingsOption.VERSION, "settings.about.version", null, WebOsBuildInfo.DISPLAY_VERSION)
+        row(AboutSettingsOption.BUILD, "settings.about.build", null, WebOsBuildInfo.BUILD_ID)
         row(AboutSettingsOption.ENGINE, "settings.about.engine", null, "HTML5 video / webOS")
         row(AboutSettingsOption.PLATFORM, "settings.about.platform", null, platformLabel())
         row(AboutSettingsOption.OS, "settings.about.os", null, window.navigator.userAgent)

@@ -8,7 +8,7 @@ A Wukki TV Kotlin Multiplatform / Compose alapú IPTV alkalmazás. A hivatalos W
 - `core`: UI-független KMP doménmag Android, JVM és JavaScript célplatformmal.
 - `desktopApp`: desktop belépési pont, libVLC lejátszó, helyi állapot, kijelző-ébrentartás és natív csomagolás.
 - `androidApp`: Android belépési pont, Media3 lejátszó, DataStore, WorkManager és Android TV integráció.
-- `webosApp`: Kotlin/JS alapú webOS lejátszási próba natív HTML-videóval és távirányító-kezeléssel.
+- `webosApp`: Kotlin/JS alapú webOS TV-alkalmazás natív HTML-videóval, távirányító-kezeléssel és teljes műsorújsággal.
 
 A közös üzleti műveleteket a Compose-független `WukkiApplication`, valamint a csatorna-, EPG- és
 beállítás-repositoryk kezelik. A `WukkiModel` a meglévő UI kompatibilis adaptere. Részletek:
@@ -139,9 +139,9 @@ A release workflow a VLC runtime-ot is a desktop telepítőkbe csomagolja, ezér
 
 > A helyben készített vagy Apple secretek nélkül kiadott macOS DMG nincs Developer ID tanúsítvánnyal aláírva és notarizálva. Első indításkor Finderben jobb klikk → **Megnyitás** szükséges lehet.
 
-## webOS próbaalkalmazás
+## webOS TV-alkalmazás
 
-A Kotlin/JS alapú első mérési alkalmazás production csomagja ezzel készül:
+A Kotlin/JS alapú alkalmazás production csomagja ezzel készül:
 
 ```sh
 ./gradlew :webosApp:jsBrowserDistribution
@@ -153,14 +153,16 @@ a csatornalistát, natív HTML-videóban játszik le, valamint kezeli a D-pad f�
 gombját. A közvetlen streampróba külön diagnosztikai mezőből indítható. A playlist automatikus
 betöltése még fizikai LG TV-s ellenőrzésre vár; a natív videó képe és hangja TV-n már igazolt.
 
-Az LG webOS CLI telepítése után telepíthető IPK is készíthető:
+Az LG webOS CLI 3.2.6 telepítése után teljes kiadási csomag készíthető:
 
 ```sh
-npm install -g @webos-tools/cli
-./gradlew :webosApp:packageWebOs
+npm install -g @webos-tools/cli@3.2.6
+./gradlew :webosApp:packageWebOsRelease
 ```
 
-Az IPK a `webosApp/build/outputs/webos` könyvtárba kerül. A diagnosztikai mező előre kitölti az M2
+Az IPK, a `SHA256SUMS.txt`, a buildmetadata, a változáslista és a telepítési leírás a
+`webosApp/build/outputs/webos` könyvtárba kerül. A részletes telepítés a
+[`docs/webos-installation.md`](docs/webos-installation.md) fájlban található. A diagnosztikai mező előre kitölti az M2
 tesztstream URL-jét; másik tesztstream a mezőben vagy a `?stream=` paraméterrel adható meg.
 
 A böngészős előnézetet a helyi szerveren kell indítani, így az EPG-proxy azonos originről érhető el,
@@ -173,6 +175,10 @@ A böngészős előnézetet a helyi szerveren kell indítani, így az EPG-proxy 
 Ezután a `http://127.0.0.1:4173/` címet nyisd meg. A fordítások és jogi szövegek a bundle mellett
 beágyazva érkeznek, ezért `file://` megnyitásnál sem indul értük XHR. A telepített IPK továbbra is a
 csomagolt webOS service-en keresztül tölti le az EPG-t; a helyi proxy csak a böngészős előnézet része.
+
+A WOS-24 automatizált paritási kapu a `./gradlew :webosApp:check` paranccsal fut. A 14 forgatókönyv
+képi és DOM-bizonyítéka a `docs/webos-parity/v2` könyvtárban van. A fizikai LG TV hosszú futású
+jegyzőkönyve külön kapu; annak `pending` állapota mellett a csomag tesztkiadásnak minősül.
 
 ## Android APK
 
