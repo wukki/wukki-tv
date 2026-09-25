@@ -129,16 +129,21 @@ def adapter_script(scenario, selectors):
     state, epg_cache, m3u, xml = parity_data()
     empty = scenario in {"no-data", "live-empty"}
     offline = scenario == "offline"
+    if empty:
+        state["state"]["channels"] = []
+        state["state"]["lastChannelId"] = None
+        state["state"]["recentChannelIds"] = []
     setup = "localStorage.clear();"
-    if not empty:
-        setup += (
-            "localStorage.setItem('hu.wukki.tv.webos.state.v1'," + json.dumps(json.dumps(state)) + ");"
-            "localStorage.setItem('hu.wukki.tv.webos.epg.v1'," + json.dumps(json.dumps(epg_cache)) + ");"
-        )
+    setup += (
+        "localStorage.setItem('hu.wukki.tv.webos.state.v1'," + json.dumps(json.dumps(state)) + ");"
+        "localStorage.setItem('hu.wukki.tv.webos.epg.v1'," + json.dumps(json.dumps(epg_cache)) + ");"
+    )
     if offline:
         fetch_body = "return Promise.reject(new Error('offline parity fixture'));"
     elif empty:
-        fetch_body = "return Promise.resolve(new Response('#EXTM3U',{status:200}));"
+        # Hold the background refresh so the empty UI can be captured without
+        # conflating it with a failed/invalid-playlist state.
+        fetch_body = "return new Promise(function(){});"
     else:
         fetch_body = "return Promise.resolve(new Response(String(url).indexOf('epg.xml')>=0?PARITY_XML:PARITY_M3U,{status:200}));"
     before = f"""

@@ -426,8 +426,8 @@ body[data-section="live"].hud-visible .playback-hud {
     text-align: center;
 }
 
-.channel-empty h2 { margin: 0 0 12px; color: var(--text-primary); font-size: 24px; }
-.channel-empty p { max-width: 520px; margin: 0 0 18px; font-size: 18px; line-height: 1.45; }
+.channel-empty h2 { margin: 0 0 12px; color: var(--text-primary); font-size: 17px; }
+.channel-empty p { max-width: 520px; margin: 0 0 14px; font-size: 13px; line-height: 1.4; }
 .channel-empty button { min-height: 48px; padding: 0 20px; background: var(--primary); }
 
 .channel-empty:not([hidden]) + .channel-list { display: none; }
@@ -1066,6 +1066,13 @@ body.settings-detail-open .settings-detail > h2 { display: none; }
     .channel-preview-actions button { min-height: 38px; }
 }
 .guide-dialog-open .guide-programme.is-focused { background: var(--surface); border: 1px solid var(--border); box-shadow: none; }
+.channel-preview.is-empty { align-items: center; justify-content: center; }
+.channel-preview.is-empty .channel-preview-logo-wrap,
+.channel-preview.is-empty .channel-preview-marker,
+.channel-preview.is-empty .channel-preview-meta,
+.channel-preview.is-empty .channel-preview-programmes,
+.channel-preview.is-empty .channel-preview-actions { display: none; }
+.channel-preview.is-empty #channel-preview-name { margin: 0; font-size: 17px; font-weight: 400; }
 .guide-programme.is-short-leading-fragment strong, .guide-programme.is-short-leading-fragment small { visibility: hidden; }
 .settings-categories button > .settings-category-chevron { display: block; width: 12px; height: 12px; flex: 0 0 12px; margin-left: 16px; border-top: 2px solid currentColor; border-right: 2px solid currentColor; transform: rotate(45deg); font-size: 0; }
 .channel-search-toggle svg, #close-channel-search svg { width: 23px; height: 23px; }

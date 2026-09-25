@@ -65,6 +65,7 @@ private class WebOsApp {
     private val favoriteButtons = mutableListOf<HTMLButtonElement>()
     private val filterButtons = mutableListOf<HTMLButtonElement>()
     private val previewLogo = element<HTMLImageElement>("channel-preview-logo")
+    private val previewPanel = element<HTMLElement>("channel-preview")
     private val previewBack = element<HTMLButtonElement>("channel-preview-back")
     private val previewToggle = element<HTMLButtonElement>("channel-preview-toggle")
     private val previewLogoFallback = element<HTMLElement>("channel-preview-logo-fallback")
@@ -592,10 +593,11 @@ private class WebOsApp {
 
     private fun renderChannelPreview() {
         val channel = channels.firstOrNull { it.id == selectedChannelId }
+        previewPanel.classList.toggle("is-empty", channel == null)
         openPreviewChannel.disabled = channel == null
         favoritePreviewChannel.disabled = channel == null
         if (channel == null) {
-            previewName.textContent = localizer.text("channels.select")
+            previewName.textContent = localizer.text("channels.select").trimEnd('.') + "."
             previewMeta.textContent = localizer.text("epg.none.description")
             previewMarker.textContent = localizer.text("channels.preview")
             previewLogo.hidden = true
