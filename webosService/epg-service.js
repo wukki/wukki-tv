@@ -8,10 +8,13 @@ var urlParser = require('url');
 var crypto = require('crypto');
 var fs = require('fs');
 var service = new Service('hu.wukki.tv.webos.epg');
+// A full XMLTV document needs many bus reads on older TVs. Keep the service
+// alive between them; the default webos-service idle timeout is five seconds.
+if (service.activityManager) service.activityManager.idleTimeout = 60;
 var documents = Object.create(null);
 var MAX_BYTES = 32 * 1024 * 1024;
-var MAX_CHUNK_CHARACTERS = 128 * 1024;
-var DOCUMENT_LIFETIME_MS = 2 * 60 * 1000;
+var MAX_CHUNK_CHARACTERS = 32 * 1024;
+var DOCUMENT_LIFETIME_MS = 5 * 60 * 1000;
 var BUNDLED_ISRG_ROOT_X1 = loadCertificateAuthority(__dirname + '/certificates/isrg-root-x1.pem');
 
 service.register('fetchEpg', function (message) {

@@ -249,6 +249,17 @@ val verifyWebOsService by tasks.registering(Exec::class) {
     commandLine("node", "--check", webOsServiceDirectory.file("epg-service.js").asFile.absolutePath)
 }
 
+val testWebOsEpgService by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Exercises the packaged EPG service with a large UTF-8 XMLTV response and bounded bus chunks."
+    dependsOn(verifyWebOsService)
+    inputs.file(rootProject.layout.projectDirectory.file("tools/webos/test_epg_service.js"))
+    inputs.file(webOsServiceDirectory.file("epg-service.js"))
+    commandLine("node", rootProject.layout.projectDirectory.file("tools/webos/test_epg_service.js").asFile.absolutePath)
+}
+
+tasks.matching { it.name == "check" }.configureEach { dependsOn(testWebOsEpgService) }
+
 val verifyWebOsPreviewServer by tasks.registering(Exec::class) {
     group = "verification"
     description = "Checks the syntax of the local webOS preview and CORS proxy server."

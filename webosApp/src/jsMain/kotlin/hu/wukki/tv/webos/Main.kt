@@ -117,6 +117,7 @@ private class WebOsApp {
     private var programmeIndex = EpgProgrammeIndex(emptyList())
     private var epgLoadGeneration = 0L
     private var epgLoading = false
+    private var lastAppliedEpgAt = 0L
     private var programmeRefreshTimer: Int? = null
     private var playlistRefreshTimer: Int? = null
     private var epgRefreshTimer: Int? = null
@@ -231,6 +232,7 @@ private class WebOsApp {
             write = { value -> window.localStorage.setItem(WEBOS_EPG_STORAGE_KEY, value) },
             remove = { window.localStorage.removeItem(WEBOS_EPG_STORAGE_KEY) },
         )
+    private val fullEpgStore = WebOsFullEpgStore()
 
     fun start() {
         platform.textContent = "${window.navigator.userAgent} · HLS: ${playback.hlsSupport} · Kotlin/JS core"
@@ -758,8 +760,17 @@ private class WebOsApp {
                             )
                             return@parse
                         }
+                        val cache = WebOsEpgCache(url, Date.now().toLong(), parsed)
                         applyEpg(parsed)
-                        val cacheError = epgCacheStore.save(WebOsEpgCache(url, Date.now().toLong(), parsed))
+                        lastAppliedEpgAt = cache.updatedAt
+                        val cacheError = epgCacheStore.save(cache)
+                        fullEpgStore
+                            .save(cache)
+                            .then { saved ->
+                                if (!saved) show(localized("A teljes EPG helyi mentése nem sikerült.", "The full EPG could not be saved locally."))
+                            }.catch { error ->
+                                show(localized("A teljes EPG helyi mentése nem sikerült: ${error.message ?: error}", "The full EPG could not be saved locally: ${error.message ?: error}"))
+                            }
                         scheduleEpgRefresh()
                         show(localizer.text("status.epg.loaded", parsed.size, "Wukki") + cacheError?.let { " $it" }.orEmpty())
                     },
@@ -1178,12 +1189,23 @@ private class WebOsApp {
     }
 
     private fun restoreEpgCache() {
-        val cache = epgCacheStore.load() ?: return
-        currentEpgUrl = cache.sourceUrl
-        settingsView.setEpgSource(cache.sourceUrl)
-        applyEpg(cache.programmes)
-        scheduleEpgRefresh()
-        show(localized("${cache.programmes.size} mentett műsor betöltve; hálózati frissítés indul.", "${cache.programmes.size} saved programmes loaded; starting network refresh."))
+        epgCacheStore.load()?.let { cache ->
+            currentEpgUrl = cache.sourceUrl
+            settingsView.setEpgSource(cache.sourceUrl)
+            applyEpg(cache.programmes)
+            lastAppliedEpgAt = cache.updatedAt
+            scheduleEpgRefresh()
+            show(localized("${cache.programmes.size} mentett műsor betöltve; hálózati frissítés indul.", "${cache.programmes.size} saved programmes loaded; starting network refresh."))
+        }
+        fullEpgStore.load().then { cache ->
+            if (cache != null && cache.updatedAt >= lastAppliedEpgAt && (currentEpgUrl == null || cache.sourceUrl == currentEpgUrl)) {
+                currentEpgUrl = cache.sourceUrl
+                settingsView.setEpgSource(cache.sourceUrl)
+                applyEpg(cache.programmes)
+                lastAppliedEpgAt = cache.updatedAt
+                scheduleEpgRefresh()
+            }
+        }
     }
 
     private fun recordSuccessfulPlayback(channelId: String) {
@@ -1258,7 +1280,7 @@ private class WebOsApp {
         epgRefreshTimer?.let(window::clearTimeout)
         epgRefreshTimer = null
         if (!uiActive) return
-        val updatedAt = if (fromNow) Date.now().toLong() else epgCacheStore.load()?.updatedAt ?: 0L
+        val updatedAt = if (fromNow) Date.now().toLong() else lastAppliedEpgAt
         epgRefreshTimer = scheduleRefresh(settings.epgRefreshHours, updatedAt) { currentEpgUrl?.let(::fetchEpg) }
     }
 

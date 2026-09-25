@@ -63,32 +63,7 @@ internal class WebOsEpgCacheStore(
     private val now: () -> Long = { Date.now().toLong() },
     private val targetCharacters: Int = WEBOS_EPG_CACHE_TARGET_CHARACTERS,
 ) {
-    fun load(): WebOsEpgCache? =
-        runCatching {
-            val envelope = JSON.parse<dynamic>(read() ?: return null)
-            require(number(envelope.schemaVersion)?.toInt() == WEBOS_EPG_SCHEMA_VERSION)
-            val sourceUrl = string(envelope.sourceUrl) ?: error("Missing EPG source URL")
-            val updatedAt = number(envelope.updatedAt)?.toLong() ?: error("Missing EPG update time")
-            val encoded = envelope.programmes
-            require(jsTypeOf(encoded) == "object" && encoded != null && encoded.length != null)
-            val programmes =
-                (0 until (encoded.length as Number).toInt()).mapNotNull { index ->
-                    val item = encoded[index]
-                    val channelId = string(item.channelId) ?: return@mapNotNull null
-                    val start = number(item.start)?.toLong() ?: return@mapNotNull null
-                    val end = number(item.end)?.toLong() ?: return@mapNotNull null
-                    if (end <= start) return@mapNotNull null
-                    Programme(
-                        channelId = channelId,
-                        title = string(item.title).orEmpty(),
-                        start = start,
-                        end = end,
-                        description = string(item.description),
-                        imageUrl = string(item.imageUrl),
-                    )
-                }
-            WebOsEpgCache(sourceUrl, updatedAt, programmes)
-        }.getOrNull()
+    fun load(): WebOsEpgCache? = read()?.let(::decodeCache)
 
     fun save(cache: WebOsEpgCache): String? {
         val relevant =
@@ -122,6 +97,33 @@ internal class WebOsEpgCacheStore(
     fun clear(): String? = runCatching(remove).exceptionOrNull()?.let { "Az EPG cache nem törölhető: ${it.message ?: it}" }
 }
 
+private fun decodeCache(raw: String): WebOsEpgCache? =
+    runCatching {
+        val envelope = JSON.parse<dynamic>(raw)
+        require(number(envelope.schemaVersion)?.toInt() == WEBOS_EPG_SCHEMA_VERSION)
+        val sourceUrl = string(envelope.sourceUrl) ?: error("Missing EPG source URL")
+        val updatedAt = number(envelope.updatedAt)?.toLong() ?: error("Missing EPG update time")
+        val encoded = envelope.programmes
+        require(jsTypeOf(encoded) == "object" && encoded != null && encoded.length != null)
+        val programmes =
+            (0 until (encoded.length as Number).toInt()).mapNotNull { index ->
+                val item = encoded[index]
+                val channelId = string(item.channelId) ?: return@mapNotNull null
+                val start = number(item.start)?.toLong() ?: return@mapNotNull null
+                val end = number(item.end)?.toLong() ?: return@mapNotNull null
+                if (end <= start) return@mapNotNull null
+                Programme(
+                    channelId = channelId,
+                    title = string(item.title).orEmpty(),
+                    start = start,
+                    end = end,
+                    description = string(item.description),
+                    imageUrl = string(item.imageUrl),
+                )
+            }
+        WebOsEpgCache(sourceUrl, updatedAt, programmes)
+    }.getOrNull()
+
 private fun encodeCache(cache: WebOsEpgCache): String {
     val envelope = js("({})")
     envelope.schemaVersion = WEBOS_EPG_SCHEMA_VERSION
@@ -140,6 +142,83 @@ private fun encodeCache(cache: WebOsEpgCache): String {
                 encoded
             }.toTypedArray()
     return JSON.stringify(envelope)
+}
+
+/** IndexedDB retains the complete guide; localStorage remains a small startup fallback. */
+internal class WebOsFullEpgStore(
+    private val databaseName: String = "hu.wukki.tv.webos.epg.full",
+) {
+    fun load(): Promise<WebOsEpgCache?> =
+        Promise { resolve, _ ->
+            openDatabase(
+                onReady = { database ->
+                    val request = database.transaction("cache", "readonly").objectStore("cache").get("current")
+                    request.onsuccess = {
+                        val raw = request.result as? String
+                        database.close()
+                        resolve(raw?.let(::decodeCache))
+                    }
+                    request.onerror = {
+                        database.close()
+                        resolve(null)
+                    }
+                },
+                onFailure = { resolve(null) },
+            )
+        }
+
+    fun save(cache: WebOsEpgCache): Promise<Boolean> =
+        Promise { resolve, _ ->
+            val encoded = encodeCache(cache)
+            openDatabase(
+                onReady = { database ->
+                    val transaction = database.transaction("cache", "readwrite")
+                    transaction.objectStore("cache").put(encoded, "current")
+                    transaction.oncomplete = {
+                        database.close()
+                        resolve(true)
+                    }
+                    transaction.onerror = {
+                        database.close()
+                        resolve(false)
+                    }
+                    transaction.onabort = {
+                        database.close()
+                        resolve(false)
+                    }
+                },
+                onFailure = { resolve(false) },
+            )
+        }
+
+    private fun openDatabase(
+        onReady: (dynamic) -> Unit,
+        onFailure: () -> Unit,
+    ) {
+        val indexedDb = window.asDynamic().indexedDB
+        if (indexedDb == null || jsTypeOf(indexedDb) == "undefined") {
+            onFailure()
+            return
+        }
+        try {
+            val request = indexedDb.open(databaseName, 1)
+            request.onupgradeneeded = {
+                request.result.createObjectStore("cache")
+            }
+            request.onsuccess = {
+                try {
+                    onReady(request.result)
+                } catch (_: Throwable) {
+                    request.result.close()
+                    onFailure()
+                }
+            }
+            request.onerror = { onFailure() }
+            request.onblocked = { onFailure() }
+        } catch (_: Throwable) {
+            onFailure()
+        }
+    }
 }
 
 private fun string(value: dynamic): String? = if (jsTypeOf(value) == "string") (value as String).takeIf(String::isNotBlank) else null
@@ -280,13 +359,35 @@ private fun requestEpgService(
     parameters: dynamic,
 ): Promise<WebOsEpgServiceResponse> =
     Promise { resolve, reject ->
+        var completed = false
+        var requestHandle: dynamic = null
+        val timeout =
+            window.setTimeout(
+                {
+                    if (!completed) {
+                        completed = true
+                        if (requestHandle != null && jsTypeOf(requestHandle.cancel) == "function") requestHandle.cancel()
+                        reject(Throwable("Az EPG szolgáltatás nem válaszolt időben ($method)."))
+                    }
+                },
+                if (method == "fetchEpg") EPG_SERVICE_DOWNLOAD_TIMEOUT_MS else EPG_SERVICE_CHUNK_TIMEOUT_MS,
+            )
+
+        fun fail(message: String) {
+            if (completed) return
+            completed = true
+            window.clearTimeout(timeout)
+            reject(Throwable(message))
+        }
         val options = js("({})")
         options.method = method
         options.parameters = parameters
         options.onSuccess = { response: dynamic ->
             if (response.returnValue == false) {
-                reject(Throwable(response.errorText as? String ?: "Az EPG szolgáltatás hibát jelzett."))
-            } else {
+                fail(response.errorText as? String ?: "Az EPG szolgáltatás hibát jelzett.")
+            } else if (!completed) {
+                completed = true
+                window.clearTimeout(timeout)
                 resolve(
                     WebOsEpgServiceResponse(
                         token = response.token as? String,
@@ -299,12 +400,17 @@ private fun requestEpgService(
             }
         }
         options.onFailure = { error: dynamic ->
-            reject(Throwable(error.errorText as? String ?: error.toString()))
+            fail(error.errorText as? String ?: error.toString())
         }
-        window
-            .asDynamic()
-            .webOS.service
-            .request(EPG_SERVICE_URI, options)
+        try {
+            requestHandle =
+                window
+                    .asDynamic()
+                    .webOS.service
+                    .request(EPG_SERVICE_URI, options)
+        } catch (error: Throwable) {
+            fail(error.message ?: error.toString())
+        }
     }
 
 private fun releaseEpgServiceDocument(token: String) {
@@ -348,7 +454,9 @@ internal fun formatEpgTime(timestamp: Long): String {
 }
 
 private const val EPG_SERVICE_URI = "luna://hu.wukki.tv.webos.epg/"
-private const val EPG_SERVICE_CHUNK_CHARACTERS = 128 * 1024
+private const val EPG_SERVICE_CHUNK_CHARACTERS = 32 * 1024
+private const val EPG_SERVICE_DOWNLOAD_TIMEOUT_MS = 90_000
+private const val EPG_SERVICE_CHUNK_TIMEOUT_MS = 15_000
 private const val WEBOS_PREVIEW_ORIGIN = "http://127.0.0.1:4173"
 
 private data class WebOsEpgServiceResponse(
