@@ -23,7 +23,7 @@ DIST = ROOT / "webosApp/build/dist/js/productionExecutable"
 FIXED_NOW = 1790006400000
 SCENARIOS = [
     "live", "live-empty", "channels", "search", "no-results", "no-data", "favorites", "recent",
-    "guide", "guide-details", "settings", "settings-playback", "quick-settings", "offline",
+    "guide", "guide-details", "settings", "settings-playback", "settings-epg", "settings-display", "settings-parental", "settings-playlists", "settings-language", "settings-about", "quick-settings", "offline",
 ]
 
 
@@ -104,6 +104,9 @@ def parity_data():
 
 
 def scenario_actions(scenario):
+    if scenario.startswith("settings-"):
+        section = scenario.removeprefix("settings-").upper()
+        return f"click('#nav-settings'); click('[data-settings-section={section}]'); focus('.settings-option');"
     return {
         "live": "click('#nav-live'); focus('#nav-live');",
         "live-empty": "click('#nav-live'); focus('#nav-live');",
@@ -114,7 +117,7 @@ def scenario_actions(scenario):
         "favorites": "clickText('#channel-tabs button','Kedvencek'); focus('#channel-list button');",
         "recent": "clickText('#channel-tabs button','Legutóbb nézett'); focus('#channel-list button');",
         "guide": "click('#nav-guide'); focus('#guide-actions button');",
-        "guide-details": "click('#nav-guide'); click('.guide-programme'); focus('#guide-dialog-open');",
+        "guide-details": "click('#nav-guide'); clickText('.guide-programme','Esti műsor – Hírek'); focus('#guide-dialog-open');",
         "settings": "click('#nav-settings'); focus('[data-settings-section]');",
         "settings-playback": "click('#nav-settings'); click('[data-settings-section=PLAYBACK]'); focus('.settings-option');",
         "quick-settings": "click('#nav-live'); click('#quick-settings'); focus('#close-quick-settings');",
@@ -161,6 +164,7 @@ HTMLMediaElement.prototype.play=function(){{return Promise.resolve();}};
     {scenario_actions(scenario)}
     setTimeout(function(){{
       var selectors={json.dumps(selectors)};
+      var status=one('#status');if(status)status.textContent='';
       var evidence={{scenario:{json.dumps(scenario)},viewport:[innerWidth,innerHeight],active:(document.activeElement&&document.activeElement.id)||'',elements:{{}}}};
       selectors.forEach(function(selector){{
         var node=one(selector);if(!node)return;
@@ -188,7 +192,7 @@ def chrome_command(chrome, root, url, extra):
     ]
 
 
-def capture(chrome, root, server_port, scenario, selectors, output, evidence_store):
+def capture(chrome, root, server_port, scenario, selectors, output, evidence_store, width=1920, height=1080):
     source = (DIST / "index.html").read_text()
     before, after = adapter_script(scenario, selectors)
     source = source.replace('<script src="wukki-tv-webos.js"', before + '<script src="wukki-tv-webos.js"')
@@ -199,28 +203,16 @@ def capture(chrome, root, server_port, scenario, selectors, output, evidence_sto
     screenshot = output / "screenshots/webos-browser" / f"{scenario}.png"
     screenshot.parent.mkdir(parents=True, exist_ok=True)
     screenshot.unlink(missing_ok=True)
-    process = subprocess.Popen(
-        chrome_command(chrome, root, url, [f"--screenshot={screenshot}"]),
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+    subprocess.run(
+        [os.environ.get("NODE_BIN", "node"), str(ROOT / "tools/parity/capture_page.cjs"),
+         chrome, url, str(screenshot), str(width), str(height)], check=True, timeout=60,
     )
-    deadline = time.monotonic() + 45
-    try:
-        while (not screenshot.exists() or scenario not in evidence_store) and process.poll() is None and time.monotonic() < deadline:
-            time.sleep(0.1)
-        if not screenshot.exists() or scenario not in evidence_store:
-            raise RuntimeError(f"Chrome did not complete parity capture for {scenario}")
-    finally:
-        if process.poll() is None:
-            process.terminate()
-        try:
-            process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            process.kill()
-            process.wait()
     data = screenshot.read_bytes()
-    if data[:8] != b"\x89PNG\r\n\x1a\n" or struct.unpack(">II", data[16:24]) != (1920, 1080):
+    if data[:8] != b"\x89PNG\r\n\x1a\n" or struct.unpack(">II", data[16:24]) != (width, height):
         raise RuntimeError(f"Invalid screenshot for {scenario}")
-    evidence = evidence_store.pop(scenario)
+    evidence = json.loads(Path(str(screenshot) + ".json").read_text())
+    Path(str(screenshot) + ".json").unlink()
+    assert evidence["viewport"] == [width, height], "DOM / screenshot viewport mismatch"
     evidence_dir = output / "evidence"
     evidence_dir.mkdir(parents=True, exist_ok=True)
     (evidence_dir / f"{scenario}.json").write_text(json.dumps(evidence, ensure_ascii=False, indent=2) + "\n")
@@ -228,17 +220,22 @@ def capture(chrome, root, server_port, scenario, selectors, output, evidence_sto
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--width", type=int, default=1920)
+    parser.add_argument("--height", type=int, default=1080)
+    parser.add_argument("--scenarios", nargs="+", choices=SCENARIOS, default=SCENARIOS)
     parser.add_argument("--chrome", help="Chrome/Chromium executable")
     parser.add_argument("--output", type=Path, default=OUTPUT)
     args = parser.parse_args()
     chrome = chrome_path(args.chrome)
     if not chrome:
         raise SystemExit("Chrome/Chromium is required (use --chrome or CHROME_BIN)")
-    contract = json.loads((args.output / "visual-contract.json").read_text())
+    contract = json.loads((OUTPUT / "visual-contract.json").read_text())
     with tempfile.TemporaryDirectory(prefix="wukki-parity-") as temp:
         root = Path(temp)
         for source in DIST.iterdir():
-            if source.is_file():
+            if source.is_dir():
+                shutil.copytree(source, root / source.name)
+            else:
                 (root / source.name).write_bytes(source.read_bytes())
         evidence_store = {}
 
@@ -262,10 +259,10 @@ def main():
         server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
         threading.Thread(target=server.serve_forever, daemon=True).start()
         try:
-            for scenario in SCENARIOS:
-                definition = contract["scenarios"][scenario]
-                selectors = list(dict.fromkeys(contract["globalSelectors"] + definition["selectors"] + [definition["focusSelector"]]))
-                capture(chrome, root, server.server_port, scenario, selectors, args.output, evidence_store)
+            for scenario in args.scenarios:
+                definition = contract["scenarios"].get(scenario, contract["scenarios"]["settings-playback"])
+                selectors = list(dict.fromkeys(contract["globalSelectors"] + definition["selectors"] + [definition["focusSelector"], "#channel-preview-name", "#channel-preview-current", "#settings-detail"]))
+                capture(chrome, root, server.server_port, scenario, selectors, args.output, evidence_store, args.width, args.height)
                 print(scenario, flush=True)
         finally:
             server.shutdown()

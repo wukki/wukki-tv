@@ -1,0 +1,5 @@
+{
+  "name": "wukki-parity-capture",
+  "private": true,
+  "devDependencies": { "playwright": "1.62.1" }
+}

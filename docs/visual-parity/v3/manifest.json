@@ -1,0 +1,94 @@
+{
+  "fixture": "../../webos-parity/v1/fixture.json",
+  "scenarios": {
+    "desktop-1920": {
+      "viewport": [
+        1920,
+        1080
+      ],
+      "sha256": {
+        "channels": "5f6fd07b9f85379d80845985ceb07a63ac28c55053944c2de42328ddd33d993b",
+        "favorites": "68132adab0677c93fb85431c944d6fbc9c34c42665a15af1a1c4ac99c43d7ebe",
+        "guide-details": "4c9ddcd447da2cc2117f618d34676637f1a3235ad7452ee34c860a3b1f6996f8",
+        "guide": "d86575b19130803142f4c4b24001fc4f065c2c1b6a8dc75af4ac543f54eec93a",
+        "live-empty": "ed6e92c3f84427fe801c968a78c5746c40e0d984e6962c244792f6311eed59d5",
+        "live": "5b05a8aa3753b9bd20518f8aef6114446246c16e6f3bd6b863b1e7814667e789",
+        "no-data": "af918d69a741ed4d524885e8ef1a6e266a13afcde3e9271de01b95b9521fa421",
+        "no-results": "89bafc1739856f10127256158c506da53d7cce8e034de4758a1bc44059edaf71",
+        "offline": "c0d4a335fd6f8f5aa8638858972275a63ec3511838efcb9add6c6501d089ffe7",
+        "quick-settings": "0e09cb3b95a9c19b21cfd6e11a9a2da33f2e91217182464f085c809696952c11",
+        "recent": "fe5f0dff5b3cafa8acb6fffb0ccad83cbb0d5257a2b543d68988ce96f7e5d877",
+        "search": "746c7ab4e1b2b34f546990f5baba9ee0735a46b715cd80bf73a8bfa5a487ccbe",
+        "settings-about": "3e403b3a97a1e199617b3a56282323647e2f0aff0f6edc904b6248d7184455fc",
+        "settings-display": "6f6268835077a1da8022320c0c2f7e5ed7a940e00ec8d519b911f4da28316350",
+        "settings-epg": "b687c97fb1d9a2234359536e8caaea128ee8f8d638078f114af65dcf1099d6b1",
+        "settings-language": "6b594f118453941235c8af3a2112b641937e2ffc262187abf13fe86ccd2dcf34",
+        "settings-parental": "1afb08fd6d1342f8240a746e4d3bb8e9538015e0bc493f91a7ad0ecf3670fa6b",
+        "settings-playback": "64b99c336590076ad20fc14af0afc1e2b6f4a62b27a345046123df261ad1fad4",
+        "settings-playlists": "658f829a98bd76cb1ec97bff1abd7fa2e6421d97fb9447ccaa2c009131b5f61d",
+        "settings": "a8cae7c2fb8c34e6fef28c78753d5d509d8951daf357d1de986b85d923576e95"
+      }
+    },
+    "desktop-1280": {
+      "viewport": [
+        1280,
+        720
+      ],
+      "sha256": {
+        "channels": "900557102956a1dc9731a3a8cf7c2fc3ceaf20f34a83de3e85aa2f7cea9393c4",
+        "favorites": "2b4256931c8476941970283a9697e310bf0170e18440fd1518fa4d6dce120f96",
+        "guide-details": "0e61e707611c8130dda4ecc11d3342beecd35d7f9588e7a19bc45254a7c1f944",
+        "guide": "ed859e42bec6836bfa58662244b46b546ea2092aca163a6032d5b3aa9662f233",
+        "live-empty": "8f7d8a0215b17918baf529c6611ed75d2a211450163f0b7d923937675b57c9ed",
+        "live": "a8c24c47f89a9c0ee24951fca295a2e56d4e919f2113ab9f471c8e5cc9bb8e0c",
+        "no-data": "d564d266b7139900b71954f7e1f0cee20024e84b4fa7a1a96373f3390ea28f59",
+        "no-results": "366682b5725fcbde6a962706ed66167c0744bca722e99630e6e20e182b563b8b",
+        "offline": "718040bca11ceeed525e1df95ff97ea4a4ca84637b1b3c462868912fa1c197f6",
+        "quick-settings": "a76643c0447c86f866d833146acb39e440189171eeb31a1ff226fbad2664b0e3",
+        "recent": "c17c996728ac05518cb9f1b356e10a4f9c4d76753ac1620cac68a65a3d8563a4",
+        "search": "aeb81235f62ca19f749f57e5e548cd32670a6351e6730243cbca07c467ea8031",
+        "settings-about": "62618a56dac613425be85165e4138b876001d4109791e06e41e37d9ba63e46b0",
+        "settings-display": "0434b78ac902ec7673e6e8de756f0de740dbdd64819d711e6d43b93b229ac026",
+        "settings-epg": "2611721b724fa5ae22548246fd3152a9c279037aeeff7c0d3e49116ba1701775",
+        "settings-language": "35dcbc02ea744835708a78f3469d203e621caafad111930dc6deb366793a158b",
+        "settings-parental": "26e20ec094762436d68d4d42fdb310c87761208dbba1fb22c3d4718005d33a7e",
+        "settings-playback": "1f91f57ee4e51b9201db5937f4c3b344ae475f78863633da3cf1812172230f84",
+        "settings-playlists": "78547b5bffabbb7c7bdb58c6551cae85081c9d37155dda32a14066f83a58b9fa",
+        "settings": "0b93978f3e5dd0d70be4ff7c9eff13cdb0f339e9cbe25e753cd623ed6f508806"
+      }
+    },
+    "desktop-800": {
+      "viewport": [
+        800,
+        450
+      ],
+      "sha256": {
+        "channels": "0e13fed67a383aae0455fbcc93af857019d7a17929301cae15e06958b27a522e",
+        "favorites": "7f0521a85cfd340137d1d8f1596d63ea693594dbe3e452d9f8dd7db059280a48",
+        "guide-details": "ae94dc726531a7eb8f8566007cd9d36a70ced8f2d169dcca44fc7ecc1f57e304",
+        "guide": "cfacfdb667dd61fc1d12004b973ec9dbe7ceddee6fc796966f7d087af8bc17d3",
+        "live-empty": "5232e4965bea1c3f8b811dc6514f0fcb89f261f10b59d34617b6c106bcfa1746",
+        "live": "760e70a3f998f5b59350e407b2bd226105cec351417760bc8abf8eae9c0f7a80",
+        "no-data": "3af420df9e2a5a2454ad25cd273b40415bd864a56d8cb40cc0fbdd0bc3706304",
+        "no-results": "910dd8703287975afc4bd47c939e4c403f587946ee955bd9c7ee2c724804d630",
+        "offline": "dc35379195682d2844d941498570ef6646561583d591ede3ecae49678137aa6a",
+        "quick-settings": "a31b6f61ed1f0bc5b5914dea5aeaf9db49ce29ebf8312f5c1e40f3bcd1639826",
+        "recent": "3c086c000ad0c8c79c8c6b03478eaa452d34fcb0c0285c76ec4152c9991947af",
+        "search": "e57653afdae20aada45e77f394f5cb3fc756f026cdff8329f4c073da5a3803b1",
+        "settings-about": "15387d985f4f90bed037728fceb86183536212d8fd28a0a0909b341ba208ae43",
+        "settings-display": "9136ea11552d918475bc5b190c37bac024f0033632f35b55fa5c8114e90b601f",
+        "settings-epg": "fbd03d93e73b7275720365fb8f32e2b97eaaa89b4b65732f2eb90b0527e3584f",
+        "settings-language": "01572aa13216efb3aaadfafc4859a8c0acf5e442ebdfb6675ee9bdf0ac41cf90",
+        "settings-parental": "2b432ced468d1b675252a763df7dad7d09d9bbf289ff1c004db68c17a27ad142",
+        "settings-playback": "e1c546baeab1e807dd122adfe27400f9af849d03e6c76d8f5d19843f6d0a913a",
+        "settings-playlists": "4b4e8a7721afb51501149065aa0d27ad823a2270fad2ed2064b1ddf5e6059334",
+        "settings": "0f74db1b7f26f99de3f4836a96726cbbde0e4cc04fc16227cb8265b76c2668dd"
+      }
+    }
+  },
+  "nativeOverlay": {
+    "buffering": "d2e2b11740825f556d9d7753fa3671a20f7c013d8498a993909f8a70ec95a32c",
+    "channel-number": "799fb688f2a982d499278915eef14e896d110cd9a3adbf8f3e444449b69843b6",
+    "programme-info": "1c7b69e65b7fd78757127fdea6a27ef2057963c19ec3026bf0f3947b0bb1f3ab"
+  }
+}

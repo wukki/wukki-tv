@@ -20,9 +20,11 @@ class ParityCaptureTest {
                 encodeDefaults = true
             }.encodeToString(ParityReference.state()),
         )
+        val width = Integer.getInteger("parity.width", 1920)
+        val height = Integer.getInteger("parity.height", 1080)
         SwingUtilities.invokeAndWait {
             ParityReference.scenarios.forEach { scenario ->
-                ImageComposeScene(1920, 1080) { ParityReferenceScreen(scenario, androidLayout = false) }.use { scene ->
+                ImageComposeScene(width, height) { ParityReferenceScreen(scenario, androidLayout = false) }.use { scene ->
                     repeat(12) { scene.render(it * 100_000_000L).close() }
                     scene.render(1_200_000_000L).use { image ->
                         image.encodeToData()!!.use { File(output, "$scenario.png").writeBytes(it.bytes) }

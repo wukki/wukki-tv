@@ -197,8 +197,10 @@ tasks.withType<AbstractJPackageTask>().configureEach {
 kotlin.sourceSets.named("test") { kotlin.srcDir(rootProject.file("tools/parity/kotlin")) }
 tasks.withType<Test>().configureEach {
     systemProperty("user.timezone", "Europe/Budapest")
+    systemProperty("parity.width", providers.gradleProperty("parityWidth").getOrElse("1920"))
+    systemProperty("parity.height", providers.gradleProperty("parityHeight").getOrElse("1080"))
     systemProperty("parity.traces", rootProject.file("docs/webos-parity/v1/input-traces.json").absolutePath)
-    systemProperty("parity.output", rootProject.file("docs/webos-parity/v1/screenshots/desktop").absolutePath)
+    systemProperty("parity.output", providers.gradleProperty("parityOutput").getOrElse(rootProject.file("docs/webos-parity/v1/screenshots/desktop").absolutePath))
 }
 
 tasks.named<Test>("test") { filter { excludeTestsMatching("*ParityCaptureTest") } }

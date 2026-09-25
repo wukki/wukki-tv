@@ -110,28 +110,28 @@ internal class OverlayCallbackMediaPlayerComponent(
     override fun onPaintOverlay(graphics: Graphics2D) {
         super.onPaintOverlay(graphics)
         val content = overlay ?: return
-        val data = content.data
         val surface = videoSurfaceComponent()
-        val width = surface.width
-        val height = surface.height
-        if (width <= 0 || height <= 0) return
-
-        graphics.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON)
-        graphics.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY)
-        val scale = min(width / 1106f, height / 762f).coerceAtLeast(.45f)
-
-        if (data.showPreviewLogo) drawPreviewLogo(graphics, content, width, scale)
-        if (data.showProgrammeInfo) drawProgrammePanel(graphics, content, width, height, scale)
-        desktopBufferingOverlaySnapshot(data)?.let {
-            drawBufferingSpinner(graphics, it.label, width, height, scale)
-        }
-        data.playbackStatus?.let {
-            drawPlaybackStatus(graphics, it, data.playbackError, data.showProgrammeInfo, width, height, scale)
-        }
-        data.channelNumberInput?.takeIf(String::isNotEmpty)?.let {
-            drawChannelNumberInput(graphics, it, width, scale)
-        }
+        renderPlaybackOverlay(graphics, content, surface.width, surface.height)
     }
+}
+
+/** Also used by the capture harness, exercising the real Java2D renderer without VLC. */
+internal fun renderPlaybackOverlay(
+    graphics: Graphics2D,
+    content: RenderedPlaybackOverlay,
+    width: Int,
+    height: Int,
+) {
+    if (width <= 0 || height <= 0) return
+    val data = content.data
+    graphics.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON)
+    graphics.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY)
+    val scale = min(width / 1106f, height / 762f).coerceAtLeast(.45f)
+    if (data.showPreviewLogo) drawPreviewLogo(graphics, content, width, scale)
+    if (data.showProgrammeInfo) drawProgrammePanel(graphics, content, width, height, scale)
+    desktopBufferingOverlaySnapshot(data)?.let { drawBufferingSpinner(graphics, it.label, width, height, scale) }
+    data.playbackStatus?.let { drawPlaybackStatus(graphics, it, data.playbackError, data.showProgrammeInfo, width, height, scale) }
+    data.channelNumberInput?.takeIf(String::isNotEmpty)?.let { drawChannelNumberInput(graphics, it, width, scale) }
 }
 
 private fun drawBufferingSpinner(

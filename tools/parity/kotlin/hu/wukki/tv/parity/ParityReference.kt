@@ -48,7 +48,7 @@ import hu.wukki.tv.ui.settings.SettingsSection
 /** Test/debug only. No network, playback engine, user storage or running wall clock. */
 object ParityReference {
     const val NOW = 1_790_006_400_000L // 2026-09-21T16:00:00Z
-    val scenarios = listOf("live", "live-empty", "channels", "search", "no-results", "no-data", "favorites", "recent", "guide", "guide-details", "settings", "settings-playback", "quick-settings", "offline")
+    val scenarios = listOf("live", "live-empty", "channels", "search", "no-results", "no-data", "favorites", "recent", "guide", "guide-details", "settings", "settings-playback", "settings-epg", "settings-display", "settings-parental", "settings-playlists", "settings-language", "settings-about", "quick-settings", "offline")
     val channels =
         listOf("Hírek", "Kultúra", "Sport", "Film – nagyon hosszú csatornanév a csonkolás ellenőrzéséhez").mapIndexed { i, name ->
             Channel(
@@ -130,7 +130,10 @@ fun ParityReferenceScreen(
                 channelFocusedId = "ref-1"
                 channelSearchOpen = scenario == "search" || scenario == "no-results"
                 channelRemoteFocus = if (channelSearchOpen) ChannelRemoteFocus.SEARCH else ChannelRemoteFocus.LIST
-                if (scenario == "settings-playback") settingsNavigation = SettingsNavigationState(SettingsSection.PLAYBACK, 0, PlaybackSettingsOption.AUTOPLAY)
+                if (scenario.startsWith("settings-")) {
+                    val section = SettingsSection.valueOf(scenario.removePrefix("settings-").uppercase())
+                    settingsNavigation = SettingsNavigationState(section, section.ordinal)
+                }
                 guideProgrammeDetailsVisible = scenario == "guide-details"
             }
         }
