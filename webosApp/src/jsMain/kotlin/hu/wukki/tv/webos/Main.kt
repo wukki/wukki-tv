@@ -11,6 +11,7 @@ import hu.wukki.tv.UNKNOWN_CHANNEL_NAME_ID
 import hu.wukki.tv.normalizedChannelHistory
 import hu.wukki.tv.programmeProgress
 import hu.wukki.tv.ui.guide.GuideProgrammeDialogEvent
+import hu.wukki.tv.ui.layout.DisplayLayout
 import hu.wukki.tv.ui.navigation.RemoteKey
 import hu.wukki.tv.ui.navigation.SettingsOptionId
 import hu.wukki.tv.ui.settings.SettingsSection
@@ -64,6 +65,8 @@ private class WebOsApp {
     private val favoriteButtons = mutableListOf<HTMLButtonElement>()
     private val filterButtons = mutableListOf<HTMLButtonElement>()
     private val previewLogo = element<HTMLImageElement>("channel-preview-logo")
+    private val previewBack = element<HTMLButtonElement>("channel-preview-back")
+    private val previewToggle = element<HTMLButtonElement>("channel-preview-toggle")
     private val previewLogoFallback = element<HTMLElement>("channel-preview-logo-fallback")
     private val previewMarker = element<HTMLElement>("channel-preview-marker")
     private val previewName = element<HTMLElement>("channel-preview-name")
@@ -73,6 +76,8 @@ private class WebOsApp {
     private val previewNextProgramme = element<HTMLElement>("channel-preview-next")
     private val previewProgrammeTime = element<HTMLElement>("channel-preview-time")
     private val previewProgrammeProgress = element<HTMLElement>("channel-preview-progress")
+    private val previewProgrammeProgressWrap = element<HTMLElement>("channel-preview-progress-wrap")
+    private val previewClock = element<HTMLElement>("channel-preview-clock")
     private val previewProgrammeProgressValue = element<HTMLElement>("channel-preview-progress-value")
     private val previewProgrammeDescription = element<HTMLElement>("channel-preview-description")
     private val previewProgrammeImage = element<HTMLImageElement>("channel-preview-programme-image")
@@ -85,6 +90,7 @@ private class WebOsApp {
     private val quickSettingsDialog = element<HTMLElement>("quick-settings-dialog")
     private val closeQuickSettings = element<HTMLButtonElement>("close-quick-settings")
     private val quickAspectOptions = element<HTMLElement>("quick-aspect-options")
+    private val quickAudioTrack = element<HTMLButtonElement>("quick-audio-track")
     private val legalDialog = element<HTMLElement>("legal-dialog")
     private val appShell = WebOsAppShell(::onSectionActivated, ::onNavigationFocused)
     private var settings = WebOsSettings()
@@ -241,9 +247,33 @@ private class WebOsApp {
         configureLifecycle()
         restoreCachedState()
         applySettings()
+        updateLayoutMetrics()
+        window.addEventListener("resize", { updateLayoutMetrics() })
         settingsView.refreshCopy()
         restoreEpgCache()
         fetchPlaylist()
+    }
+
+    private fun updateLayoutMetrics() {
+        val width = window.innerWidth.toFloat()
+        val height = window.innerHeight.toFloat()
+        val layout = hu.wukki.tv.ui.layout.DisplayLayout
+        val scale = layout.dashboardScale(width, height)
+        val padding = (14f * scale).coerceIn(8f, 20f)
+        val root = (document.documentElement as HTMLElement).style
+        val overlayScale = minOf(width / 1106f, height / 762f).coerceAtLeast(.45f)
+        val geometry = hu.wukki.tv.desktopInfoPanelGeometry(width.toInt(), height.toInt(), overlayScale)
+        val overlay = hu.wukki.tv.PlaybackInfoPanelStyle
+        root.setProperty("--overlay-scale", geometry.contentScale.toString())
+        root.setProperty("--overlay-margin", "${geometry.outerMargin}px")
+        root.setProperty("--overlay-width", "${geometry.width}px")
+        root.setProperty("--overlay-height", "${geometry.height}px")
+        root.setProperty("--overlay-padding", "${overlay.CONTENT_PADDING * geometry.contentScale}px")
+        root.setProperty("--overlay-gap", "${overlay.COLUMN_GAP * geometry.contentScale}px")
+        root.setProperty("--dashboard-scale", scale.toString())
+        root.setProperty("--content-padding", "${padding}px")
+        root.setProperty("--guide-scale", layout.settingsScale(width - padding * 2, height - layout.NAVIGATION_HEIGHT - padding * 2).toString())
+        root.setProperty("--settings-scale", layout.settingsScale(width - padding * 2, height - layout.NAVIGATION_HEIGHT - padding * 2).toString())
     }
 
     private fun requestedStream(): String? =
@@ -254,8 +284,16 @@ private class WebOsApp {
             ?.substringAfter('=')
             ?.let(::decodeURIComponent)
 
+    private var feedbackTimeout: Int? = null
+
     private fun show(message: String) {
+        feedbackTimeout?.let(window::clearTimeout)
         status.textContent = listOfNotNull(message, storageProblem).joinToString(" · ")
+        feedbackTimeout =
+            window.setTimeout({
+                status.textContent = storageProblem.orEmpty()
+                feedbackTimeout = null
+            }, 8_000)
     }
 
     private fun startPlayback(index: Int) {
@@ -470,7 +508,13 @@ private class WebOsApp {
                 programme.textContent = currentProgrammes(channel).current?.title?.ifBlank { localizer.text("epg.untitled") } ?: localizer.text("epg.none")
                 text.appendChild(programme)
             }
-            button.appendChild(number)
+            button.insertBefore(number, button.firstChild)
+            if (button.querySelector(".channel-logo") == null) {
+                val fallback = document.createElement("span") as HTMLElement
+                fallback.className = "channel-logo-fallback"
+                fallback.textContent = displayName(channel).take(1).uppercase()
+                button.appendChild(fallback)
+            }
             button.appendChild(text)
             button.onfocus = {
                 selectedChannelId = channel.id
@@ -485,18 +529,23 @@ private class WebOsApp {
             button.onclick = {
                 selectedChannelId = channel.id
                 updateSelectedChannel()
-                show(
-                    localized(
-                        "Előnézet: ${displayName(channel)}. A lejátszáshoz válaszd a Megnyitás gombot.",
-                        "Preview: ${displayName(channel)}. Select Open to start playback.",
-                    ),
-                )
+                if (kotlinx.browser.window.innerWidth < 960) {
+                    document.body?.classList?.add("channel-preview-open")
+                    previewBack.focus()
+                } else {
+                    show(
+                        localized(
+                            "Előnézet: ${displayName(channel)}. A lejátszáshoz válaszd a Megnyitás gombot.",
+                            "Preview: ${displayName(channel)}. Select Open to start playback.",
+                        ),
+                    )
+                }
                 null
             }
             val favorite = document.createElement("button") as HTMLButtonElement
             favorite.type = "button"
             favorite.className = "channel-favorite"
-            favorite.textContent = if (channel.favorite) "♥" else "♡"
+            favorite.innerHTML = favoriteIcon(channel.favorite)
             favorite.setAttribute("aria-label", "${displayName(channel)} kedvenc")
             favorite.setAttribute("aria-pressed", channel.favorite.toString())
             favorite.setAttribute("data-filtered-index", filteredIndex.toString())
@@ -551,15 +600,16 @@ private class WebOsApp {
             previewMarker.textContent = localizer.text("channels.preview")
             previewLogo.hidden = true
             previewLogoFallback.hidden = false
-            favoritePreviewChannel.textContent = "♡"
+            favoritePreviewChannel.innerHTML = favoriteIcon(false)
             renderPreviewProgrammes(ProgrammePair(null, null), Date.now().toLong())
             return
         }
+        previewLogoFallback.textContent = displayName(channel).take(1).uppercase()
         previewName.textContent = displayName(channel)
         val sourceIndex = channels.indexOfFirst { it.id == channel.id }
         previewMeta.textContent = "${channel.tvgChno ?: sourceIndex + 1}. · ${displayGroup(channel)}"
         previewMarker.textContent = if (channel.id == playback.playingChannelId) localizer.text("channels.playing") else localizer.text("channels.preview")
-        favoritePreviewChannel.textContent = if (channel.favorite) "♥" else "♡"
+        favoritePreviewChannel.innerHTML = favoriteIcon(channel.favorite)
         favoritePreviewChannel.setAttribute("aria-pressed", channel.favorite.toString())
         val logo = channel.logo?.takeIf { settings.showLogos && it.isNotBlank() }
         previewLogo.hidden = logo == null
@@ -792,7 +842,8 @@ private class WebOsApp {
         previewProgrammeDescription.textContent = current?.description.orEmpty()
         previewProgrammeDescription.hidden = current?.description.isNullOrBlank()
         val progress = programmeProgress(current, now)
-        previewProgrammeProgress.hidden = progress == null
+        previewProgrammeProgressWrap.hidden = progress == null
+        previewClock.textContent = formatEpgTime(now)
         previewProgrammeProgress.setAttribute("aria-valuenow", ((progress ?: 0.0) * 100).toInt().toString())
         previewProgrammeProgressValue.style.width = "${(progress ?: 0.0) * 100}%"
         val image = current?.imageUrl?.takeIf { settings.showProgrammeImages }
@@ -865,6 +916,17 @@ private class WebOsApp {
             if (index >= 0) startPlayback(index)
             null
         }
+        previewBack.onclick = {
+            closeCompactPreview()
+            null
+        }
+        previewToggle.onclick = {
+            if (selectedChannelId != null) {
+                document.body?.classList?.add("channel-preview-open")
+                previewBack.focus()
+            }
+            null
+        }
         favoritePreviewChannel.onclick = {
             val index = filteredChannels.indexOfFirst { it.id == selectedChannelId }
             if (index >= 0) toggleFavorite(index)
@@ -895,10 +957,22 @@ private class WebOsApp {
     private fun configureKeyboard() {
         document.onkeydown = { rawEvent: Event ->
             val event = rawEvent as KeyboardEvent
-            val editingDiagnostic = document.activeElement === diagnosticInput
-            if (!editingDiagnostic || event.keyCode == WEBOS_BACK_KEY || event.keyCode == 27) remoteController.handle(event)
+            if (document.body?.classList?.contains("channel-preview-open") == true &&
+                (event.keyCode == WEBOS_BACK_KEY || event.keyCode == 27 || event.key == "Escape")
+            ) {
+                event.preventDefault()
+                closeCompactPreview()
+            } else {
+                val editingDiagnostic = document.activeElement === diagnosticInput
+                if (!editingDiagnostic || event.keyCode == WEBOS_BACK_KEY || event.keyCode == 27) remoteController.handle(event)
+            }
             null
         }
+    }
+
+    private fun closeCompactPreview() {
+        document.body?.classList?.remove("channel-preview-open")
+        restoreChannelFocus()
     }
 
     private fun configureLifecycle() {
@@ -1024,6 +1098,12 @@ private class WebOsApp {
     private fun showQuickSettings() {
         playback.hideHud()
         renderQuickAspectOptions()
+        quickAudioTrack.textContent = localized("Hangsáv: Magyar", "Audio: Hungarian")
+        quickAudioTrack.title =
+            localized(
+                "A webOS lejátszó nem teszi elérhetővé a hangsávváltást.",
+                "The webOS player does not expose audio track selection.",
+            )
         quickSettingsDialog.hidden = false
         (quickAspectOptions.querySelector("button[aria-pressed=\"true\"]") as? HTMLElement)?.focus() ?: closeQuickSettings.focus()
     }
@@ -1147,7 +1227,12 @@ private class WebOsApp {
         applyChannelDisplaySettings()
     }
 
-    private fun scaledChannelRowHeight(): Int = (channelRowHeight(settings.channelListMode) * settings.uiScale).toInt().coerceAtLeast(48)
+    private fun scaledChannelRowHeight(): Int {
+        val width = window.innerWidth.toFloat()
+        val height = window.innerHeight.toFloat()
+        val scale = DisplayLayout.dashboardScale(width, height)
+        return (channelRowHeight(settings.channelListMode) * settings.uiScale * scale).toInt().coerceAtLeast(48)
+    }
 
     private fun maybeAutoplay() {
         if (autoplayStarted || !settings.autoPlayOnLaunch || !uiActive) return
@@ -1187,26 +1272,27 @@ private class WebOsApp {
 
     private fun renderQuickAspectOptions() {
         quickAspectOptions.innerHTML = ""
-        listOf("AUTO", "RATIO_16_9", "RATIO_4_3", "RATIO_21_9", "FILL_CROP").forEach { ratio ->
-            val button = document.createElement("button") as HTMLButtonElement
-            button.type = "button"
-            button.textContent =
-                when (ratio) {
-                    "RATIO_16_9" -> "16:9"
-                    "RATIO_4_3" -> "4:3"
-                    "RATIO_21_9" -> "21:9"
-                    "FILL_CROP" -> if (settings.language == "ENGLISH") "Fill" else "Kitöltés"
-                    else -> "Auto"
-                }
-            button.setAttribute("aria-pressed", (playback.effectiveAspectRatio == ratio).toString())
-            button.onclick = {
-                playback.setTemporaryAspectRatio(ratio)
-                renderQuickAspectOptions()
-                (quickAspectOptions.querySelector("button[aria-pressed=\"true\"]") as? HTMLElement)?.focus()
-                null
+        val ratios = listOf("AUTO", "RATIO_16_9", "RATIO_4_3", "RATIO_21_9", "FILL_CROP")
+        val current = playback.effectiveAspectRatio
+        val label =
+            when (current) {
+                "RATIO_16_9" -> "16:9"
+                "RATIO_4_3" -> "4:3"
+                "RATIO_21_9" -> "21:9"
+                "FILL_CROP" -> localized("Kitöltés", "Fill")
+                else -> localized("Automatikus", "Automatic")
             }
-            quickAspectOptions.appendChild(button)
+        val button = document.createElement("button") as HTMLButtonElement
+        button.type = "button"
+        button.textContent = "${localized("Képarány", "Aspect ratio")}: $label"
+        button.setAttribute("aria-pressed", "true")
+        button.onclick = {
+            playback.setTemporaryAspectRatio(ratios[(ratios.indexOf(current) + 1) % ratios.size])
+            renderQuickAspectOptions()
+            (quickAspectOptions.querySelector("button") as? HTMLElement)?.focus()
+            null
         }
+        quickAspectOptions.appendChild(button)
     }
 
     private fun localized(

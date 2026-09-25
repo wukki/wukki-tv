@@ -38,6 +38,7 @@ internal class WebOsGuideView(
     private val dialogTitle = guideElement<HTMLElement>("guide-dialog-title")
     private val dialogTime = guideElement<HTMLElement>("guide-dialog-time")
     private val dialogDescription = guideElement<HTMLElement>("guide-dialog-description")
+    private val dialogNext = guideElement<HTMLElement>("guide-dialog-next")
     private val dialogCancel = guideElement<HTMLButtonElement>("guide-dialog-cancel")
     private val dialogOpen = guideElement<HTMLButtonElement>("guide-dialog-open")
     private var navigation =
@@ -48,6 +49,13 @@ internal class WebOsGuideView(
     private var dialogState = GuideProgrammeDialogState()
     private var dialogChannelValue: Channel? = null
     private var dialogProgramme: Programme? = null
+    private val layoutScale: Float get() =
+        hu.wukki.tv.ui.layout.DisplayLayout.settingsScale(
+            (document.querySelector(".guide-card") as? HTMLElement)?.clientWidth?.toFloat() ?: 1116f,
+            (document.querySelector(".guide-card") as? HTMLElement)?.clientHeight?.toFloat() ?: 892f,
+        )
+    private val rowHeight: Int get() = (112f * layoutScale).toInt()
+    private val windowMillis: Long get() = (timelineHeader.clientWidth.coerceAtLeast(1) / (6f * layoutScale) * 60_000).toLong()
     private var initialised = false
     private var timelineCache: WebOsGuideTimeline? = null
     private val programmeCache = mutableMapOf<String, List<Programme>>()
@@ -228,8 +236,8 @@ internal class WebOsGuideView(
             navigation.copy(
                 focusedChannelId = channel.id,
                 focusedProgrammeKey = programme?.webOsGuideKey(),
-                focusTime = programme?.middleTime() ?: requestedTime,
-                windowStart = guideWindowContaining(requestedTime, navigation.windowStart, timeline),
+                focusTime = requestedTime,
+                windowStart = if (initialised) guideWindowContaining(requestedTime, navigation.windowStart, timeline, windowMillis) else guideWindowStart(requestedTime - 30L * 60L * 1_000L, timeline, windowMillis),
             )
         initialised = true
     }
@@ -284,8 +292,8 @@ internal class WebOsGuideView(
                 zone = zone,
                 focusedChannelId = channel.id,
                 focusedProgrammeKey = programme?.webOsGuideKey(),
-                focusTime = programme?.middleTime() ?: target,
-                windowStart = guideWindowStart(target - 30L * 60L * 1_000L, timeline),
+                focusTime = target,
+                windowStart = guideWindowStart(target - 30L * 60L * 1_000L, timeline, windowMillis),
             )
     }
 
@@ -316,7 +324,7 @@ internal class WebOsGuideView(
             navigation.copy(
                 focusedProgrammeKey = target.webOsGuideKey(),
                 focusTime = target.middleTime(),
-                windowStart = guideWindowContaining(target.middleTime(), navigation.windowStart, timeline()),
+                windowStart = guideWindowContaining(target.middleTime(), navigation.windowStart, timeline(), windowMillis),
             )
     }
 
@@ -347,10 +355,10 @@ internal class WebOsGuideView(
 
     private fun renderTimeline() {
         val from = navigation.windowStart
-        val to = min(from + WEBOS_GUIDE_WINDOW_MILLIS, timeline().end)
+        val to = min(from + windowMillis, timeline().end)
         val duration = (to - from).coerceAtLeast(1L)
         timelineHeader.innerHTML = ""
-        date.textContent = formatGuideDate(navigation.focusTime, localizer.language)
+        date.textContent = formatGuideShortDate(navigation.focusTime, localizer.language)
         var tick = firstHalfHourAtOrAfter(from)
         while (tick < to) {
             val marker = document.createElement("div") as HTMLElement
@@ -379,8 +387,8 @@ internal class WebOsGuideView(
             rowsSpacer.innerHTML = ""
             return
         }
-        rowsSpacer.style.height = "${visibleChannels.size * WEBOS_GUIDE_ROW_HEIGHT}px"
-        val range = guideVisibleRows(visibleChannels.size, rows.scrollTop.toInt(), rows.clientHeight.coerceAtLeast(WEBOS_GUIDE_ROW_HEIGHT * 5))
+        rowsSpacer.style.height = "${visibleChannels.size * rowHeight}px"
+        val range = guideVisibleRows(visibleChannels.size, rows.scrollTop.toInt(), rows.clientHeight.coerceAtLeast(rowHeight * 5), rowHeight = rowHeight)
         rowsSpacer.innerHTML = ""
         range.forEach { index -> rowsSpacer.appendChild(renderRow(visibleChannels[index], index)) }
         if (focus) focusCurrent()
@@ -393,7 +401,7 @@ internal class WebOsGuideView(
         val row = document.createElement("div") as HTMLElement
         row.className = "guide-row"
         row.setAttribute("data-guide-channel-id", channel.id)
-        row.style.top = "${index * WEBOS_GUIDE_ROW_HEIGHT}px"
+        row.style.top = "${index * rowHeight}px"
         val channelButton = document.createElement("button") as HTMLButtonElement
         channelButton.type = "button"
         channelButton.className = "guide-channel"
@@ -413,7 +421,7 @@ internal class WebOsGuideView(
         }
         val name = document.createElement("span") as HTMLElement
         name.className = "guide-channel-name"
-        name.textContent = channel.name.takeUnless { it == UNKNOWN_CHANNEL_NAME_ID } ?: localizer.text("channels.unknown")
+        name.textContent = (channel.name.takeUnless { it == UNKNOWN_CHANNEL_NAME_ID } ?: localizer.text("channels.unknown")).take(1).uppercase()
         channelButton.appendChild(name)
         channelButton.onclick = {
             selectChannel(channel, WebOsGuideFocusZone.CHANNELS)
@@ -426,7 +434,7 @@ internal class WebOsGuideView(
         val strip = document.createElement("div") as HTMLElement
         strip.className = "guide-programmes"
         val from = navigation.windowStart
-        val to = min(from + WEBOS_GUIDE_WINDOW_MILLIS, timeline().end)
+        val to = min(from + windowMillis, timeline().end)
         val duration = (to - from).coerceAtLeast(1L)
         val channelProgrammes = channelProgrammes(channel)
         val programmes = guideVisibleProgrammes(channelProgrammes, from, to)
@@ -436,6 +444,9 @@ internal class WebOsGuideView(
             val button = document.createElement("button") as HTMLButtonElement
             button.type = "button"
             button.className = "guide-programme"
+            if (programme.start < from && clippedEnd - clippedStart < 40L * 60L * 1_000L) {
+                button.classList.add("is-short-leading-fragment")
+            }
             button.setAttribute("data-guide-programme-key", programme.webOsGuideKey())
             button.style.left = "${((clippedStart - from).toDouble() / duration * 100.0)}%"
             button.style.width = "${((clippedEnd - clippedStart).toDouble() / duration * 100.0).coerceAtLeast(1.5)}%"
@@ -477,6 +488,12 @@ internal class WebOsGuideView(
         val line = document.createElement("span") as HTMLElement
         line.className = "guide-now-line"
         line.style.left = "${((now - from).toDouble() / (to - from).toDouble() * 100.0)}%"
+        if (parent == timelineHeader) {
+            val label = document.createElement("strong") as HTMLElement
+            label.className = "guide-now-label"
+            label.textContent = formatEpgTime(now)
+            line.appendChild(label)
+        }
         parent.appendChild(line)
     }
 
@@ -504,7 +521,7 @@ internal class WebOsGuideView(
                 focusedChannelId = channel.id,
                 focusedProgrammeKey = programme.webOsGuideKey(),
                 focusTime = programme.middleTime(),
-                windowStart = guideWindowContaining(programme.middleTime(), navigation.windowStart, timeline()),
+                windowStart = guideWindowContaining(programme.middleTime(), navigation.windowStart, timeline(), windowMillis),
             )
     }
 
@@ -522,6 +539,7 @@ internal class WebOsGuideView(
         dialogProgramme = programme
         dialogState = GuideProgrammeDialogState(canOpenChannel = true)
         dialog.hidden = false
+        document.body?.classList?.add("guide-dialog-open")
         renderDialog()
     }
 
@@ -530,12 +548,15 @@ internal class WebOsGuideView(
         val programme = dialogProgramme ?: return
         dialogChannel.textContent = channel.name.takeUnless { it == UNKNOWN_CHANNEL_NAME_ID } ?: localizer.text("channels.unknown")
         dialogTitle.textContent = programme.title.ifBlank { localizer.text("epg.untitled") }
-        dialogTime.textContent = "${formatGuideDate(programme.start, localizer.language)} · ${formatEpgTime(programme.start)} – ${formatEpgTime(programme.end)}"
+        dialogTime.textContent = "${formatEpgTime(programme.start)} – ${formatEpgTime(programme.end)}"
         dialogDescription.textContent = programme.description?.takeIf(String::isNotBlank) ?: localizer.text("epg.no.description")
+        val next = channelProgrammes(channel).filter { it.start >= programme.end }.minByOrNull(Programme::start)
+        dialogNext.hidden = next == null
+        dialogNext.textContent = next?.let { "${localizer.text("epg.next")}: ${it.title.ifBlank { localizer.text("epg.untitled") }} · ${formatEpgTime(it.start)}" }
         dialogImage.hidden = programme.imageUrl.isNullOrBlank() || !showProgrammeImages()
         if (!dialogImage.hidden) dialogImage.src = programme.imageUrl.orEmpty()
         dialogCancel.textContent = localizer.text("action.cancel")
-        dialogOpen.textContent = localizer.text("epg.guide.openChannel")
+        dialogOpen.textContent = localizer.text("action.open")
         renderDialogActions()
     }
 
@@ -547,6 +568,7 @@ internal class WebOsGuideView(
 
     private fun closeDialog() {
         dialog.hidden = true
+        document.body?.classList?.remove("guide-dialog-open")
         dialogChannelValue = null
         dialogProgramme = null
         render()
@@ -562,8 +584,8 @@ internal class WebOsGuideView(
     private fun ensureFocusedRowVisible() {
         val index = visibleChannels().indexOfFirst { it.id == navigation.focusedChannelId }
         if (index < 0) return
-        val top = index * WEBOS_GUIDE_ROW_HEIGHT
-        val bottom = top + WEBOS_GUIDE_ROW_HEIGHT
+        val top = index * rowHeight
+        val bottom = top + rowHeight
         when {
             top < rows.scrollTop -> rows.scrollTop = top.toDouble()
             bottom > rows.scrollTop + rows.clientHeight -> rows.scrollTop = (bottom - rows.clientHeight).coerceAtLeast(0).toDouble()
@@ -646,6 +668,16 @@ private fun firstHalfHourAtOrAfter(timestamp: Long): Long {
         }
     date.asDynamic().setMinutes(roundedMinutes, 0, 0)
     return date.getTime().toLong()
+}
+
+private fun formatGuideShortDate(
+    timestamp: Long,
+    language: String,
+): String {
+    val date = Date(timestamp.toDouble())
+    val weekdays = if (language == "ENGLISH") listOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat") else listOf("V", "H", "K", "Sze", "Cs", "P", "Szo")
+    val months = if (language == "ENGLISH") listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec") else listOf("jan.", "febr.", "márc.", "ápr.", "máj.", "jún.", "júl.", "aug.", "szept.", "okt.", "nov.", "dec.")
+    return "${weekdays[date.getDay()]}, ${months[date.getMonth()]} ${date.getDate()}"
 }
 
 private fun formatGuideDate(

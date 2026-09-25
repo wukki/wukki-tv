@@ -64,17 +64,20 @@ internal class WebOsSettingsView(
 
     fun refreshCopy() {
         localizer.applyStaticCopy()
+        updateCategoryValues()
         section?.let(::renderSection) ?: renderHome()
     }
 
     fun open(target: SettingsSection) {
         section = target
+        document.body?.classList?.add("settings-detail-open")
         categories.forEachIndexed { index, button -> button.classList.toggle("is-active", index == target.ordinal) }
         renderSection(target)
     }
 
     fun close() {
         section = null
+        document.body?.classList?.remove("settings-detail-open")
         categories.forEach { it.classList.remove("is-active") }
         renderHome()
     }
@@ -145,6 +148,7 @@ internal class WebOsSettingsView(
     }
 
     private fun renderHome() {
+        updateCategoryValues()
         optionRows.clear()
         detail.innerHTML = ""
         val home = document.createElement("div") as HTMLElement
@@ -152,16 +156,30 @@ internal class WebOsSettingsView(
         home.className = "settings-home"
         val heading = document.createElement("h2") as HTMLElement
         heading.textContent = localizer.text("settings.home")
-        val hint = document.createElement("p") as HTMLElement
-        hint.textContent = if (localizer.language == "ENGLISH") "Choose a category from the list." else "A bal oldali listából válassz egy kategóriát."
+        val icon = document.querySelector("#nav-settings svg")?.cloneNode(true)
+        if (icon != null) home.appendChild(icon)
         home.appendChild(heading)
-        home.appendChild(hint)
         detail.appendChild(home)
+    }
+
+    private fun updateCategoryValues() {
+        (document.querySelector("[data-settings-section=LANGUAGE] .settings-category-value") as? HTMLElement)
+            ?.textContent = languageLabel(settings().language)
     }
 
     private fun renderSection(target: SettingsSection) {
         detail.innerHTML = ""
         optionRows.clear()
+        val back = document.createElement("button") as HTMLButtonElement
+        back.type = "button"
+        back.className = "settings-back"
+        back.textContent = localizer.text(sectionKey(target))
+        back.onclick = {
+            close()
+            focusCategory(target.ordinal)
+            null
+        }
+        detail.appendChild(back)
         val title = document.createElement("h2") as HTMLElement
         title.textContent = localizer.text(sectionKey(target))
         detail.appendChild(title)
@@ -271,6 +289,50 @@ internal class WebOsSettingsView(
         val selected = document.createElement("span") as HTMLElement
         selected.className = "settings-option-value"
         selected.textContent = action ?: value
+        val toggle =
+            when (option) {
+                PlaybackSettingsOption.AUTOPLAY -> settings().autoPlayOnLaunch
+                PlaybackSettingsOption.RECONNECT -> settings().autoReconnect
+                DisplaySettingsOption.PROGRAMME -> settings().showChannelProgramme
+                DisplaySettingsOption.MINI_GUIDE -> settings().showMiniGuide
+                DisplaySettingsOption.LOGOS -> settings().showLogos
+                DisplaySettingsOption.PROGRAMME_IMAGES -> settings().showProgrammeImages
+                else -> null
+            }
+        if (toggle != null) {
+            row.setAttribute("role", "switch")
+            row.setAttribute("aria-checked", toggle.toString())
+            selected.classList.add("settings-switch")
+            selected.textContent = ""
+            selected.setAttribute("aria-hidden", "true")
+        } else if (option == PlaybackSettingsOption.VOLUME) {
+            selected.classList.add("settings-volume")
+            selected.style.setProperty("--volume", "${settings().volume}%")
+        } else if (option == PlaybackSettingsOption.RETRIES) {
+            selected.classList.add("settings-stepper")
+            selected.textContent = ""
+            listOf(-1, 0, 1).forEach { step ->
+                val part = document.createElement("span") as HTMLElement
+                part.textContent =
+                    when (step) {
+                        -1 -> "−"
+                        1 -> "+"
+                        else -> value
+                    }
+                if (step != 0) {
+                    part.className = "settings-stepper-action"
+                    part.setAttribute("aria-hidden", "true")
+                    part.onclick = { event ->
+                        event.stopPropagation()
+                        adjust(option, step)
+                        null
+                    }
+                }
+                selected.appendChild(part)
+            }
+        } else if (option == PlaybackSettingsOption.ASPECT_RATIO || option == PlaybackSettingsOption.BUFFER || option == DisplaySettingsOption.UI_SCALE || option == DisplaySettingsOption.CHANNEL_LIST || option == LanguageSettingsOption.LANGUAGE || option == EpgSettingsOption.SCHEDULE) {
+            selected.classList.add("settings-choice")
+        }
         if (action != null) selected.classList.add("is-action")
         row.appendChild(copy)
         row.appendChild(selected)

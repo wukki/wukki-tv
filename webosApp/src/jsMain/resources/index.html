@@ -101,14 +101,15 @@
         </div>
         <div id="channel-filter-bar" class="channel-filter-bar">
             <div id="channel-tabs" class="channel-tabs" role="tablist" aria-label="Csatornaszűrők"></div>
-            <button id="open-channel-search" class="channel-search-toggle" type="button" aria-label="Keresés megnyitása">⌕</button>
+            <button id="open-channel-search" class="channel-search-toggle" type="button" aria-label="Keresés megnyitása"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="m15.5 15.5 5 5" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
         </div>
         <div id="channel-search-bar" class="channel-search-bar" hidden>
             <label class="visually-hidden" for="channel-search">Csatorna keresése</label>
             <input id="channel-search" type="search" autocomplete="off" placeholder="Keresés csatornanév szerint">
             <button id="clear-channel-search" type="button">Keresés törlése</button>
-            <button id="close-channel-search" type="button" aria-label="Keresés bezárása">✕</button>
+            <button id="close-channel-search" type="button" aria-label="Keresés bezárása"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5 19 19M19 5 5 19" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
         </div>
+        <button id="channel-preview-toggle" type="button">Előnézet</button>
         <div class="channel-browser-layout">
             <div class="channel-surface">
                 <div id="channel-empty" class="channel-empty" hidden>
@@ -119,6 +120,7 @@
                 <div id="channel-list" class="channel-list" role="list" aria-label="Szűrt csatornák"></div>
             </div>
             <aside id="channel-preview" class="channel-preview" aria-live="polite">
+                <button id="channel-preview-back" type="button">Vissza a csatornákhoz</button>
                 <div class="channel-preview-logo-wrap">
                     <img id="channel-preview-logo" alt="" hidden>
                     <span id="channel-preview-logo-fallback">TV</span>
@@ -130,7 +132,10 @@
                     <img id="channel-preview-programme-image" class="channel-preview-programme-image" alt="" hidden>
                     <p><span id="channel-preview-now-label">Most</span><strong id="channel-preview-current">EPG nincs</strong></p>
                     <p id="channel-preview-time" class="channel-preview-time" hidden></p>
-                    <div id="channel-preview-progress" class="channel-preview-progress" role="progressbar" aria-label="Műsor előrehaladása" hidden><span id="channel-preview-progress-value"></span></div>
+                    <div id="channel-preview-progress-wrap" class="channel-preview-progress-wrap" hidden>
+                        <div id="channel-preview-progress" class="channel-preview-progress" role="progressbar" aria-label="Műsor előrehaladása"><span id="channel-preview-progress-value"></span></div>
+                        <span id="channel-preview-clock"></span>
+                    </div>
                     <p id="channel-preview-description" class="channel-preview-description" hidden></p>
                     <p><span id="channel-preview-next-label">Következő</span><strong id="channel-preview-next">EPG nincs</strong></p>
                 </div>
@@ -146,13 +151,13 @@
         <div class="view-heading"><h1>Beállítások</h1></div>
         <div class="settings-layout">
             <nav class="settings-categories" aria-label="Beállítási kategóriák">
-                <button type="button" data-settings-section="PLAYBACK"><span class="settings-category-label">Lejátszási beállítások</span><span>›</span></button>
-                <button type="button" data-settings-section="EPG"><span class="settings-category-label">EPG beállítások</span><span>›</span></button>
-                <button type="button" data-settings-section="DISPLAY"><span class="settings-category-label">Megjelenítés</span><span>›</span></button>
-                <button type="button" data-settings-section="PARENTAL"><span class="settings-category-label">Szülői felügyelet</span><span>›</span></button>
-                <button type="button" data-settings-section="PLAYLISTS"><span class="settings-category-label">Playlist kezelése</span><span>›</span></button>
-                <button type="button" data-settings-section="LANGUAGE"><span class="settings-category-label">Nyelv</span><span>›</span></button>
-                <button type="button" data-settings-section="ABOUT"><span class="settings-category-label">Névjegy</span><span>›</span></button>
+                <button type="button" data-settings-section="PLAYBACK"><span class="settings-category-label">Lejátszási beállítások</span><span class="settings-category-chevron" aria-hidden="true"></span></button>
+                <button type="button" data-settings-section="EPG"><span class="settings-category-label">EPG beállítások</span><span class="settings-category-chevron" aria-hidden="true"></span></button>
+                <button type="button" data-settings-section="DISPLAY"><span class="settings-category-label">Megjelenítés</span><span class="settings-category-chevron" aria-hidden="true"></span></button>
+                <button type="button" data-settings-section="PARENTAL"><span class="settings-category-label">Szülői felügyelet</span><span class="settings-category-chevron" aria-hidden="true"></span></button>
+                <button type="button" data-settings-section="PLAYLISTS"><span class="settings-category-label">Playlist kezelése</span><span class="settings-category-chevron" aria-hidden="true"></span></button>
+                <button type="button" data-settings-section="LANGUAGE"><span class="settings-category-label">Nyelv</span><span class="settings-category-value">Magyar</span><span class="settings-category-chevron" aria-hidden="true"></span></button>
+                <button type="button" data-settings-section="ABOUT"><span class="settings-category-label">Névjegy</span><span class="settings-category-chevron" aria-hidden="true"></span></button>
             </nav>
             <div id="settings-detail" class="settings-detail">
                 <div id="settings-home" class="settings-home">
@@ -177,7 +182,7 @@
             <h2 id="quick-settings-title">Gyorsbeállítások</h2>
             <p id="quick-settings-temporary">Csak az aktuális lejátszásra érvényes.</p>
             <div id="quick-aspect-options" class="quick-aspect-options" aria-label="Képarány"></div>
-            <p id="quick-unsupported-note" class="unsupported-note">A hangsáv és a felirat kiválasztását ez a webOS lejátszó nem teszi elérhetővé.</p>
+            <button type="button" id="quick-audio-track" disabled title="A webOS lejátszó nem teszi elérhetővé a hangsávváltást.">Hangsáv: Magyar</button>
             <button id="close-quick-settings" type="button">Bezárás</button>
         </div>
     </section>
@@ -191,10 +196,11 @@
     <section id="guide-programme-dialog" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="guide-dialog-title" hidden>
         <div class="modal-card guide-dialog-card">
             <img id="guide-dialog-image" alt="" hidden>
-            <small id="guide-dialog-channel"></small>
             <h2 id="guide-dialog-title"></h2>
+            <small id="guide-dialog-channel"></small>
             <p id="guide-dialog-time"></p>
             <p id="guide-dialog-description"></p>
+            <p id="guide-dialog-next" hidden></p>
             <div class="guide-dialog-actions">
                 <button id="guide-dialog-cancel" type="button">Mégse</button>
                 <button id="guide-dialog-open" type="button">Csatorna megnyitása</button>
