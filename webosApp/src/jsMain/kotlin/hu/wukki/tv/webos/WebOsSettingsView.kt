@@ -289,50 +289,7 @@ internal class WebOsSettingsView(
         val selected = document.createElement("span") as HTMLElement
         selected.className = "settings-option-value"
         selected.textContent = action ?: value
-        val toggle =
-            when (option) {
-                PlaybackSettingsOption.AUTOPLAY -> settings().autoPlayOnLaunch
-                PlaybackSettingsOption.RECONNECT -> settings().autoReconnect
-                DisplaySettingsOption.PROGRAMME -> settings().showChannelProgramme
-                DisplaySettingsOption.MINI_GUIDE -> settings().showMiniGuide
-                DisplaySettingsOption.LOGOS -> settings().showLogos
-                DisplaySettingsOption.PROGRAMME_IMAGES -> settings().showProgrammeImages
-                else -> null
-            }
-        if (toggle != null) {
-            row.setAttribute("role", "switch")
-            row.setAttribute("aria-checked", toggle.toString())
-            selected.classList.add("settings-switch")
-            selected.textContent = ""
-            selected.setAttribute("aria-hidden", "true")
-        } else if (option == PlaybackSettingsOption.VOLUME) {
-            selected.classList.add("settings-volume")
-            selected.style.setProperty("--volume", "${settings().volume}%")
-        } else if (option == PlaybackSettingsOption.RETRIES) {
-            selected.classList.add("settings-stepper")
-            selected.textContent = ""
-            listOf(-1, 0, 1).forEach { step ->
-                val part = document.createElement("span") as HTMLElement
-                part.textContent =
-                    when (step) {
-                        -1 -> "−"
-                        1 -> "+"
-                        else -> value
-                    }
-                if (step != 0) {
-                    part.className = "settings-stepper-action"
-                    part.setAttribute("aria-hidden", "true")
-                    part.onclick = { event ->
-                        event.stopPropagation()
-                        adjust(option, step)
-                        null
-                    }
-                }
-                selected.appendChild(part)
-            }
-        } else if (option == PlaybackSettingsOption.ASPECT_RATIO || option == PlaybackSettingsOption.BUFFER || option == DisplaySettingsOption.UI_SCALE || option == DisplaySettingsOption.CHANNEL_LIST || option == LanguageSettingsOption.LANGUAGE || option == EpgSettingsOption.SCHEDULE) {
-            selected.classList.add("settings-choice")
-        }
+        configureRowValue(row, selected, option, value)
         if (action != null) selected.classList.add("is-action")
         row.appendChild(copy)
         row.appendChild(selected)
@@ -346,6 +303,81 @@ internal class WebOsSettingsView(
         }
         detail.appendChild(row)
         optionRows += row
+    }
+
+    private fun configureRowValue(
+        row: HTMLButtonElement,
+        selected: HTMLElement,
+        option: SettingsOptionId,
+        value: String,
+    ) {
+        val toggle = toggleValue(option)
+        if (toggle != null) {
+            row.setAttribute("role", "switch")
+            row.setAttribute("aria-checked", toggle.toString())
+            selected.classList.add("settings-switch")
+            selected.textContent = ""
+            selected.setAttribute("aria-hidden", "true")
+        } else if (option == PlaybackSettingsOption.VOLUME) {
+            selected.classList.add("settings-volume")
+            selected.style.setProperty("--volume", "${settings().volume}%")
+        } else if (option == PlaybackSettingsOption.RETRIES) {
+            selected.classList.add("settings-stepper")
+            selected.textContent = ""
+            renderRetryStepper(selected, option, value)
+        } else if (isChoiceOption(option)) {
+            selected.classList.add("settings-choice")
+        }
+    }
+
+    private fun toggleValue(option: SettingsOptionId): Boolean? =
+        when (option) {
+            PlaybackSettingsOption.AUTOPLAY -> settings().autoPlayOnLaunch
+            PlaybackSettingsOption.RECONNECT -> settings().autoReconnect
+            DisplaySettingsOption.PROGRAMME -> settings().showChannelProgramme
+            DisplaySettingsOption.MINI_GUIDE -> settings().showMiniGuide
+            DisplaySettingsOption.LOGOS -> settings().showLogos
+            DisplaySettingsOption.PROGRAMME_IMAGES -> settings().showProgrammeImages
+            else -> null
+        }
+
+    private fun isChoiceOption(option: SettingsOptionId): Boolean =
+        when (option) {
+            PlaybackSettingsOption.ASPECT_RATIO,
+            PlaybackSettingsOption.BUFFER,
+            DisplaySettingsOption.UI_SCALE,
+            DisplaySettingsOption.CHANNEL_LIST,
+            LanguageSettingsOption.LANGUAGE,
+            EpgSettingsOption.SCHEDULE,
+            -> true
+
+            else -> false
+        }
+
+    private fun renderRetryStepper(
+        selected: HTMLElement,
+        option: SettingsOptionId,
+        value: String,
+    ) {
+        listOf(-1, 0, 1).forEach { step ->
+            val part = document.createElement("span") as HTMLElement
+            part.textContent =
+                when (step) {
+                    -1 -> "−"
+                    1 -> "+"
+                    else -> value
+                }
+            if (step != 0) {
+                part.className = "settings-stepper-action"
+                part.setAttribute("aria-hidden", "true")
+                part.onclick = { event ->
+                    event.stopPropagation()
+                    adjust(option, step)
+                    null
+                }
+            }
+            selected.appendChild(part)
+        }
     }
 
     private fun openLegal(

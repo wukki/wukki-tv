@@ -255,7 +255,12 @@ val testWebOsEpgService by tasks.registering(Exec::class) {
     dependsOn(verifyWebOsService)
     inputs.file(rootProject.layout.projectDirectory.file("tools/webos/test_epg_service.js"))
     inputs.file(webOsServiceDirectory.file("epg-service.js"))
-    commandLine("node", rootProject.layout.projectDirectory.file("tools/webos/test_epg_service.js").asFile.absolutePath)
+    commandLine(
+        "node",
+        rootProject.layout.projectDirectory
+            .file("tools/webos/test_epg_service.js")
+            .asFile.absolutePath,
+    )
 }
 
 tasks.matching { it.name == "check" }.configureEach { dependsOn(testWebOsEpgService) }

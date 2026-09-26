@@ -747,33 +747,7 @@ private class WebOsApp {
                 if (generation != epgLoadGeneration) return@then
                 epgParser.parse(
                     xml,
-                    onComplete = { parsed ->
-                        if (generation != epgLoadGeneration) return@parse
-                        epgLoading = false
-                        if (parsed.isEmpty()) {
-                            scheduleEpgRefresh(fromNow = true)
-                            show(
-                                localized(
-                                    "Az EPG nem tartalmaz érvényes műsorokat; a korábbi adatok maradnak használatban.",
-                                    "The EPG contains no valid programmes; the previous data remains in use.",
-                                ),
-                            )
-                            return@parse
-                        }
-                        val cache = WebOsEpgCache(url, Date.now().toLong(), parsed)
-                        applyEpg(parsed)
-                        lastAppliedEpgAt = cache.updatedAt
-                        val cacheError = epgCacheStore.save(cache)
-                        fullEpgStore
-                            .save(cache)
-                            .then { saved ->
-                                if (!saved) show(localized("A teljes EPG helyi mentése nem sikerült.", "The full EPG could not be saved locally."))
-                            }.catch { error ->
-                                show(localized("A teljes EPG helyi mentése nem sikerült: ${error.message ?: error}", "The full EPG could not be saved locally: ${error.message ?: error}"))
-                            }
-                        scheduleEpgRefresh()
-                        show(localizer.text("status.epg.loaded", parsed.size, "Wukki") + cacheError?.let { " $it" }.orEmpty())
-                    },
+                    onComplete = { parsed -> completeEpgLoad(url, generation, parsed) },
                     onFailure = { error ->
                         if (generation == epgLoadGeneration) {
                             epgLoading = false
@@ -795,6 +769,38 @@ private class WebOsApp {
                     show(localized("Az EPG nem tölthető be; a videó tovább működik: $detail", "EPG download failed; video playback continues: $detail"))
                 }
             }
+    }
+
+    private fun completeEpgLoad(
+        url: String,
+        generation: Long,
+        parsed: List<Programme>,
+    ) {
+        if (generation != epgLoadGeneration) return
+        epgLoading = false
+        if (parsed.isEmpty()) {
+            scheduleEpgRefresh(fromNow = true)
+            show(
+                localized(
+                    "Az EPG nem tartalmaz érvényes műsorokat; a korábbi adatok maradnak használatban.",
+                    "The EPG contains no valid programmes; the previous data remains in use.",
+                ),
+            )
+            return
+        }
+        val cache = WebOsEpgCache(url, Date.now().toLong(), parsed)
+        applyEpg(parsed)
+        lastAppliedEpgAt = cache.updatedAt
+        val cacheError = epgCacheStore.save(cache)
+        fullEpgStore
+            .save(cache)
+            .then { saved ->
+                if (!saved) show(localized("A teljes EPG helyi mentése nem sikerült.", "The full EPG could not be saved locally."))
+            }.catch { error ->
+                show(localized("A teljes EPG helyi mentése nem sikerült: ${error.message ?: error}", "The full EPG could not be saved locally: ${error.message ?: error}"))
+            }
+        scheduleEpgRefresh()
+        show(localizer.text("status.epg.loaded", parsed.size, "Wukki") + cacheError?.let { " $it" }.orEmpty())
     }
 
     private fun applyEpg(parsed: List<Programme>) {
