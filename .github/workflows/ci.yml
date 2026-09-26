@@ -36,8 +36,9 @@ jobs:
 
       - name: Pin npm for Kotlin JS lockfile
         run: |
-          npm install --global npm@11.6.1
-          npm --version
+          npm install --global --prefix "$RUNNER_TEMP/npm-toolchain" npm@11.6.1
+          echo "$RUNNER_TEMP/npm-toolchain/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/npm-toolchain/bin/npm" --version
 
       - name: Lint GitHub Actions workflows
         run: >-
@@ -88,8 +89,9 @@ jobs:
 
       - name: Pin npm for Kotlin JS lockfile
         run: |
-          npm install --global npm@11.6.1
-          npm --version
+          npm install --global --prefix "$RUNNER_TEMP/npm-toolchain" npm@11.6.1
+          echo "$RUNNER_TEMP/npm-toolchain/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/npm-toolchain/bin/npm" --version
 
       - name: Install pinned LG webOS CLI
         run: npm install --global @webos-tools/cli@3.2.6
