@@ -123,6 +123,11 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
 
+      - name: Pin npm for Kotlin JS lockfile
+        run: |
+          npm install --global npm@11.6.1
+          npm --version
+
       - name: Lint GitHub Actions workflows
         run: >-
           docker run --rm
@@ -605,6 +610,11 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+
+      - name: Pin npm for Kotlin JS lockfile
+        run: |
+          npm install --global npm@11.6.1
+          npm --version
 
       - name: Install pinned LG webOS CLI
         run: npm install --global @webos-tools/cli@3.2.6
