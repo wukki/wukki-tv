@@ -34,6 +34,7 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import hu.wukki.tv.ui.components.WukkiBrushes
@@ -77,29 +78,41 @@ fun TopNavigation(
                     .fillMaxWidth()
                     .then(if (overlay) Modifier.height(navigationHeight) else Modifier.heightIn(min = 60.dp, max = 90.dp)),
         ) {
-            Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .height(navigationHeight)
-                        .then(if (compact) Modifier.horizontalScroll(rememberScrollState()) else Modifier),
-                verticalAlignment = Alignment.Top,
-            ) {
-                WukkiTvBrand(
-                    scale = scale,
-                    modifier = (if (compact) Modifier.width(180.dp) else Modifier.weight(1f)).height(48.dp),
-                )
-                state.entries.forEach { entry ->
-                    TopNavigationItem(
-                        entry = entry,
-                        selected = entry.section == state.highlightedSection,
-                        scale = scale,
-                        showLabel = showLabels,
-                        onClick = { onSelect(entry.section) },
-                        modifier = (if (compact) Modifier.width(180.dp) else Modifier.weight(1f)).height(48.dp),
-                    )
-                }
-            }
+            TopNavigationItems(state, scale, onSelect, showLabels, compact, navigationHeight)
+        }
+    }
+}
+
+@Composable
+private fun TopNavigationItems(
+    state: SideNavigationUiState,
+    scale: Float,
+    onSelect: (DashboardSection) -> Unit,
+    showLabels: Boolean,
+    compact: Boolean,
+    navigationHeight: Dp,
+) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(navigationHeight)
+                .then(if (compact) Modifier.horizontalScroll(rememberScrollState()) else Modifier),
+        verticalAlignment = Alignment.Top,
+    ) {
+        WukkiTvBrand(
+            scale = scale,
+            modifier = (if (compact) Modifier.width(180.dp) else Modifier.weight(1f)).height(48.dp),
+        )
+        state.entries.forEach { entry ->
+            TopNavigationItem(
+                entry = entry,
+                selected = entry.section == state.highlightedSection,
+                scale = scale,
+                showLabel = showLabels,
+                onClick = { onSelect(entry.section) },
+                modifier = (if (compact) Modifier.width(180.dp) else Modifier.weight(1f)).height(48.dp),
+            )
         }
     }
 }

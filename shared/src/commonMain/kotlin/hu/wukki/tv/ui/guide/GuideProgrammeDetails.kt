@@ -1,6 +1,7 @@
 package hu.wukki.tv.ui.guide
 
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -22,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
@@ -39,6 +41,7 @@ import hu.wukki.tv.ui.components.tr
 import hu.wukki.tv.ui.navigation.isBackKey
 import hu.wukki.tv.ui.navigation.isConfirmKey
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CoroutineScope
 
 @Immutable
 data class GuideProgrammeDetailsUiState(
@@ -66,36 +69,7 @@ fun GuideProgrammeDetails(
             onDismissRequest = onDismiss,
             modifier =
                 Modifier.width(minOf(560.dp, maxWidth - 32.dp)).focusRequester(dialogFocusRequester).focusable().onPreviewKeyEvent { event ->
-                    if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-                    if (!handleSystemBackKey && event.key == Key.Back) return@onPreviewKeyEvent false
-                    val dialogEvent =
-                        when {
-                            event.key.isBackKey() -> GuideProgrammeDialogEvent.BACK
-                            event.key == Key.DirectionLeft -> GuideProgrammeDialogEvent.LEFT
-                            event.key == Key.DirectionRight -> GuideProgrammeDialogEvent.RIGHT
-                            event.key.isConfirmKey() -> GuideProgrammeDialogEvent.CONFIRM
-                            else -> null
-                        }
-                    when {
-                        dialogEvent != null -> {
-                            onRemoteEvent(dialogEvent)
-                            true
-                        }
-
-                        event.key == Key.DirectionUp || event.key == Key.PageUp -> {
-                            scope.launch { detailsScrollState.animateScrollTo((detailsScrollState.value - 220).coerceAtLeast(0)) }
-                            true
-                        }
-
-                        event.key == Key.DirectionDown || event.key == Key.PageDown -> {
-                            scope.launch { detailsScrollState.animateScrollTo((detailsScrollState.value + 220).coerceAtMost(detailsScrollState.maxValue)) }
-                            true
-                        }
-
-                        else -> {
-                            false
-                        }
-                    }
+                    handleGuideProgrammeKeyEvent(event, handleSystemBackKey, onRemoteEvent, detailsScrollState, scope)
                 },
             title = { Text(state.programme.displayTitle(state.language), fontWeight = FontWeight.Bold) },
             text = {
@@ -126,4 +100,34 @@ fun GuideProgrammeDetails(
             properties = DialogProperties(usePlatformDefaultWidth = false),
         )
     }
+}
+
+private fun handleGuideProgrammeKeyEvent(
+    event: KeyEvent,
+    handleSystemBackKey: Boolean,
+    onRemoteEvent: (GuideProgrammeDialogEvent) -> Unit,
+    scrollState: ScrollState,
+    scope: CoroutineScope,
+): Boolean {
+    if (event.type != KeyEventType.KeyDown || (!handleSystemBackKey && event.key == Key.Back)) return false
+    val dialogEvent =
+        when {
+            event.key.isBackKey() -> GuideProgrammeDialogEvent.BACK
+            event.key == Key.DirectionLeft -> GuideProgrammeDialogEvent.LEFT
+            event.key == Key.DirectionRight -> GuideProgrammeDialogEvent.RIGHT
+            event.key.isConfirmKey() -> GuideProgrammeDialogEvent.CONFIRM
+            else -> null
+        }
+    if (dialogEvent != null) {
+        onRemoteEvent(dialogEvent)
+        return true
+    }
+    val target =
+        when (event.key) {
+            Key.DirectionUp, Key.PageUp -> (scrollState.value - 220).coerceAtLeast(0)
+            Key.DirectionDown, Key.PageDown -> (scrollState.value + 220).coerceAtMost(scrollState.maxValue)
+            else -> return false
+        }
+    scope.launch { scrollState.animateScrollTo(target) }
+    return true
 }
