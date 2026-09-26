@@ -300,18 +300,20 @@ body[data-section="live"].hud-visible .playback-hud {
 }
 
 .live-channel-column {
-    display: grid;
-    height: 176px;
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 var(--overlay-channel-width, 70px);
+    width: var(--overlay-channel-width, 70px);
     align-items: center;
-    justify-items: center;
-    grid-template-rows: 30px 42px 50px 30px;
-    gap: 4px;
+    justify-content: center;
+    margin-right: var(--overlay-gap, 18px);
 }
 
-.live-channel-column strong { font-size: 38px; font-weight: 900; }
-.live-channel-column img { width: 90px; height: 45px; object-fit: contain; }
-.live-channel-column small { max-width: 96px; color: var(--text-secondary); text-align: center; }
-.live-channel-arrow { color: var(--primary-strong); font-size: 31px; line-height: 1; }
+.live-channel-column > :not(:last-child) { margin-bottom: var(--overlay-item-gap, 2px); }
+.live-channel-column strong { display: block; width: 100%; height: var(--overlay-number-height, 36px); font-size: var(--overlay-number-size, 30px); font-weight: 900; line-height: var(--overlay-number-height, 36px); text-align: center; }
+.live-channel-column img { display: block; width: var(--overlay-logo-width, 64px); height: var(--overlay-logo-height, 32px); object-fit: contain; }
+.live-channel-column small { display: flex; width: 100%; height: var(--overlay-logo-height, 32px); align-items: center; justify-content: center; overflow: hidden; color: var(--text-secondary); font-size: var(--overlay-meta-size, 12px); line-height: 1.2; text-align: center; }
+.live-channel-arrow { display: block; flex: 0 0 var(--overlay-arrow-size, 26px); width: var(--overlay-arrow-size, 26px); height: var(--overlay-arrow-size, 26px); overflow: visible; fill: none; stroke: var(--primary-strong); stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; }
 
 .live-programme-column { display: grid; min-width: 0; gap: 8px; }
 .live-preview-label { color: var(--primary-strong) !important; font-weight: 800; text-transform: uppercase; }
@@ -1010,15 +1012,11 @@ body[data-section="live"].hud-visible .playback-hud {
     border: 0; border-radius: 0; background: rgba(4, 12, 22, .882);
     bottom: var(--overlay-margin, 28px);
 }
-.live-channel-column { display: flex; flex-direction: column; justify-content: center; width: calc(70px * var(--overlay-scale, 1)); flex-shrink: 0; height: auto; margin-right: var(--overlay-gap, 18px); }
-.live-channel-column strong { font-size: calc(30px * var(--overlay-scale, 1)); }
-.live-channel-column img { width: calc(64px * var(--overlay-scale, 1)); height: calc(32px * var(--overlay-scale, 1)); }
-.live-channel-arrow { font-size: calc(26px * var(--overlay-scale, 1)); }
 .live-programme-column { display: flex; flex: 1; flex-direction: column; }
-.live-programme-column #now-playing { font-size: calc(19px * var(--overlay-scale, 1)); }
-.live-programme-time { font-size: calc(12px * var(--overlay-scale, 1)); }
-.live-next-programme { font-size: calc(13px * var(--overlay-scale, 1)); }
-.live-programme-progress { height: calc(5px * var(--overlay-scale, 1)); }
+.live-programme-column #now-playing { font-size: var(--overlay-title-size, 19px); }
+.live-programme-time { font-size: var(--overlay-meta-size, 12px); }
+.live-next-programme { font-size: var(--overlay-next-size, 13px); }
+.live-programme-progress { height: var(--overlay-progress-height, 5px); }
 .playback-actions { top: -48px; bottom: auto; }
 
 .channel-surface, .channel-preview { background: #17283a; }

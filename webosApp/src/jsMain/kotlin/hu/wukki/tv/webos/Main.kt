@@ -267,12 +267,25 @@ private class WebOsApp {
         val overlayScale = minOf(width / 1106f, height / 762f).coerceAtLeast(.45f)
         val geometry = hu.wukki.tv.desktopInfoPanelGeometry(width.toInt(), height.toInt(), overlayScale)
         val overlay = hu.wukki.tv.PlaybackInfoPanelStyle
-        root.setProperty("--overlay-scale", geometry.contentScale.toString())
+        val contentScale = geometry.contentScale
+
+        fun overlayPixels(value: Float): String = "${value * contentScale}px"
         root.setProperty("--overlay-margin", "${geometry.outerMargin}px")
         root.setProperty("--overlay-width", "${geometry.width}px")
         root.setProperty("--overlay-height", "${geometry.height}px")
-        root.setProperty("--overlay-padding", "${overlay.CONTENT_PADDING * geometry.contentScale}px")
-        root.setProperty("--overlay-gap", "${overlay.COLUMN_GAP * geometry.contentScale}px")
+        root.setProperty("--overlay-padding", overlayPixels(overlay.CONTENT_PADDING))
+        root.setProperty("--overlay-gap", overlayPixels(overlay.COLUMN_GAP))
+        root.setProperty("--overlay-channel-width", overlayPixels(overlay.CHANNEL_COLUMN_WIDTH))
+        root.setProperty("--overlay-item-gap", overlayPixels(overlay.CHANNEL_ITEM_GAP))
+        root.setProperty("--overlay-arrow-size", overlayPixels(overlay.CHANNEL_ARROW_SIZE))
+        root.setProperty("--overlay-number-size", overlayPixels(overlay.CHANNEL_NUMBER_TEXT_SIZE))
+        root.setProperty("--overlay-number-height", overlayPixels(overlay.CHANNEL_NUMBER_TEXT_SIZE * 1.2f))
+        root.setProperty("--overlay-logo-width", overlayPixels(overlay.CHANNEL_LOGO_WIDTH))
+        root.setProperty("--overlay-logo-height", overlayPixels(overlay.CHANNEL_LOGO_HEIGHT))
+        root.setProperty("--overlay-title-size", overlayPixels(overlay.TITLE_TEXT_SIZE))
+        root.setProperty("--overlay-meta-size", overlayPixels(overlay.META_TEXT_SIZE))
+        root.setProperty("--overlay-next-size", overlayPixels(overlay.NEXT_TEXT_SIZE))
+        root.setProperty("--overlay-progress-height", overlayPixels(overlay.PROGRESS_HEIGHT))
         root.setProperty("--dashboard-scale", scale.toString())
         root.setProperty("--content-padding", "${padding}px")
         root.setProperty("--guide-scale", layout.settingsScale(width - padding * 2, height - layout.NAVIGATION_HEIGHT - padding * 2).toString())
