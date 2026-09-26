@@ -45,6 +45,15 @@ jobs:
       - name: Verify all application modules
         run: ./gradlew verifyAll --no-daemon
 
+      - name: Upload generated Kotlin JS lockfile on failure
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: kotlin-js-generated-lockfile
+          path: build/js/package-lock.json
+          if-no-files-found: warn
+          retention-days: 2
+
       - name: Upload manually triggered debug APK
         if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
