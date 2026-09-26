@@ -904,8 +904,8 @@ button:focus, input:focus { box-shadow: none; }
 .settings-categories button { flex: 0 0 auto; min-height: calc(82px * var(--settings-scale)); font-size: calc(20px * var(--settings-scale)); }
 .settings-categories button:focus { box-shadow: none; }
 .settings-detail { height: 100%; padding: 0; background: transparent; border-radius: 0; }
-.settings-home { padding-bottom: calc(80px * var(--settings-scale)); color: var(--text-primary); }
-.settings-home svg { width: calc(184px * var(--settings-scale)); height: calc(184px * var(--settings-scale)); fill: currentColor; flex-shrink: 0; margin-bottom: calc(52px * var(--settings-scale)); }
+.settings-home { padding-bottom: var(--settings-home-bottom-padding, 80px); color: var(--text-primary); }
+.settings-home svg { display: block; width: var(--settings-gear-size, 184px); height: var(--settings-gear-size, 184px); fill: currentColor; flex: none; margin: 0 0 var(--settings-gear-gap, 52px); }
 .settings-home h2 { margin: 0; font-size: calc(18px * var(--settings-scale)); line-height: calc(28px * var(--settings-scale)); }
 .channel-browser-layout > .channel-surface { width: calc(62% - 12.4px); flex-basis: calc(62% - 12.4px); margin-right: 20px; }
 .channel-browser-layout > .channel-preview { width: calc(38% - 7.6px); flex-basis: calc(38% - 7.6px); }
@@ -1023,7 +1023,6 @@ body[data-section="live"].hud-visible .playback-hud {
 .guide-card { background: var(--background); }
 #quick-settings-dialog { background: rgba(0,0,0,.72); }
 #quick-settings-dialog .modal-card { box-sizing: border-box; width: 354px; min-width: 0; }
-.settings-home svg { width: calc(202px * var(--settings-scale)); height: calc(202px * var(--settings-scale)); margin-left: calc(-10px * var(--settings-scale)); margin-bottom: calc(43px * var(--settings-scale)); }
 .settings-category-value { margin-left: auto; color: var(--text-secondary); font-size: 16px; }
 .settings-categories button > .settings-category-value + span { margin-left: 12px; }
 #quick-audio-track:disabled { margin-top: 20px; color: white; opacity: .55; background: var(--primary); }

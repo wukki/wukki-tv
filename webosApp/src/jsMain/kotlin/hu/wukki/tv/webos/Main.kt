@@ -23,7 +23,6 @@ import org.w3c.dom.HTMLImageElement
 import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.events.Event
 import org.w3c.dom.events.KeyboardEvent
-import org.w3c.fetch.Response
 import kotlin.js.Date
 import kotlin.js.Promise
 
@@ -289,7 +288,11 @@ private class WebOsApp {
         root.setProperty("--dashboard-scale", scale.toString())
         root.setProperty("--content-padding", "${padding}px")
         root.setProperty("--guide-scale", layout.settingsScale(width - padding * 2, height - layout.NAVIGATION_HEIGHT - padding * 2).toString())
-        root.setProperty("--settings-scale", layout.settingsScale(width - padding * 2, height - layout.NAVIGATION_HEIGHT - padding * 2).toString())
+        val settingsScale = layout.settingsScale(width - padding * 2, height - layout.NAVIGATION_HEIGHT - padding * 2)
+        root.setProperty("--settings-scale", settingsScale.toString())
+        root.setProperty("--settings-gear-size", "${184f * settingsScale}px")
+        root.setProperty("--settings-gear-gap", "${52f * settingsScale}px")
+        root.setProperty("--settings-home-bottom-padding", "${80f * settingsScale}px")
     }
 
     private fun requestedStream(): String? =
@@ -1428,34 +1431,8 @@ private fun scrollIntoView(element: HTMLElement) {
 }
 
 private fun fetchPlaylistText(url: String): Promise<String> =
-    Promise { resolve, reject ->
-        val controller = newAbortController()
-        val options = js("({})")
-        if (controller != null) options.signal = controller.signal
-        val timeout =
-            window.setTimeout(
-                {
-                    controller?.abort()
-                    reject(Throwable("A letöltés túllépte a ${PLAYLIST_TIMEOUT_MS / 1000} másodperces időkorlátot."))
-                },
-                PLAYLIST_TIMEOUT_MS,
-            )
-        window
-            .fetch(url, options)
-            .then { response -> validateResponse(response) }
-            .then { text ->
-                window.clearTimeout(timeout)
-                resolve(validatePlaylistBody(text))
-            }.catch { error ->
-                window.clearTimeout(timeout)
-                reject(error)
-            }
-    }
-
-private fun validateResponse(response: Response): Promise<String> {
-    validatePlaylistResponse(response.status.toInt(), response.statusText, response.headers.get("Content-Length")?.toIntOrNull())
-    return response.text()
-}
+    fetchBoundedText(url, MAX_PLAYLIST_BYTES, PLAYLIST_TIMEOUT_MS, "A playlist")
+        .then { text -> validatePlaylistBody(text) }
 
 internal fun validatePlaylistResponse(
     status: Int,

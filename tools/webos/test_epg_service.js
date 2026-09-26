@@ -28,9 +28,25 @@ function call(name, payload) {
 
 async function main() {
     const xml = '<tv>' + '<programme channel="M1">Árvíztűrő tükörfúrógép</programme>'.repeat(150000) + '</tv>';
+    let rangedRequests = 0;
     const server = http.createServer((_request, response) => {
         response.setHeader('Content-Type', 'text/xml; charset=utf-8');
-        response.end(xml);
+        response.setHeader('Accept-Ranges', 'bytes');
+        response.setHeader('ETag', '"guide-test"');
+        const bytes = Buffer.from(xml);
+        const range = /^bytes=(\d+)-(\d+)$/.exec(_request.headers.range || '');
+        if (range) {
+            const start = Number(range[1]);
+            const end = Number(range[2]);
+            assert.strictEqual(_request.headers['if-range'], '"guide-test"');
+            assert(end < bytes.length);
+            rangedRequests++;
+            response.statusCode = 206;
+            response.setHeader('Content-Range', `bytes ${start}-${end}/${bytes.length}`);
+            response.end(bytes.subarray(start, end + 1));
+        } else {
+            response.end(bytes);
+        }
     });
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     try {
@@ -55,6 +71,7 @@ async function main() {
         }
         assert.strictEqual(chunks.join(''), xml);
         assert(chunks.length > 100);
+        assert(rangedRequests > 1, 'large XMLTV must use bounded HTTP range requests');
         await call('release', { token: result.token });
         assert.strictEqual((await call('readChunk', { token: result.token, offset: 0 })).returnValue, false);
         console.log(`EPG service: ${Buffer.byteLength(xml)} bytes, ${chunks.length} bounded chunks`);

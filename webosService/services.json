@@ -8,7 +8,8 @@
       "commands": [
         { "name": "fetchEpg", "public": false },
         { "name": "readChunk", "public": false },
-        { "name": "release", "public": false }
+        { "name": "release", "public": false },
+        { "name": "status", "public": false }
       ]
     }
   ]

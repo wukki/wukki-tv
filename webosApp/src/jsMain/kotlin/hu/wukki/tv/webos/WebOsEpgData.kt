@@ -455,7 +455,7 @@ internal fun formatEpgTime(timestamp: Long): String {
 
 private const val EPG_SERVICE_URI = "luna://hu.wukki.tv.webos.epg/"
 private const val EPG_SERVICE_CHUNK_CHARACTERS = 32 * 1024
-private const val EPG_SERVICE_DOWNLOAD_TIMEOUT_MS = 90_000
+private const val EPG_SERVICE_DOWNLOAD_TIMEOUT_MS = 130_000
 private const val EPG_SERVICE_CHUNK_TIMEOUT_MS = 15_000
 private const val WEBOS_PREVIEW_ORIGIN = "http://127.0.0.1:4173"
 

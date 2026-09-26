@@ -199,6 +199,9 @@ val verifyWebOsAppShell by tasks.registering {
         check("rejectUnauthorized" !in epgServiceSource) {
             "The EPG TLS workaround must never disable certificate validation."
         }
+        check("Object.assign" !in epgServiceSource) {
+            "The EPG service must run on webOS 4.10's Node.js 0.12 runtime."
+        }
         check(certificateAuthority.startsWith("-----BEGIN CERTIFICATE-----") && certificateAuthority.contains("-----END CERTIFICATE-----")) {
             "The packaged ISRG Root X1 PEM is missing or malformed."
         }
@@ -371,6 +374,7 @@ tasks.register("packageWebOsRelease") {
     dependsOn(packageWebOs)
     inputs.property("displayVersion", wukkiDisplayVersion)
     inputs.property("buildId", wukkiBuildId)
+    inputs.dir(webOsRawPackageOutput)
     inputs.files(
         rootProject.layout.projectDirectory.file("docs/webos-installation.md"),
         rootProject.layout.projectDirectory.file("docs/webos-wos24-changelog.md"),
